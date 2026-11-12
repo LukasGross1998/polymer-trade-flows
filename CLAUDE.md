@@ -34,7 +34,7 @@ Die fachliche Spezifikation steht in `SPEC.md`. **Lies sie vor jeder neuen Phase
 
 - Python 3.12, Paket- und Umgebungsverwaltung mit **uv** (`uv add`, `uv run`)
 - Datenhaltung lokal: **Parquet** + **DuckDB** (Layer: `raw` → `clean` → `model`), angelehnt an ein Lakehouse
-- Datenverarbeitung: **polars** oder pandas (eine Entscheidung treffen und in `docs/decisions.md` begründen)
+- Datenverarbeitung: **pandas** (entschieden, Begründung in `docs/decisions.md`, ADR-002)
 - Optimierung: **Pyomo** mit dem freien Solver **HiGHS** (`highspy`)
 - Visualisierung/App: **Dash** + Plotly
 - Qualität: **pytest**, **ruff** (lint + format), **pre-commit**, Type Hints
