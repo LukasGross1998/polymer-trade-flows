@@ -49,7 +49,10 @@ outlier if its log unit value is more than `outlier_mad_threshold` (3.0) robust 
 deviations away from the median of its year and flow. The robust standard deviation is the
 MAD (median absolute deviation) × 1.4826. Median and MAD are not distorted by the outliers
 themselves; the log makes "10× too high" and "10× too low" equally far away. Imports (CIF) and
-exports (FOB) are grouped separately. Typical cause of an outlier: a wrong weight (unit error).
+exports (FOB) are grouped separately. Typical causes: a wrong weight (unit error), or tiny lots
+(samples, specialty grades) with very high prices. On the first real data (7 American
+reporters) about 9 % of reports were flagged, but only 0.05 % of the tonnage: the median
+flagged lot was 0.4 t. The report therefore shows outliers by count and by tonnage.
 
 **Rule 2 – mirror statistics.** Every trade relation can be reported twice: by the exporter
 (export to B) and by the importer (import from A). `mirror` puts both side by side per

@@ -66,17 +66,27 @@ def basis_share(flows: pd.DataFrame) -> pd.DataFrame:
 
 
 def outlier_summary(reports: pd.DataFrame) -> pd.DataFrame:
-    """Per year and flow: reports with a unit value, outliers, and the median unit value."""
-    with_uv = reports[reports["unit_value_usd_t"].notna()]
-    return (
+    """Per year and flow: reports with a unit value, outliers, and the median unit value.
+
+    Outliers are counted *and* weighted by tonnes: many outliers are tiny lots (samples,
+    specialty grades) that matter little for the volumes.
+    """
+    with_uv = reports[reports["unit_value_usd_t"].notna()].assign(
+        outlier_t=lambda d: d["qty_t"].where(d["is_uv_outlier"], 0.0)
+    )
+    summary = (
         with_uv.groupby(["year", "flow"])
         .agg(
             reports_with_unit_value=("unit_value_usd_t", "size"),
             outliers=("is_uv_outlier", "sum"),
+            outlier_t=("outlier_t", "sum"),
+            total_t=("qty_t", "sum"),
             median_unit_value_usd_t=("unit_value_usd_t", "median"),
         )
         .reset_index()
     )
+    summary["outlier_tonnage_pct"] = summary["outlier_t"] / summary["total_t"] * 100
+    return summary.drop(columns=["outlier_t", "total_t"])
 
 
 def region_matrix(flows_path: Path, year: int) -> pd.DataFrame:
