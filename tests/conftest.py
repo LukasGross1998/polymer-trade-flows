@@ -47,7 +47,12 @@ def write_raw_layer(raw_dir: Path) -> None:
 @pytest.fixture
 def pipeline_setup(tmp_path: Path) -> PipelineSetup:
     """Settings pointing at a temporary data lake whose raw layer is already filled."""
-    settings = Settings(_env_file=None, data_dir=tmp_path / "data", docs_dir=tmp_path / "docs")
+    settings = Settings(
+        _env_file=None,
+        data_dir=tmp_path / "data",
+        docs_dir=tmp_path / "docs",
+        config_dir=REPO_ROOT / "config",
+    )
     write_raw_layer(settings.raw_dir)
     return PipelineSetup(
         settings=settings,

@@ -1,9 +1,10 @@
-"""Command-line entry point for the data pipeline: raw -> clean -> report.
+"""Command-line entry point for the pipeline: raw -> clean -> report -> model.
 
     uv run python -m ptf.pipeline ingest   # download/compute raw data (cached)
     uv run python -m ptf.pipeline clean    # build the clean layer
     uv run python -m ptf.pipeline report   # write docs/data_quality.md and charts
-    uv run python -m ptf.pipeline all      # all three steps
+    uv run python -m ptf.pipeline model    # model layer, transport LP, docs/model_results.md
+    uv run python -m ptf.pipeline all      # all steps
 
 Each step is a plain function, so Airflow (phase 5) can call the same steps as tasks.
 """
@@ -21,6 +22,11 @@ from ptf.clean.quality import add_unit_values, flag_unit_value_outliers
 from ptf.clean.reconcile import reconcile_flows, regional_unit_values
 from ptf.config import Settings, get_settings
 from ptf.ingest import brent, comtrade, distances
+from ptf.model import inputs as model_inputs
+from ptf.model.compare import comparison_metrics, comparison_table
+from ptf.model.config import load_model_config
+from ptf.model.report import build_model_report
+from ptf.model.transport import solve
 from ptf.pipeline_config import PipelineConfig, load_pipeline_config
 from ptf.regions import RegionConfig, load_regions
 
@@ -84,9 +90,33 @@ def run_report(settings: Settings, regions: RegionConfig, config: PipelineConfig
     logger.info("report written to %s", path)
 
 
+def run_model(settings: Settings) -> None:
+    config = load_model_config(settings.config_dir / "model.yaml")
+    year = config.base_year
+    flows = pd.read_parquet(settings.clean_dir / "bilateral_flows.parquet")
+    distance_table = pd.read_parquet(settings.raw_dir / "distances" / "sea_distances_base.parquet")
+
+    observed = model_inputs.observed_region_flows(flows, year)
+    balance = model_inputs.region_balance(observed, config)
+    costs = model_inputs.route_costs(distance_table, config)
+    folder = model_inputs.write_model_layer(settings.model_dir, year, observed, balance, costs)
+
+    result = solve(model_inputs.build_inputs(balance, costs, config))
+    result.flows.to_parquet(folder / "lp_flows.parquet", index=False)
+    result.regions.to_parquet(folder / "lp_regions.parquet", index=False)
+
+    region_codes = list(config.regions)
+    table = comparison_table(result.flows, observed, region_codes)
+    metrics = comparison_metrics(table)
+    path = build_model_report(result, table, metrics, region_codes, year, settings.docs_dir)
+    logger.info(
+        "LP %s: explained share %.0f %%, report %s", year, metrics["explained_share"] * 100, path
+    )
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m ptf.pipeline", description=__doc__)
-    parser.add_argument("step", choices=["ingest", "clean", "report", "all"])
+    parser.add_argument("step", choices=["ingest", "clean", "report", "model", "all"])
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -100,6 +130,8 @@ def main(argv: list[str] | None = None) -> None:
         run_clean(settings, regions, config)
     if args.step in ("report", "all"):
         run_report(settings, regions, config)
+    if args.step in ("model", "all"):
+        run_model(settings)
 
 
 if __name__ == "__main__":
