@@ -6,7 +6,14 @@ readme = "README.md"
 authors = [{ name = "LukasGross1998" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "duckdb>=2.0.0",
+    "matplotlib>=3.11.2",
+    "pandas>=3.1.1",
+    "pyarrow>=26.0.1",
     "pydantic-settings>=2.16.2",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.2",
+    "searoute>=1.6.0",
 ]
 
 [build-system]

@@ -1,0 +1,60 @@
+# Mapping of countries (ISO 3166-1 alpha-3) to model regions.
+#
+# source: assumption — own grouping of the ~30 largest polyethylene exporters/importers into
+# 10 regions with similar supply economics and shipping geography.
+# Rationale per region: docs/methodology.md, section "Regions".
+#
+# Every country that is not listed here is mapped to the rest-of-world region, so no trade
+# volume is lost. Only the listed countries are queried as Comtrade *reporters*; as trade
+# *partners* the whole world is kept.
+#
+# `port` is the representative seaport used for sea distances (searoute). Coordinates are
+# approximate (lon, lat in decimal degrees); searoute snaps them to the nearest sea lane.
+
+rest_of_world: ROW
+
+# Comtrade codes that are not ISO codes but stand for a known country.
+comtrade_aliases:
+  S19: TWN  # "Other Asia, nes" is Comtrade's convention for Taiwan (Taiwan does not report)
+
+regions:
+  NAM:
+    name: North America
+    port: {name: Houston, lon: -95.0, lat: 29.7}
+    countries: [USA, CAN, MEX]
+  SAM:
+    name: South America
+    port: {name: Santos, lon: -46.3, lat: -24.0}
+    countries: [BRA, ARG, CHL]
+  EUR:
+    name: Europe
+    port: {name: Rotterdam, lon: 4.05, lat: 51.95}
+    countries: [DEU, BEL, NLD, FRA, ITA, GBR, POL, TUR]
+  CIS:
+    name: Russia
+    port: {name: St. Petersburg, lon: 30.2, lat: 59.9}
+    countries: [RUS]
+  MDE:
+    name: Middle East
+    port: {name: Jebel Ali, lon: 55.0, lat: 25.0}
+    countries: [SAU, ARE, QAT, IRN]
+  AFR:
+    name: Africa
+    port: {name: Durban, lon: 31.05, lat: -29.9}
+    countries: [EGY, ZAF]
+  IND:
+    name: India
+    port: {name: Nhava Sheva, lon: 72.95, lat: 18.95}
+    countries: [IND]
+  CHN:
+    name: China
+    port: {name: Shanghai, lon: 121.8, lat: 31.2}
+    countries: [CHN, HKG]
+  NEA:
+    name: Northeast Asia (excl. China)
+    port: {name: Busan, lon: 129.05, lat: 35.1}
+    countries: [JPN, KOR, TWN]
+  SEA:
+    name: Southeast Asia
+    port: {name: Singapore, lon: 103.85, lat: 1.25}
+    countries: [SGP, THA, MYS, VNM, IDN]

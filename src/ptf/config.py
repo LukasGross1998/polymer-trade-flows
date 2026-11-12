@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     # Root folder of the local data lake (raw -> clean -> model layers).
     data_dir: Path = Path("data")
 
+    # Folder with the YAML files that hold all model assumptions (regions, pipeline settings).
+    config_dir: Path = Path("config")
+
+    # Folder for generated documentation such as the data-quality report.
+    docs_dir: Path = Path("docs")
+
     @property
     def raw_dir(self) -> Path:
         return self.data_dir / "raw"
