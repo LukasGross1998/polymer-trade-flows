@@ -13,3 +13,7 @@ disruption_threshold: 0.70
 red_sea:
   red_sea_route: chokepoint4   # Bab el-Mandeb Strait
   cape_route: chokepoint7      # Cape of Good Hope
+
+# PortWatch revises recent days after publication. Each update re-fetches this many days
+# before the last stored date; the clean step keeps the most recently fetched value per day.
+revision_days: 14
