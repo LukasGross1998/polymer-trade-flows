@@ -1,6 +1,8 @@
 # SPEC: Polymer Trade Flow & Disruption Simulator
 
-Status: v0.3 (Entwurf) – wird in jeder Phase verfeinert.
+Status: v0.4 (Entwurf) – wird in jeder Phase verfeinert.
+
+Änderungen v0.4 (Phase 2): Regionen mit `reporters` und `members` (alle Länder einer Region), `ROW` nicht im LP, Basisjahr 2023, Definition „erklärter Anteil“, Vorzeichen der Duals, Annahmen in `config/model.yaml`.
 
 Änderungen v0.3 (Phase 1): Comtrade ein Jahr pro Abfrage, ISO-Codes aus Referenztabellen, `qty_estimated_by_source`, Brent über FRED, drei Clean-Tabellen, konkrete Ausreißerregel, Häfen in `regions.yaml`, Regionen festgelegt.
 
@@ -42,7 +44,7 @@ API-Details (Endpunkte, Limits, Parameter) vor der Implementierung in der aktuel
 - Jahre: 2019–2024 (2025 erst, wenn die Meldeabdeckung ausreicht; viele Länder melden mit 6–18 Monaten Verzug)
 - Frequenz: zuerst jährlich, später monatlich
 - Länder: 30 große Exporteure/Importeure in **10 Modellregionen** (NAM, SAM, EUR, CIS, MDE, AFR, IND, CHN, NEA, SEA) – Zuordnung und repräsentativer Hafen je Region in `config/regions.yaml`, Begründung in `docs/methodology.md`. Taiwan meldet nicht und erscheint in Comtrade als „Other Asia, nes“ (`S19` → `TWN`).
-- Alle übrigen Länder fallen in eine Region **„Rest der Welt“ (`ROW`)**, damit keine Mengen verloren gehen.
+- Jede Region hat `reporters` (bei Comtrade abgefragt) und `members` (alle übrigen Länder der Region, nicht abgefragt). Nur nicht zugeordnete Länder (v. a. Ozeanien) fallen in **„Rest der Welt“ (`ROW`)**; `ROW` ist nicht Teil des LP, sein Handel zählt aber in Importe/Exporte der Modellregionen.
 
 ## 3. Datenpipeline
 
@@ -93,10 +95,11 @@ min Σ_ij (prod_cost_i + freight_ij + tariff_ij) · x_ij + Σ_j penalty · u_j
 - Nachfrage: Σ_i x_ij + u_j ≥ dem_j  ∀ j
 
 ### Auswertung
-- Optimale Ströme vs. beobachtete Ströme (Matrixvergleich, Kennzahlen z. B. Anteil korrekt erklärter Menge). Verglichen werden nur **interregionale** Ströme (i ≠ j): Handel innerhalb einer Region (z. B. DE→FR) verschwindet im Modell in `x_ii`.
+- Basisjahr 2023 (`config/model.yaml`).
+- Optimale Ströme vs. beobachtete Ströme (Matrixvergleich, Kennzahlen). **Erklärter Anteil** = Σ min(Modell, Realität) / Σ Realität je Route. Verglichen werden nur **interregionale** Ströme (i ≠ j): Handel innerhalb einer Region (z. B. DE→FR) verschwindet im Modell in `x_ii`.
 - `u_j > 0` wird als Versorgungslücke ausgewiesen; der Schattenpreis ist dann durch `penalty` gedeckelt.
 - **Duals der Nachfrage-Constraints** = marginale Versorgungskosten je Region → als implizite regionale Preise interpretieren
-- Duals der Kapazitäts-Constraints = Knappheitsrente
+- Duals der Kapazitäts-Constraints = Knappheitsrente (Dual ≤ 0 in der Minimierung, ausgewiesen als positiver Betrag `rent_usd_t`)
 
 ### Kalibrierung (Phase 2b)
 Abweichungen zwischen Modell und Realität sind erwartbar (Verträge, Qualitäten, Zölle, Integration). Schritt 1: dokumentieren. Schritt 2 (optional): Kalibrierungsaufschläge je Route schätzen oder Entropie-/Gravitationsansatz als Vergleich.

@@ -4,10 +4,10 @@ import re
 
 import pandas as pd
 import pytest
-from conftest import REPO_ROOT, PipelineSetup
+from conftest import REPO_ROOT, PipelineSetup, write_synthetic_distances
 
 from ptf.ingest.distances import build_distance_table
-from ptf.pipeline import run_clean
+from ptf.pipeline import run_clean, run_model
 
 DICTIONARY = REPO_ROOT / "docs" / "data_dictionary.md"
 
@@ -36,3 +36,18 @@ def test_sea_distances_match_dictionary(pipeline_setup: PipelineSetup) -> None:
     )
 
     assert documented_columns("sea_distances") == list(build_distance_table(regions).columns)
+
+
+@pytest.mark.parametrize(
+    "table",
+    ["observed_region_flows", "region_balance", "route_costs", "lp_flows", "lp_regions"],
+)
+def test_model_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str) -> None:
+    settings = pipeline_setup.settings
+    run_clean(settings, pipeline_setup.regions, pipeline_setup.config)
+    write_synthetic_distances(settings.raw_dir, pipeline_setup.regions)
+    run_model(settings)
+
+    written = pd.read_parquet(settings.model_dir / "2023" / f"{table}.parquet")
+
+    assert documented_columns(table) == list(written.columns)

@@ -44,6 +44,23 @@ def write_raw_layer(raw_dir: Path) -> None:
     shutil.copy(FIXTURES / "brent_sample.csv", raw_dir / "brent" / "DCOILBRENTEU.csv")
 
 
+def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:
+    """5,000 nm between all regions: keeps model tests fast and independent of searoute."""
+    rows = [
+        {
+            "origin_region": o,
+            "dest_region": d,
+            "origin_port": regions.regions[o].port.name,
+            "dest_port": regions.regions[d].port.name,
+            "distance_nm": 0.0 if o == d else 5000.0,
+        }
+        for o in regions.regions
+        for d in regions.regions
+    ]
+    (raw_dir / "distances").mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_parquet(raw_dir / "distances" / "sea_distances_base.parquet")
+
+
 @pytest.fixture
 def pipeline_setup(tmp_path: Path) -> PipelineSetup:
     """Settings pointing at a temporary data lake whose raw layer is already filled."""

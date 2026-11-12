@@ -128,18 +128,121 @@ download is complete.
 source: assumption. Ten regions plus rest of world (`ROW`), grouped by supply economics
 and shipping geography. Representative ports are used for sea distances only.
 
-| Region | Countries | Port | Why |
-|---|---|---|---|
-| NAM North America | USA, CAN, MEX | Houston | US Gulf Coast: largest export surplus thanks to cheap shale ethane |
-| SAM South America | BRA, ARG, CHL | Santos | Braskem; net importing region |
-| EUR Europe | DEU, BEL, NLD, FRA, ITA, GBR, POL, TUR | Rotterdam | Antwerp/Rotterdam hubs; Turkey as a large importer, logistically Mediterranean |
-| CIS Russia | RUS | St. Petersburg | Sibur; reports no data since 2022, visible via mirror data only |
-| MDE Middle East | SAU, ARE, QAT, IRN | Jebel Ali | Lowest-cost producers (cheap ethane); Iran reports irregularly |
-| AFR Africa | EGY, ZAF | Durban | Importing region |
-| IND India | IND | Nhava Sheva | Fast-growing demand, own market |
-| CHN China | CHN, HKG | Shanghai | Largest importer; Hong Kong mainly re-exports to China |
-| NEA Northeast Asia | JPN, KOR, TWN | Busan | Korea a large exporter; Taiwan reported only as "Other Asia, nes" |
-| SEA Southeast Asia | SGP, THA, MYS, VNM, IDN | Singapore | Singapore/Thailand export, Vietnam/Indonesia import |
+Each region has **reporters** (queried from Comtrade, ~30 in total) and **members** (all other
+countries of the region, full lists in `config/regions.yaml`). Members are not queried, but
+their trade is seen through the reporters' reports and must be counted in the right region.
+Before this split, 37 % of inter-regional trade in 2023 fell into `ROW` (Spain, Austria,
+Czechia, Oman, Colombia, ...), and trade such as Germany -> Spain looked like trade with the
+rest of the world. With all countries mapped, `ROW` holds 0.4 % (mainly Australia and New
+Zealand).
+
+| Region | Reporters | Members (summary) | Port | Why |
+|---|---|---|---|---|
+| NAM North and Central America | USA, CAN, MEX | Central America, Caribbean | Houston | US Gulf Coast: largest export surplus thanks to cheap shale ethane |
+| SAM South America | BRA, ARG, CHL | rest of South America | Santos | Braskem; net importing region |
+| EUR Europe | DEU, BEL, NLD, FRA, ITA, GBR, POL, TUR | rest of EU, EFTA, Western Balkans, UKR, MDA | Rotterdam | Antwerp/Rotterdam hubs; Turkey as a large importer |
+| CIS Russia and CIS | RUS | BLR, Central Asia, Caucasus | St. Petersburg | Sibur; reports no data since 2022, visible via mirror data only |
+| MDE Middle East | SAU, ARE, QAT, IRN | KWT, OMN, BHR, IRQ, ISR, JOR, ... | Jebel Ali | Lowest-cost producers (cheap ethane); Iran reports irregularly |
+| AFR Africa | EGY, ZAF | all other African countries | Durban | Importing region |
+| IND India and South Asia | IND | PAK, BGD, LKA, NPL, ... | Nhava Sheva | Fast-growing demand |
+| CHN China | CHN, HKG | MAC | Shanghai | Largest importer; Hong Kong mainly re-exports to China |
+| NEA Northeast Asia | JPN, KOR, TWN | PRK, MNG | Busan | Korea a large exporter; Taiwan reported only as "Other Asia, nes" |
+| SEA Southeast Asia | SGP, THA, MYS, VNM, IDN | PHL, MMR, KHM, LAO, BRN, TLS | Singapore | Singapore/Thailand export, Vietnam/Indonesia import |
 
 Port limitations: one port per region is coarse. Russia ships PE to China largely by rail,
-not via the Baltic; Africa is represented by Durban although Egypt sits on the Mediterranean.
+not via the Baltic; Africa is represented by Durban although Egypt and North Africa sit on
+the Mediterranean.
+
+## 3. Transport model
+
+### 3.1 Formulation
+
+A central planner supplies every region's demand at minimum total cost
+(`src/ptf/model/transport.py`, solved with HiGHS):
+
+    min  Σ_ij (prod_cost_i + freight_ij + tariff_ij) · x_ij  +  Σ_j penalty · u_j
+    s.t. Σ_j x_ij        ≤ capacity_i     (capacity of each supplying region)
+         Σ_i x_ij + u_j  ≥ demand_j       (demand of each region)
+         x_ij ≥ 0,  u_j ≥ 0
+
+- `x_ij` tonnes from region i to j; `x_ii` is local supply with zero freight
+- `u_j` unmet demand, priced at `penalty_usd_t` (5,000 USD/t) so the LP stays solvable when
+  a scenario removes capacity
+- `demand_j = production_j + imports_j − exports_j` of the base year, where production is
+  `capacity × utilisation` (assumption) and imports/exports are the observed flows **between**
+  regions (trade within a region cancels out). Trade with `ROW` counts in imports/exports,
+  but `ROW` itself is not part of the LP (no port, < 1 % of trade).
+- `freight_ij = fixed + variable × distance_ij / 1000`, distances from searoute
+- `tariff_ij = 0` in the base case (scenarios set it in USD/t)
+
+### 3.2 Assumptions
+
+All in `config/model.yaml`, each with a `source` field. Base year: **2023**.
+
+| Region | Capacity (Mt) | Utilisation | Cash cost (USD/t) |
+|---|---|---|---|
+| NAM | 34 | 88 % | 650 |
+| SAM | 5 | 80 % | 1,100 |
+| EUR | 17 | 75 % | 1,200 |
+| CIS | 5 | 85 % | 700 |
+| MDE | 23 | 90 % | 500 |
+| AFR | 3 | 75 % | 900 |
+| IND | 7 | 88 % | 1,000 |
+| CHN | 38 | 78 % | 1,000 |
+| NEA | 10 | 80 % | 1,100 |
+| SEA | 11 | 80 % | 1,050 |
+
+- Capacities for NAM, MDE, EUR (Western Europe) and CHN are anchored on McKinsey's 2025
+  figures (China 42, North America 34, Middle East 23, Western Europe 14 Mt; ~150 Mt
+  worldwide); the others are orders of magnitude from public company information and still
+  need individual checks.
+- Utilisation around 80 % on average matches S&P Global's estimate of ~30 Mt of capacity
+  above demand in 2024.
+- **Cash costs are the least certain numbers.** They encode the ranking of the cost curve
+  (cheap ethane in the Middle East and North America, expensive naphtha in Europe and Asia),
+  not verified values.
+- Freight: 40 USD/t fixed + 7 USD/t per 1,000 nm, derived from container rates of
+  ~1,500–2,000 USD per 40ft box (~25 t) on Shanghai–Rotterdam before the Red Sea crisis.
+
+### 3.3 Reading the duals
+
+- **Price** (`price_usd_t`, dual of the demand constraint): extra total cost if region j needed
+  one more tonne = marginal delivered cost = implied regional price. On every used route,
+  `price_j = prod_cost_i + rent_i + freight_ij`: price differences between connected regions
+  equal the freight, as spatial arbitrage requires.
+- **Rent** (`rent_usd_t`, magnitude of the capacity dual): cost saving from one more tonne of
+  capacity in region i. Positive only for regions running at full capacity: the margin of a
+  low-cost producer over the marginal supplier. Regions with idle capacity have rent 0; the
+  cheapest of them is the marginal supplier and sets the price level.
+- Demand is fixed, so prices are purely cost-based. With ties between routes the duals are
+  not unique.
+
+The 3-region example in `tests/test_transport.py` derives flows, prices and rents by hand.
+
+### 3.4 First results (2023, partial data) and why model and reality differ
+
+Full output: [model_results.md](model_results.md).
+
+- The model explains **40 %** of observed inter-regional tonnage on the same routes
+  (Σ min(model, observed) / Σ observed); correlation 0.42. The model uses 9 routes, reality 59.
+- **Corner solution.** Global capacity (153 Mt) exceeds demand (126 Mt), so the LP shuts
+  down the most expensive producers completely: Europe produces 0 t, Northeast Asia runs at
+  4 %, while all cheaper regions run at 100 % of nameplate. North America then ships 12.8 Mt
+  to Europe (observed: 2.0 Mt).
+- **Northeast Asia is the marginal supplier** (idle capacity at 1,100 USD/t), which puts all
+  regional prices between 1,018 and 1,106 USD/t. Rents: Middle East 518, North America 376,
+  Russia 353 USD/t.
+- Why reality differs: long-term contracts and integrated downstream plants keep "expensive"
+  crackers running; grades (LDPE/LLDPE/HDPE) are not interchangeable; buyers diversify
+  suppliers for security; tariffs and trade policy (e.g. US–China) are not in the base case;
+  a single cost per region hides the cost spread within a region; nameplate capacity is
+  treated as fully usable.
+- Data caveat: Asian and African reporters are not downloaded yet, so imports into Asia and
+  hence demand there are underestimated (China 5.5 Mt observed imports vs. ~13–14 Mt real).
+
+### 3.5 Limitations and next steps
+
+- Linear costs, fixed demand, one cost level per region, annual resolution.
+- Possible calibration (SPEC phase 2b): a minimum utilisation per region (e.g. ≥ 60 %)
+  to represent contracts and integration, a maximum utilisation below 100 % of nameplate,
+  route-specific calibration markups, or an entropy/gravity model as benchmark.

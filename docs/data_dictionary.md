@@ -21,6 +21,9 @@ comtrade_reference/*.parquet     ──┘        │
                                       bilateral_flows  one agreed quantity per relation
 brent/DCOILBRENTEU.csv           ──►  brent_annual     annual average oil price
 distances/sea_distances_base.parquet  (used directly from raw, computed not downloaded)
+
+model (data/model/{year}/): region-level inputs and results of the transport LP
+  observed_region_flows, region_balance, route_costs  ->  LP  ->  lp_flows, lp_regions
 ```
 
 | Table | Path | Grain (one row = …) | Written by |
@@ -31,6 +34,11 @@ distances/sea_distances_base.parquet  (used directly from raw, computed not down
 | `bilateral_flows` | `data/clean/bilateral_flows.parquet` | one trade relation: year, exporter, importer | `ptf.clean.reconcile` |
 | `brent_annual` | `data/clean/brent_annual.parquet` | one year | `ptf.clean.brent` |
 | `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.ingest.distances` |
+| `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
+| `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
+| `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
+| `lp_flows` | `data/model/{year}/lp_flows.parquet` | one ordered pair of model regions | `ptf.model.transport` |
+| `lp_regions` | `data/model/{year}/lp_regions.parquet` | one model region | `ptf.model.transport` |
 
 Conventions: country codes are ISO 3166-1 alpha-3 (`DEU`); region codes come from
 `config/regions.yaml` (`EUR`, `ROW`, …); `t` = metric tonnes; `USD` = current US dollars
@@ -169,3 +177,73 @@ further passages blocked (e.g. Suez).
 | `origin_port` | representative port of the origin region (`config/regions.yaml`) | str | Jebel Ali |
 | `dest_port` | representative port of the destination region | str | Rotterdam |
 | `distance_nm` | shortest sea route according to `searoute`; 0 within a region | nautical miles | 6,262 |
+
+---
+
+# Model layer (`data/model/{year}/`)
+
+Inputs and results of the transport LP for the base year in `config/model.yaml`.
+Model regions only; `ROW` is not part of the LP. Examples: base year 2023, Middle East and
+Europe.
+
+## `observed_region_flows`
+
+`bilateral_flows` of one year summed by region pair.
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `exporter_region` | region of the exporting countries | region code | MDE |
+| `importer_region` | region of the importing countries | region code | EUR |
+| `qty_t` | agreed quantity, summed over all country pairs | t | 2,087,406 |
+
+## `region_balance`
+
+| Column | Meaning | Unit / type | Example (EUR) |
+|---|---|---|---|
+| `region` | model region | region code | EUR |
+| `capacity_t` | nameplate PE capacity (assumption, `config/model.yaml`) | t/year | 17,000,000 |
+| `production_t` | assumed production = capacity × utilisation | t/year | 12,750,000 |
+| `imports_t` | observed imports from other regions (incl. `ROW`) | t/year | 5,241,361 |
+| `exports_t` | observed exports to other regions (incl. `ROW`) | t/year | 1,367,695 |
+| `net_imports_t` | `imports_t − exports_t` | t/year | 3,873,666 |
+| `demand_t` | apparent consumption = production + net imports; the LP must cover it | t/year | 16,623,666 |
+
+## `route_costs`
+
+| Column | Meaning | Unit / type | Example (MDE → EUR) |
+|---|---|---|---|
+| `origin_region` | supplying region | region code | MDE |
+| `dest_region` | receiving region | region code | EUR |
+| `origin_port` | representative port of the origin | str | Jebel Ali |
+| `dest_port` | representative port of the destination | str | Rotterdam |
+| `distance_nm` | sea distance (from `sea_distances`) | nautical miles | 6,262 |
+| `prod_cost_usd_t` | cash cost of production in the origin (assumption) | USD/t | 500 |
+| `freight_usd_t` | fixed + variable × distance; 0 within a region | USD/t | 83.8 |
+| `tariff_usd_t` | tariff on this route; 0 in the base case | USD/t | 0 |
+| `unit_cost_usd_t` | delivered cost = production + freight + tariff | USD/t | 583.8 |
+
+## `lp_flows`
+
+| Column | Meaning | Unit / type | Example (MDE → EUR) |
+|---|---|---|---|
+| `origin_region` | supplying region | region code | MDE |
+| `dest_region` | receiving region; equal to origin = local supply | region code | EUR |
+| `qty_t` | optimal shipment `x_ij` | t/year | 2,780,158 |
+| `unit_cost_usd_t` | delivered cost used by the LP | USD/t | 583.8 |
+
+## `lp_regions`
+
+| Column | Meaning | Unit / type | Example (MDE) |
+|---|---|---|---|
+| `region` | model region | region code | MDE |
+| `capacity_t` | capacity limit used in the LP | t/year | 23,000,000 |
+| `supply_t` | total optimal shipments from this region | t/year | 23,000,000 |
+| `demand_t` | demand the LP had to cover | t/year | 12,711,230 |
+| `unmet_t` | demand left uncovered (`u_j`), priced at the penalty | t/year | 0 |
+| `prod_cost_usd_t` | cash cost of production (assumption) | USD/t | 500 |
+| `price_usd_t` | dual of the demand constraint: implied regional price | USD/t | 1,017.8 |
+| `rent_usd_t` | magnitude of the capacity dual: scarcity rent; 0 with idle capacity | USD/t | 517.8 |
+| `utilisation` | `supply_t / capacity_t` in the optimum | share 0–1 | 1.0 |
+
+In the example, price = production cost + rent (500 + 518): the Middle East runs at full
+capacity and earns the gap to the marginal supplier.

@@ -110,3 +110,29 @@ names). The EIA oil-price API needs a registered key.
 
 **Consequences.** No credentials are needed for any phase-1 source. Cached raw files must be
 deleted by hand to pick up late-reported years.
+
+---
+
+## ADR-005: Transport LP set-up
+
+- **Date:** 2026-11-12
+- **Status:** accepted
+
+**Context.** Phase 2 needs an LP solver with access to duals, a base year, and a decision on
+how to treat the rest-of-world region, which has no representative port.
+
+**Decision.**
+- Solver interface: `pyomo.environ.SolverFactory("highs")` (Pyomo 6.10, `highspy` 1.16).
+  Duals are read through `model.dual = Suffix(direction=IMPORT)`. Checked against a 3-region
+  example solved by hand (`tests/test_transport.py`), including the sign convention: demand
+  duals are >= 0 (prices), capacity duals <= 0 (reported as positive rents).
+- Regions are split into Comtrade *reporters* and further *members*, so that every country
+  is assigned to its geographic region; `ROW` drops from 37 % to 0.4 % of inter-regional trade.
+- `ROW` is excluded from the LP; its trade still enters the model regions' demand.
+- Base year 2023, the latest year with complete data for the reporters loaded so far.
+- All assumptions live in `config/model.yaml` with a `source` field; the model layer
+  (`data/model/{year}/`) stores observed region flows, regional balance, route costs and LP
+  results as Parquet.
+
+**Consequences.** The base model is deliberately simple and produces a corner solution
+(expensive regions shut down completely). Calibration is a separate step (phase 2b).

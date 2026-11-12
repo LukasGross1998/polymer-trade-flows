@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from conftest import PipelineSetup
+from conftest import PipelineSetup, write_synthetic_distances
 
 from ptf.model.compare import comparison_metrics, comparison_table
 from ptf.pipeline import run_clean, run_model
@@ -51,17 +51,8 @@ def test_explained_share_counts_overlap_per_route() -> None:
 def test_model_step_writes_layer_and_report(pipeline_setup: PipelineSetup) -> None:
     settings = pipeline_setup.settings
     run_clean(settings, pipeline_setup.regions, pipeline_setup.config)
-    # Synthetic distances (5,000 nm between all regions) keep the test fast and offline.
+    write_synthetic_distances(settings.raw_dir, pipeline_setup.regions)
     codes = list(pipeline_setup.regions.regions)
-    distances = pd.DataFrame(
-        [
-            {"origin_region": o, "dest_region": d, "distance_nm": 0.0 if o == d else 5000.0}
-            for o in codes
-            for d in codes
-        ]
-    )
-    (settings.raw_dir / "distances").mkdir()
-    distances.to_parquet(settings.raw_dir / "distances" / "sea_distances_base.parquet")
 
     run_model(settings)
 
