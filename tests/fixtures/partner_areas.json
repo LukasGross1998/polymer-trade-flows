@@ -1,0 +1,100 @@
+{
+ "results": [
+  {
+   "id": 899,
+   "text": "Areas, nes",
+   "PartnerCode": 899,
+   "PartnerDesc": "Areas, nes",
+   "partnerNote": "Areas, not elsewhere specified",
+   "PartnerCodeIsoAlpha3": "_X ",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 156,
+   "text": "China",
+   "PartnerCode": 156,
+   "PartnerDesc": "China",
+   "partnerNote": "China",
+   "PartnerCodeIsoAlpha2": "CN",
+   "PartnerCodeIsoAlpha3": "CHN",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 251,
+   "text": "France",
+   "PartnerCode": 251,
+   "PartnerDesc": "France",
+   "partnerNote": "France, Monaco",
+   "PartnerCodeIsoAlpha2": "FR",
+   "PartnerCodeIsoAlpha3": "FRA",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 276,
+   "text": "Germany",
+   "PartnerCode": 276,
+   "PartnerDesc": "Germany",
+   "partnerNote": "Germany",
+   "PartnerCodeIsoAlpha2": "DE",
+   "PartnerCodeIsoAlpha3": "DEU",
+   "entryEffectiveDate": "1991-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 250,
+   "text": "Metropolitan France",
+   "PartnerCode": 250,
+   "PartnerDesc": "Metropolitan France",
+   "partnerNote": "Metropolitan France",
+   "PartnerCodeIsoAlpha2": "FR",
+   "PartnerCodeIsoAlpha3": "FRA",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 566,
+   "text": "Nigeria",
+   "PartnerCode": 566,
+   "PartnerDesc": "Nigeria",
+   "partnerNote": "Nigeria",
+   "PartnerCodeIsoAlpha2": "NG",
+   "PartnerCodeIsoAlpha3": "NGA",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 490,
+   "text": "Other Asia, nes",
+   "PartnerCode": 490,
+   "PartnerDesc": "Other Asia, nes",
+   "partnerNote": "Other Asia, not elsewhere specified",
+   "PartnerCodeIsoAlpha3": "S19",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 842,
+   "text": "USA",
+   "PartnerCode": 842,
+   "PartnerDesc": "USA",
+   "partnerNote": "USA, Puerto Rico and US Virgin Islands",
+   "PartnerCodeIsoAlpha2": "US",
+   "PartnerCodeIsoAlpha3": "USA",
+   "entryEffectiveDate": "1981-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 0,
+   "text": "World",
+   "PartnerCode": 0,
+   "PartnerDesc": "World",
+   "partnerNote": "World",
+   "PartnerCodeIsoAlpha3": "W00",
+   "entryEffectiveDate": "1901-01-01T00:00:00",
+   "isGroup": true
+  }
+ ]
+}

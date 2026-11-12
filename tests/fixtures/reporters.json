@@ -1,0 +1,61 @@
+{
+ "results": [
+  {
+   "id": 156,
+   "text": "China",
+   "reporterCode": 156,
+   "reporterDesc": "China",
+   "reporterNote": "China",
+   "reporterCodeIsoAlpha2": "CN",
+   "reporterCodeIsoAlpha3": "CHN",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 280,
+   "text": "Fed. Rep. of Germany (...1990)",
+   "reporterCode": 280,
+   "reporterDesc": "Fed. Rep. of Germany (...1990)",
+   "reporterNote": "Former Federal Republic of Germany",
+   "reporterCodeIsoAlpha2": "DE",
+   "reporterCodeIsoAlpha3": "DEU",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "entryExpiredDate": "1990-12-31T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 276,
+   "text": "Germany",
+   "reporterCode": 276,
+   "reporterDesc": "Germany",
+   "reporterNote": "Germany",
+   "reporterCodeIsoAlpha2": "DE",
+   "reporterCodeIsoAlpha3": "DEU",
+   "entryEffectiveDate": "1991-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 842,
+   "text": "USA",
+   "reporterCode": 842,
+   "reporterDesc": "USA",
+   "reporterNote": "USA, Puerto Rico and US Virgin Islands",
+   "reporterCodeIsoAlpha2": "US",
+   "reporterCodeIsoAlpha3": "USA",
+   "entryEffectiveDate": "1981-01-01T00:00:00",
+   "isGroup": false
+  },
+  {
+   "id": 841,
+   "text": "USA and Puerto Rico (...1980)",
+   "reporterCode": 841,
+   "reporterDesc": "USA and Puerto Rico (...1980)",
+   "reporterNote": "USA and Puerto Rico",
+   "reporterCodeIsoAlpha2": "US",
+   "reporterCodeIsoAlpha3": "USA",
+   "entryEffectiveDate": "1900-01-01T00:00:00",
+   "entryExpiredDate": "1980-12-31T00:00:00",
+   "isGroup": false
+  }
+ ]
+}
