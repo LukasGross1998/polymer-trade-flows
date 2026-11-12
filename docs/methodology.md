@@ -1,7 +1,8 @@
 # Methodology
 
 Model assumptions, data treatment and known limitations. Every number that is an assumption
-lives in `config/` and is explained here. Generated figures and tables: [data_quality.md](data_quality.md).
+lives in `config/` and is explained here. Generated figures and tables: [data_quality.md](data_quality.md). Every table and column:
+[data_dictionary.md](data_dictionary.md).
 
 ## 1. Data & cleaning
 
@@ -113,7 +114,7 @@ download is complete.
 - **Hub effects dominate the largest gaps.** Saudi Arabia reports 480 kt of exports to
   Belgium in 2024, Belgium records only 171 kt from Saudi Arabia. Goods shipped to Antwerp
   are often declared for customs in another EU country (the "Rotterdam/Antwerp effect").
-- **Comtrade estimates a lot itself.** 12–38 % of the agreed tonnage per year rests on weights
+- **Comtrade estimates a lot itself.** 11–37 % of the agreed tonnage per year rests on weights
   that Comtrade flags as estimated (`qty_estimated_by_source`).
 - **A missing reporter is not a missing flow.** Russia stopped reporting after 2021. With the
   reporters loaded so far, its visible exports fall from 1.3 Mt (2021) to 0.2 Mt (2022):

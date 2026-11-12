@@ -78,8 +78,8 @@ Method and rules: [methodology.md](methodology.md).
 
 | year | export_report | import_report | imputed_from_export | imputed_from_import | estimated_by_comtrade |
 |---|---|---|---|---|---|
-| 2019 | 46.4 | 49.3 | 4.2 | 0.1 | 37.8 |
-| 2020 | 51.0 | 44.6 | 4.4 | 0.0 | 11.5 |
+| 2019 | 46.4 | 49.3 | 4.2 | 0.1 | 37.2 |
+| 2020 | 51.0 | 44.6 | 4.4 | 0.0 | 11.0 |
 | 2021 | 48.4 | 51.0 | 0.3 | 0.2 | 16.2 |
 | 2022 | 51.3 | 48.1 | 0.4 | 0.1 | 19.7 |
 | 2023 | 51.3 | 48.0 | 0.4 | 0.2 | 35.7 |

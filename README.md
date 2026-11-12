@@ -54,7 +54,8 @@ download (30 reporters × 6 years) therefore takes two days: `ingest` stops clea
 quota is used up and continues where it stopped on the next run.
 
 Results so far: [data-quality report](docs/data_quality.md) ·
-methodology: [docs/methodology.md](docs/methodology.md)
+methodology: [docs/methodology.md](docs/methodology.md) ·
+all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 
 ## Roadmap
 
