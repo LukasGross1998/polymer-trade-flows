@@ -45,4 +45,5 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+# "-p no:dash": Dash ships a pytest plugin for browser tests that we do not use.
+addopts = "-ra -p no:dash"
