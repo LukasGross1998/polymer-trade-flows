@@ -54,3 +54,26 @@ Both pandas and polars handle that easily, so performance is not the deciding fa
 index (use plain columns and `reset_index()`), and prefer method chaining with clear names over
 chained in-place assignment, to avoid pandas' common pitfalls (silent type changes,
 `SettingWithCopyWarning`).
+
+---
+
+## ADR-003: UN Comtrade public endpoint without API key
+
+- **Date:** 2026-11-12
+- **Status:** accepted
+
+**Context.** The SPEC originally assumed a free Comtrade subscription key. Registering and
+managing the key adds setup friction, and anyone cloning the repo would need their own key to
+reproduce the data.
+
+**Decision.** Use the public preview endpoint
+`https://comtradeapi.un.org/public/v1/preview/C/{freq}/HS`, which needs no registration.
+`COMTRADE_API_KEY` stays an optional setting for a later switch to the keyed endpoint.
+
+**Consequences.**
+- Same underlying data, so mirror statistics and reconciliation remain possible.
+- Max. 500 records per request and aggressive throttling (HTTP 429 observed on a second
+  request within a second). The ingest therefore requests one reporter and year at a time,
+  waits between requests, retries with exponential backoff and caches every response in the
+  `raw` layer so each request runs only once.
+- The repo is reproducible without credentials.

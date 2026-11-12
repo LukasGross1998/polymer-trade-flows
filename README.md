@@ -33,7 +33,7 @@ Prerequisites: [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 automat
 git clone <repo-url>
 cd polymer-trade-flows
 uv sync                          # create .venv and install dependencies
-cp .env.example .env             # then add your UN Comtrade API key
+cp .env.example .env             # optional: no API key needed for UN Comtrade
 uv run pre-commit install        # run lint/format checks on every commit
 uv run pytest                    # run tests
 uv run ruff check .              # lint

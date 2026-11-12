@@ -26,13 +26,15 @@ Ein Analyst oder Trader im Chemiemarkt, der fragt: *„Was passiert mit den PE-S
 
 | Quelle | Inhalt | Zugang | Phase |
 |---|---|---|---|
-| UN Comtrade | Bilaterale Handelsmengen (kg) und -werte (USD), monatlich/jährlich, HS 3901 | API mit kostenlosem Key | 1 |
+| UN Comtrade | Bilaterale Handelsmengen (kg) und -werte (USD), monatlich/jährlich, HS 3901 | öffentlicher Preview-Endpunkt **ohne Key** (Key optional, siehe unten) | 1 |
 | Eurostat Comext | EU-Handel, detaillierter, als Abgleich | öffentliche API/Bulk | 1 (optional) |
 | Seewege/Distanzen | Distanz zwischen repräsentativen Häfen je Region | Python-Paket `searoute` | 1 |
 | Brent-Ölpreis | Treiber für Rohstoff- und Bunkerkosten | EIA oder FRED | 1 |
 | Kapazitäten/Kosten | Regionale PE-Kapazität und Cash-Kosten | **Annahmen** aus öffentlichen Quellen, klar gekennzeichnet | 2 |
 
 API-Details (Endpunkte, Limits, Parameter) vor der Implementierung in der aktuellen Doku prüfen.
+
+**Comtrade-Zugang (entschieden in Phase 0, ADR-003):** Wir nutzen den öffentlichen Endpunkt `https://comtradeapi.un.org/public/v1/preview/C/{freq}/HS` ohne Registrierung. Grenzen: max. 500 Datensätze pro Abfrage, Folgeanfragen werden gedrosselt (HTTP 429, beobachtet am 2026-11-12). Der Ingest wartet daher zwischen Abfragen, wiederholt bei 429 mit Backoff und cacht jede Antwort im `raw`-Layer. Ist `COMTRADE_API_KEY` gesetzt, darf der Ingest später auf den Key-Endpunkt umschalten; erforderlich ist das nicht.
 
 ### Startumfang
 - Jahre: 2019–2024 (2025 erst, wenn die Meldeabdeckung ausreicht; viele Länder melden mit 6–18 Monaten Verzug)
