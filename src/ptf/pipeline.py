@@ -71,8 +71,16 @@ def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig)
     logger.info("clean layer: %s reports, %s bilateral flows", len(reports), len(flows))
 
 
-def run_report(settings: Settings) -> None:
-    path = build_report(settings.clean_dir, settings.docs_dir)
+def run_report(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
+    reporters_path = settings.raw_dir / "comtrade_reference" / "Reporters.parquet"
+    reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.countries())
+    path = build_report(
+        settings.clean_dir,
+        settings.docs_dir,
+        settings.raw_dir,
+        list(reporters),
+        config.comtrade.years,
+    )
     logger.info("report written to %s", path)
 
 
@@ -91,7 +99,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.step in ("clean", "all"):
         run_clean(settings, regions, config)
     if args.step in ("report", "all"):
-        run_report(settings)
+        run_report(settings, regions, config)
 
 
 if __name__ == "__main__":

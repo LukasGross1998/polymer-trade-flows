@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from ptf.clean.dq_report import coverage_table
 from ptf.config import Settings
 from ptf.pipeline import run_clean, run_report
 from ptf.pipeline_config import load_pipeline_config
@@ -29,6 +30,8 @@ def write_raw_layer(raw_dir: Path) -> None:
     areas = json.loads((FIXTURES / "partner_areas.json").read_text())["results"]
     (raw_dir / "comtrade_reference").mkdir()
     pd.DataFrame(areas).to_parquet(raw_dir / "comtrade_reference" / "partnerAreas.parquet")
+    reporters = json.loads((FIXTURES / "reporters.json").read_text())["results"]
+    pd.DataFrame(reporters).to_parquet(raw_dir / "comtrade_reference" / "Reporters.parquet")
 
     (raw_dir / "brent").mkdir()
     shutil.copy(FIXTURES / "brent_sample.csv", raw_dir / "brent" / "DCOILBRENTEU.csv")
@@ -41,7 +44,7 @@ def test_clean_and_report_steps(tmp_path: Path) -> None:
     config = load_pipeline_config(REPO_ROOT / "config" / "pipeline.yaml")
 
     run_clean(settings, regions, config)
-    run_report(settings)
+    run_report(settings, regions, config)
 
     flows = pd.read_parquet(settings.clean_dir / "bilateral_flows.parquet")
     usa_deu = flows[(flows["exporter_iso3"] == "USA") & (flows["importer_iso3"] == "DEU")]
@@ -52,3 +55,23 @@ def test_clean_and_report_steps(tmp_path: Path) -> None:
     assert "Mirror statistics" in report
     assert (settings.docs_dir / "figures" / "dq_mirror_gaps.png").exists()
     assert (settings.clean_dir / "brent_annual.parquet").exists()
+
+
+def test_coverage_separates_no_data_from_not_downloaded(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, data_dir=tmp_path / "data", docs_dir=tmp_path / "docs")
+    write_raw_layer(settings.raw_dir)
+    pd.DataFrame().to_parquet(settings.raw_dir / "comtrade" / "USA_2024.parquet")  # no data
+    regions = load_regions(REPO_ROOT / "config" / "regions.yaml")
+    config = load_pipeline_config(REPO_ROOT / "config" / "pipeline.yaml")
+    run_clean(settings, regions, config)
+
+    coverage = coverage_table(
+        settings.clean_dir / "trade_reports.parquet",
+        settings.raw_dir,
+        reporters=["DEU", "USA", "CHN"],
+        years=[2023, 2024],
+    )
+
+    assert coverage.loc["DEU", 2023] == 10  # 12 fixture rows minus the two "World" rows
+    assert coverage.loc["USA", 2024] == 0  # asked, but no data
+    assert pd.isna(coverage.loc["CHN", 2023])  # never downloaded

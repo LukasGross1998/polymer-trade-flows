@@ -17,11 +17,21 @@ matplotlib.use("Agg")  # render to files, no window needed (works in CI and Dock
 import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 
+from ptf.ingest.comtrade import raw_path  # noqa: E402
+
 # --- tables --------------------------------------------------------------------------------
 
 
-def coverage_table(reports_path: Path) -> pd.DataFrame:
-    """Number of partner reports per reporter (rows) and year (columns); 0 = did not report."""
+def coverage_table(
+    reports_path: Path, raw_dir: Path, reporters: list[str], years: list[int]
+) -> pd.DataFrame:
+    """Partner reports per reporter (rows) and year (columns) for all expected reporters.
+
+    Three states per cell:
+    - a positive count: the country reported
+    - 0: we asked Comtrade, but the country has no data for that year
+    - <NA>: not downloaded yet (e.g. stopped by the daily API quota)
+    """
     long = duckdb.sql(
         f"""
         SELECT reporter_iso3, year, count(*) AS reports
@@ -29,12 +39,17 @@ def coverage_table(reports_path: Path) -> pd.DataFrame:
         GROUP BY reporter_iso3, year
         """
     ).df()
-    return (
+    counts = (
         long.pivot(index="reporter_iso3", columns="year", values="reports")
-        .fillna(0)
-        .astype(int)
-        .sort_index()
+        .reindex(index=sorted(reporters), columns=years)
+        .astype("Int64")
     )
+    for iso3 in counts.index:
+        for year in years:
+            fetched = raw_path(raw_dir, iso3, year).exists()
+            if pd.isna(counts.loc[iso3, year]) and fetched:
+                counts.loc[iso3, year] = 0
+    return counts
 
 
 def mirror_summary(mirror: pd.DataFrame) -> pd.DataFrame:
@@ -130,13 +145,21 @@ def to_markdown(table: pd.DataFrame, decimals: int = 1) -> str:
 
 
 def _plot_coverage(coverage: pd.DataFrame, path: Path) -> None:
-    fig, ax = plt.subplots(figsize=(6, 9))
-    ax.imshow(coverage.to_numpy() > 0, cmap="Greens", aspect="auto", vmin=0, vmax=1.4)
+    # Colour codes: 2 = reported, 1 = no data at Comtrade, 0 = not downloaded yet.
+    state = coverage.notna().astype(int) + (coverage.fillna(0) > 0).astype(int)
+    colours = matplotlib.colors.ListedColormap(["#d9d9d9", "#f4a582", "#5aae61"])
+    fig, ax = plt.subplots(figsize=(6, 10))
+    ax.imshow(state.to_numpy(), cmap=colours, aspect="auto", vmin=0, vmax=2)
     ax.set_xticks(range(len(coverage.columns)), [str(c) for c in coverage.columns])
     ax.set_yticks(range(len(coverage.index)), coverage.index)
-    for (i, j), value in pd.DataFrame(coverage.to_numpy()).stack().items():
-        ax.text(j, i, str(value), ha="center", va="center", fontsize=7)
-    ax.set_title("Reports per reporter and year (0 = no data)")
+    for i, iso3 in enumerate(coverage.index):
+        for j, year in enumerate(coverage.columns):
+            value = coverage.loc[iso3, year]
+            label = "n/f" if pd.isna(value) else str(value)
+            ax.text(j, i, label, ha="center", va="center", fontsize=7)
+    ax.set_title(
+        "Reports per reporter and year\n(green: reported, red: no data, grey: not fetched)"
+    )
     fig.tight_layout()
     fig.savefig(path, dpi=120)
     plt.close(fig)
@@ -167,7 +190,9 @@ def _plot_basis_share(share: pd.DataFrame, path: Path) -> None:
     plt.close(fig)
 
 
-def build_report(clean_dir: Path, docs_dir: Path) -> Path:
+def build_report(
+    clean_dir: Path, docs_dir: Path, raw_dir: Path, reporters: list[str], years: list[int]
+) -> Path:
     """Compute all tables and charts and write the Markdown report. Returns its path."""
     reports_path = clean_dir / "trade_reports.parquet"
     flows_path = clean_dir / "bilateral_flows.parquet"
@@ -176,7 +201,7 @@ def build_report(clean_dir: Path, docs_dir: Path) -> Path:
     flows = pd.read_parquet(flows_path)
     latest_year = int(flows["year"].max())
 
-    coverage = coverage_table(reports_path)
+    coverage = coverage_table(reports_path, raw_dir, reporters, years)
     mirror_stats = mirror_summary(mirror)
     shares = basis_share(flows)
     outliers = outlier_summary(reports)
@@ -195,6 +220,7 @@ def build_report(clean_dir: Path, docs_dir: Path) -> Path:
         "Method and rules: [methodology.md](methodology.md).",
         "## 1. Coverage: reports per reporter and year",
         "![coverage](figures/dq_coverage.png)",
+        "`<NA>` = not downloaded yet, 0 = Comtrade has no data for this reporter and year.",
         to_markdown(coverage.reset_index()),
         "## 2. Mirror statistics (quantities)",
         "![mirror gaps](figures/dq_mirror_gaps.png)",

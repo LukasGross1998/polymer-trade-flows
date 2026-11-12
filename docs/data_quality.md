@@ -8,6 +8,8 @@ Method and rules: [methodology.md](methodology.md).
 
 ![coverage](figures/dq_coverage.png)
 
+`<NA>` = not downloaded yet, 0 = Comtrade has no data for this reporter and year.
+
 | reporter_iso3 | 2019 | 2020 | 2021 | 2022 | 2023 | 2024 |
 |---|---|---|---|---|---|---|
 | ARE | 163 | 175 | 199 | 181 | 185 | 0 |
@@ -16,17 +18,31 @@ Method and rules: [methodology.md](methodology.md).
 | BRA | 137 | 140 | 157 | 139 | 135 | 138 |
 | CAN | 115 | 112 | 113 | 108 | 112 | 120 |
 | CHL | 59 | 56 | 68 | 73 | 56 | 61 |
+| CHN | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 | DEU | 195 | 192 | 188 | 195 | 186 | 195 |
+| EGY | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 | FRA | 176 | 188 | 191 | 190 | 183 | 192 |
 | GBR | 165 | 160 | 164 | 169 | 163 | 164 |
+| HKG | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
+| IDN | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
+| IND | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
+| IRN | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 | ITA | 173 | 170 | 181 | 180 | 177 | 178 |
+| JPN | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
+| KOR | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 | MEX | 64 | 65 | 50 | 48 | 47 | 53 |
+| MYS | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 | NLD | 171 | 173 | 193 | 193 | 200 | 177 |
 | POL | 124 | 135 | 133 | 137 | 139 | 128 |
+| QAT | 130 | 129 | <NA> | <NA> | <NA> | <NA> |
 | RUS | 99 | 107 | 118 | 0 | 0 | 0 |
 | SAU | 180 | 179 | 167 | 173 | 175 | 179 |
+| SGP | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
+| THA | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 | TUR | 153 | 156 | 173 | 178 | 175 | 193 |
 | USA | 225 | 209 | 216 | 207 | 217 | 221 |
+| VNM | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
+| ZAF | <NA> | <NA> | <NA> | <NA> | <NA> | <NA> |
 
 ## 2. Mirror statistics (quantities)
 
@@ -34,8 +50,8 @@ Method and rules: [methodology.md](methodology.md).
 
 | year | relations_total | relations_with_both_reports | median_abs_gap_pct | share_within_10pct | share_within_25pct | median_cif_fob_ratio |
 |---|---|---|---|---|---|---|
-| 2019 | 2191 | 206 | 38.7 | 21.4 | 41.3 | 1.3 |
-| 2020 | 2223 | 212 | 32.9 | 22.2 | 45.3 | 1.2 |
+| 2019 | 2302 | 214 | 40.1 | 20.6 | 41.1 | 1.3 |
+| 2020 | 2332 | 220 | 32.9 | 22.3 | 45.0 | 1.2 |
 | 2021 | 2325 | 205 | 25.6 | 29.8 | 48.3 | 1.2 |
 | 2022 | 2187 | 179 | 31.1 | 26.8 | 44.7 | 1.2 |
 | 2023 | 2164 | 175 | 36.9 | 21.1 | 41.1 | 1.2 |
@@ -62,8 +78,8 @@ Method and rules: [methodology.md](methodology.md).
 
 | year | export_report | import_report | imputed_from_export | imputed_from_import | estimated_by_comtrade |
 |---|---|---|---|---|---|
-| 2019 | 48.2 | 51.1 | 0.7 | 0.1 | 39.2 |
-| 2020 | 53.1 | 46.3 | 0.6 | 0.0 | 12.0 |
+| 2019 | 46.4 | 49.3 | 4.2 | 0.1 | 37.8 |
+| 2020 | 51.0 | 44.6 | 4.4 | 0.0 | 11.5 |
 | 2021 | 48.4 | 51.0 | 0.3 | 0.2 | 16.2 |
 | 2022 | 51.3 | 48.1 | 0.4 | 0.1 | 19.7 |
 | 2023 | 51.3 | 48.0 | 0.4 | 0.2 | 35.7 |
@@ -74,9 +90,9 @@ Method and rules: [methodology.md](methodology.md).
 | year | flow | reports_with_unit_value | outliers | median_unit_value_usd_t | outlier_tonnage_pct |
 |---|---|---|---|---|---|
 | 2019 | export | 1459 | 148 | 1,306.0 | 0.1 |
-| 2019 | import | 895 | 81 | 1,387.1 | 0.1 |
+| 2019 | import | 918 | 83 | 1,389.8 | 0.1 |
 | 2020 | export | 1489 | 127 | 1,145.0 | 0.1 |
-| 2020 | import | 902 | 80 | 1,225.7 | 0.1 |
+| 2020 | import | 921 | 81 | 1,231.4 | 0.1 |
 | 2021 | export | 1514 | 126 | 1,715.6 | 0.1 |
 | 2021 | import | 984 | 134 | 1,805.0 | 0.3 |
 | 2022 | export | 1439 | 89 | 1,905.0 | 0.0 |
