@@ -198,9 +198,27 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 | 4 | Prognose (optional) | Baseline vs. ML |
 | 5 | Docker, Airflow, Feinschliff README | produktionsnahes Portfolio |
 
-## 10. Offene Fragen
-- Woher kommen plausible Kapazitäts- und Kostenannahmen je Region? Kandidaten: Investorenpräsentationen (SABIC, Dow, LyondellBasell, Borealis), IEA „The Future of Petrochemicals“, Plastics Europe, ACC. Bandbreiten statt Punktwerte, Quellen dokumentieren. Entscheidung in Phase 2.
+## 10. Stand & nächste Schritte (Stand 2026-11-12)
+
+### Stand
+- **Phase 1 (Daten):** Code fertig. Comtrade: 104 von ca. 180 Melder-Jahren geladen (Amerika, Europa, RUS, SAU, ARE, teilweise QAT); **Asien und Afrika fehlen** wegen des Tageskontingents des öffentlichen Endpunkts (ADR-003). Weiterladen: `uv run python -m ptf.pipeline ingest`, dann `clean` und `report` (oder `all`).
+- **Phase 2 (LP):** erste Version für 2023 (`docs/model_results.md`): erklärt 40 % des interregionalen Handels; Randlösung (Europa produziert 0 t). Kostenannahmen sind die schwächste Stelle.
+- **Dashboard (Teil von Phase 3):** fünf Tabs – Overview, Chokepoints, Ports, Trade flows, Energy & freight (7a, 7b). Start: `uv run python -m ptf.pipeline portwatch`, `... market`, dann `uv run python -m ptf.app`.
+- **Länderhandel nach Ladungsart** (PortWatch, ~560.000 Zeilen) ist abgeschaltet (`download_country_trade: false` in `config/monitor.yaml`); erster Abruf 20–25 min.
+
+### Nächste Schritte (Vorschlag, in dieser Reihenfolge)
+1. Comtrade fertig laden, Erkenntnisse in `docs/methodology.md` 1.6 prüfen (bleibt Russlands Einbruch ein Artefakt, wenn China geladen ist?), LP neu rechnen.
+2. **Szenarien** (Abschnitt 5) bauen; Design steht: `red_sea_closed` (Passagen `babalmandab`, `suez` in searoute gesperrt), `red_sea_closed_high_freight` (zusätzlich variabler Frachtsatz ×2,5), `hormuz_closed` (Exportlimit Nahost 15 % der Kapazität, nicht über Passagensperre: Jebel Ali liegt im Golf), `red_sea_and_hormuz`. Achtung: searoute liefert für blockierte Routen Distanz **0** statt Fehler – abfangen. Ausgabe: Δ Ströme, Δ Kosten, Δ Preise/Renten, Gewinner/Verlierer.
+3. **Kalibrierung:** Mindestauslastung je Region im LP, damit teure Regionen nicht auf 0 fallen.
+4. Kostenkurve und Szenario-Tab in der App.
+5. Später: CEPII BACI für Warenströme nach Ware zwischen Ländern; Phase 4 (Prognose), Phase 5 (Docker, Airflow).
+
+### Offene Fragen
+- Kapazitäten außerhalb NAM/MDE/EUR/CHN und alle Cash-Kosten sind Größenordnungen; Quellen je Region noch einzeln prüfen.
+- Yanbu (Saudi-Arabien, Rotes Meer): PortWatch meldet seit August 2026 fast keine Hafenanläufe mehr (Nullwerte, keine fehlenden Zeilen) – Hafen ruht oder Schiffe nicht per AIS sichtbar?
+- Hafennetz (PortWatch) ist ein fester Stand vom Mai 2025, also vor der Hormus-Störung.
 
 ### Entschieden
 - LP-MVP: **jährlich** (Kapazitäten sind Jahresgrößen; Monatsdaten verrauscht durch Lager und Transitzeiten).
 - Datenverarbeitung: **pandas** (siehe `docs/decisions.md`, ADR-002).
+- Weitere Entscheidungen: `docs/decisions.md` (ADR-003 bis ADR-008).
