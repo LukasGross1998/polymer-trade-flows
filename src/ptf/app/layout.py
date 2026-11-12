@@ -111,11 +111,15 @@ def build_layout(data: MonitorData) -> html.Div:
                     "marginBottom": "16px",
                 },
             ),
-            html.Div(dcc.Graph(id="map", config={"displayModeBar": False}), style=CARD),
+            html.Div(
+                dcc.Graph(id="map", config={"displayModeBar": False, "scrollZoom": False}),
+                style=CARD,
+            ),
             html.Div(
                 [
                     html.Div(
-                        dcc.Graph(id="timeseries"), style={**CARD, "flex": "1", "minWidth": "420px"}
+                        dcc.Graph(id="timeseries", config={"displayModeBar": False}),
+                        style={**CARD, "flex": "1", "minWidth": "420px"},
                     ),
                     html.Div(
                         [
@@ -123,7 +127,7 @@ def build_layout(data: MonitorData) -> html.Div:
                                 "Red Sea diversion: container ships between Asia and Europe",
                                 style={"fontWeight": "600", "fontSize": "14px"},
                             ),
-                            dcc.Graph(id="diversion"),
+                            dcc.Graph(id="diversion", config={"displayModeBar": False}),
                         ],
                         style={**CARD, "flex": "1", "minWidth": "420px"},
                     ),

@@ -51,12 +51,13 @@ def filter_period(frame: pd.DataFrame, period: str, latest: pd.Timestamp) -> pd.
 def _base_layout(fig: go.Figure, height: int) -> go.Figure:
     fig.update_layout(
         height=height,
-        margin={"l": 50, "r": 20, "t": 30, "b": 40},
+        margin={"l": 50, "r": 20, "t": 50, "b": 40},
         paper_bgcolor=SURFACE,
         plot_bgcolor=SURFACE,
         font={"color": INK_SECONDARY, "size": 12},
         hovermode="x unified",
-        legend={"orientation": "h", "y": 1.08, "x": 0},
+        # Legend below the plot, so it never collides with titles.
+        legend={"orientation": "h", "y": -0.12, "x": 0, "yanchor": "top"},
     )
     fig.update_xaxes(showgrid=False, linecolor=GRID, tickfont={"color": MUTED})
     fig.update_yaxes(gridcolor=GRID, zeroline=False, tickfont={"color": MUTED})
@@ -176,7 +177,7 @@ def timeseries_figure(table: pd.DataFrame, chokepoint: str, vessel_type: str) ->
     fig.update_layout(
         title={"text": f"{chokepoint}: {label} per day", "font": {"color": INK, "size": 14}}
     )
-    return _base_layout(fig, height=360)
+    return _base_layout(fig, height=400)
 
 
 def diversion_figure(ratio: pd.DataFrame) -> go.Figure:
@@ -226,7 +227,7 @@ def diversion_figure(ratio: pd.DataFrame) -> go.Figure:
     fig.update_yaxes(rangemode="tozero", row=1, col=1)
     fig.update_yaxes(range=[0, 100], ticksuffix=" %", row=2, col=1)
     fig.update_annotations(font={"color": INK, "size": 13})
-    return _base_layout(fig, height=420)
+    return _base_layout(fig, height=460)
 
 
 def kpis(status_row: pd.Series, vessel_type: str) -> list[dict]:
