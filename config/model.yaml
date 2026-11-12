@@ -1,0 +1,71 @@
+# Assumptions of the transport LP (phase 2). Rationale and sources: docs/methodology.md,
+# section "Model". Every value here is an assumption, not measured data.
+
+base_year: 2023  # latest year with complete data for the reporters loaded so far
+
+# Cost of one tonne of demand that cannot be supplied (USD/t). Far above any supply cost,
+# so the model only leaves demand unmet when capacity is physically missing.
+penalty_usd_t: 5000
+
+freight:
+  source: assumption
+  note: >-
+    PE ships mostly as bagged cargo in containers (~25 t per 40ft box). Shanghai-Rotterdam
+    container rates of ~1,500-2,000 USD/FEU before the Red Sea crisis give ~80 USD/t for
+    ~10,500 nm. Within a region freight is 0 by definition.
+  fixed_usd_t: 40                  # port handling, inland legs
+  variable_usd_t_per_1000nm: 7     # sea leg
+
+# Per region: nameplate PE capacity, assumed utilisation and cash cost of production.
+# Production (= capacity x utilisation) is needed to derive demand: Comtrade has trade only.
+regions:
+  NAM:
+    capacity_mt: 34
+    utilisation: 0.88
+    prod_cost_usd_t: 650
+    source: "capacity: McKinsey 2025 (North America 34 Mt); cost: assumption (shale ethane)"
+  SAM:
+    capacity_mt: 5
+    utilisation: 0.80
+    prod_cost_usd_t: 1100
+    source: "assumption (Braskem and others, order of magnitude); cost: naphtha/ethane mix"
+  EUR:
+    capacity_mt: 17
+    utilisation: 0.75
+    prod_cost_usd_t: 1200
+    source: "capacity: McKinsey 2025 (Western Europe 14 Mt) + Central Europe/Turkey ~3 Mt; cost: assumption (naphtha, high energy prices)"
+  CIS:
+    capacity_mt: 5
+    utilisation: 0.85
+    prod_cost_usd_t: 700
+    source: "assumption (Sibur incl. ZapSibNeftekhim, order of magnitude); cost: gas/LPG"
+  MDE:
+    capacity_mt: 23
+    utilisation: 0.90
+    prod_cost_usd_t: 500
+    source: "capacity: McKinsey 2025 (Middle East 23 Mt); cost: assumption (low-cost ethane)"
+  AFR:
+    capacity_mt: 3
+    utilisation: 0.75
+    prod_cost_usd_t: 900
+    source: "assumption (Egypt, Sasol, Algeria, Nigeria, order of magnitude); cost: gas"
+  IND:
+    capacity_mt: 7
+    utilisation: 0.88
+    prod_cost_usd_t: 1000
+    source: "assumption (Reliance, GAIL, HPCL-Mittal, OPaL, order of magnitude); cost: naphtha/gas"
+  CHN:
+    capacity_mt: 38
+    utilisation: 0.78
+    prod_cost_usd_t: 1000
+    source: "capacity: McKinsey 2025 (China 42 Mt), reduced for 2023; cost: assumption (naphtha + coal-to-olefins)"
+  NEA:
+    capacity_mt: 10
+    utilisation: 0.80
+    prod_cost_usd_t: 1100
+    source: "assumption (Korea ~6, Japan ~2.5, Taiwan ~2 Mt); cost: naphtha"
+  SEA:
+    capacity_mt: 11
+    utilisation: 0.80
+    prod_cost_usd_t: 1050
+    source: "assumption (Thailand, Singapore, Malaysia, order of magnitude); cost: naphtha"
