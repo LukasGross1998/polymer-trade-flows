@@ -15,7 +15,7 @@ LAND = "#ecebe6"
 BASELINE_BAND = "rgba(137, 135, 129, 0.18)"
 
 # Categorical series colours, always assigned in this order.
-SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]
 BLUE, ORANGE = SERIES[0], SERIES[1]
 
 # Diverging scale for deviation from normal.

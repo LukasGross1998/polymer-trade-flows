@@ -9,7 +9,7 @@ from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
 
 from ptf.app.__main__ import create_app
 from ptf.app.data import load_app_data
-from ptf.app.tabs import chokepoints, markets, overview, ports
+from ptf.app.tabs import chokepoints, flows, markets, overview, ports
 from ptf.clean.portwatch import clean_transits
 from ptf.config import Settings
 from ptf.ingest import portwatch
@@ -110,3 +110,57 @@ def test_all_tabs_with_market_and_port_data(settings: Settings) -> None:
     app = create_app(settings)
     layout_ids = {c.id for c in app.layout._traverse() if getattr(c, "id", None)}
     assert {"mkt-oil", "port-map"} <= layout_ids
+
+
+def add_flow_data(settings: Settings) -> None:
+    links = pd.DataFrame(
+        [
+            {
+                "from_port_id": "jub",
+                "from_port": "Jubail",
+                "from_country": "Saudi Arabia",
+                "from_lat": 27.0,
+                "from_lon": 49.7,
+                "to_port_id": "sgp",
+                "to_port": "Singapore",
+                "to_country": "Singapore",
+                "to_lat": 1.3,
+                "to_lon": 103.8,
+                "transit_days": 14.6,
+                "daily_capacity": 14652.0,
+            }
+        ]
+    )
+    links.to_parquet(settings.clean_dir / "port_links.parquet")
+    days = pd.date_range("2026-09-01", "2026-11-06")
+    trade = pd.DataFrame({"date": days, "iso3": "SAU", "country": "Saudi Arabia"})
+    for flow in ("import", "export"):
+        trade[flow] = 100.0
+        for cargo in ["tanker", "dry_bulk", "container", "general_cargo", "roro"]:
+            trade[f"{flow}_{cargo}"] = 20.0
+    trade.assign(fetched_at=pd.Timestamp("2026-11-12")).to_parquet(
+        settings.clean_dir / "country_trade.parquet"
+    )
+
+
+def test_flows_tab(settings: Settings) -> None:
+    add_flow_data(settings)
+    data = load_app_data(settings)
+
+    network_fig, table = flows.update_network(data, flows.ALL_PORTS, "outbound", ["intl"])
+    mix_fig, ranking_fig = flows.update_trade(data, "SAU", "export", "tanker", "1y")
+
+    port_markers = network_fig.data[-1]
+    assert list(port_markers.customdata) == ["jub", "sgp"]  # clickable ports
+    assert [t.name for t in mix_fig.data] == [
+        "Tankers",
+        "Dry bulk",
+        "Containers",
+        "General cargo",
+        "RoRo",
+    ]
+    assert list(ranking_fig.data[0].y) == ["Saudi Arabia"]
+
+    app = create_app(settings)
+    layout_ids = {c.id for c in app.layout._traverse() if getattr(c, "id", None)}
+    assert {"flow-map", "flow-mix", "flow-ranking"} <= layout_ids

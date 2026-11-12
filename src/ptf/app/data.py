@@ -25,6 +25,8 @@ class AppData:
     ports: pd.DataFrame | None = None
     events: pd.DataFrame | None = None
     market: pd.DataFrame | None = None
+    country_trade: pd.DataFrame | None = None
+    port_links: pd.DataFrame | None = None
 
     @property
     def latest_date(self) -> pd.Timestamp:
@@ -52,6 +54,8 @@ def load_app_data(settings: Settings) -> AppData:
         ports=_optional(clean / "ports.parquet"),
         events=_optional(clean / "events.parquet"),
         market=_optional(clean / "market_series.parquet"),
+        country_trade=_optional(clean / "country_trade.parquet"),
+        port_links=_optional(clean / "port_links.parquet"),
     )
 
 

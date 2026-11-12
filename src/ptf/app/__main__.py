@@ -9,13 +9,14 @@ from dash import Dash, Input, Output, State, dcc, html
 
 from ptf.app import style
 from ptf.app.data import AppState
-from ptf.app.tabs import chokepoints, markets, overview, ports
+from ptf.app.tabs import chokepoints, flows, markets, overview, ports
 from ptf.config import Settings, get_settings
 
 TABS = [
     ("overview", "Overview", overview),
     ("chokepoints", "Chokepoints", chokepoints),
     ("ports", "Ports", ports),
+    ("flows", "Trade flows", flows),
     ("markets", "Energy & freight", markets),
 ]
 
