@@ -40,3 +40,8 @@ ports:
 # Port-to-port network (PortWatch snapshot): only links with at least this daily vessel
 # capacity are downloaded. 1,000 keeps ~8,100 of 227,000 links and ~71 % of total capacity.
 min_link_capacity: 1000
+
+# Country trade by cargo type (PortWatch Daily_Trade_Data_REG, ~560,000 rows). The first
+# download takes 20-25 minutes (2-3.5 s per page of 1,000 rows), later updates only a few
+# pages. Switched off until it is needed; set to true and run `pipeline portwatch`.
+download_country_trade: false

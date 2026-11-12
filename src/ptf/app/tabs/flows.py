@@ -21,17 +21,28 @@ CARGO_SHORT = {
 }
 
 
+COUNTRY_TRADE_HINT = (
+    "Trade by cargo type: no data yet. The country trade dataset (~560,000 rows) takes 20-25 "
+    "minutes to download the first time. To enable it, set `download_country_trade: true` in "
+    "config/monitor.yaml and run `uv run python -m ptf.pipeline portwatch`."
+)
+
+
 def layout(data: AppData) -> html.Div:
-    if data.port_links is None or data.country_trade is None:
+    if data.port_links is None:
         return charts.no_data("No flow data yet: run `uv run python -m ptf.pipeline portwatch`.")
+    trade = charts.no_data(COUNTRY_TRADE_HINT)
+    if data.country_trade is not None:
+        trade = _trade_section(data)
+    return html.Div([_network_section(data), trade])
+
+
+def _network_section(data: AppData) -> html.Div:
     ports = port_options(data.port_links)
     port_choices = [{"label": "All ports (largest links worldwide)", "value": ALL_PORTS}] + [
         {"label": f"{p.port} ({p.country})", "value": p.port_id} for p in ports.itertuples()
     ]
-    countries = data.country_trade[["iso3", "country"]].drop_duplicates().sort_values("country")
-    country_choices = [{"label": c.country, "value": c.iso3} for c in countries.itertuples()]
-
-    network = html.Div(
+    return html.Div(
         [
             html.Div("Port-to-port shipping network", style=style.SECTION_TITLE),
             html.Div(
@@ -85,7 +96,11 @@ def layout(data: AppData) -> html.Div:
         style={**style.CARD, "marginBottom": "16px"},
     )
 
-    trade = html.Div(
+
+def _trade_section(data: AppData) -> html.Div:
+    countries = data.country_trade[["iso3", "country"]].drop_duplicates().sort_values("country")
+    country_choices = [{"label": c.country, "value": c.iso3} for c in countries.itertuples()]
+    return html.Div(
         [
             html.Div("Trade by cargo type", style=style.SECTION_TITLE),
             html.Div(
@@ -144,7 +159,6 @@ def layout(data: AppData) -> html.Div:
         ],
         style=style.CARD,
     )
-    return html.Div([network, trade])
 
 
 def _width_bucket(capacity: pd.Series) -> pd.Series:
@@ -345,7 +359,7 @@ def update_trade(data: AppData, iso3: str, flow: str, cargo_type: str, period: s
 
 
 def register(app: Dash, state: AppState) -> None:
-    if state.data.port_links is None or state.data.country_trade is None:
+    if state.data.port_links is None:
         return
 
     @app.callback(
@@ -359,6 +373,18 @@ def register(app: Dash, state: AppState) -> None:
     def _network(port_id: str, direction: str, international: list[str], _version: int) -> tuple:
         return update_network(state.data, port_id, direction, international)
 
+    if state.data.country_trade is not None:
+        _register_trade(app, state)
+
+    @app.callback(
+        Output("flow-port", "value"), Input("flow-map", "clickData"), prevent_initial_call=True
+    )
+    def _select_port(click_data: dict | None) -> str:
+        point = (click_data or {}).get("points", [{}])[0]
+        return point.get("customdata") or no_update  # only port markers carry an id
+
+
+def _register_trade(app: Dash, state: AppState) -> None:
     @app.callback(
         Output("flow-mix", "figure"),
         Output("flow-ranking", "figure"),
@@ -370,10 +396,3 @@ def register(app: Dash, state: AppState) -> None:
     )
     def _trade(iso3: str, flow: str, cargo_type: str, period: str, _version: int) -> tuple:
         return update_trade(state.data, iso3, flow, cargo_type, period)
-
-    @app.callback(
-        Output("flow-port", "value"), Input("flow-map", "clickData"), prevent_initial_call=True
-    )
-    def _select_port(click_data: dict | None) -> str:
-        point = (click_data or {}).get("points", [{}])[0]
-        return point.get("customdata") or no_update  # only port markers carry an id

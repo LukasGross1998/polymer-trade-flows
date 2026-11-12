@@ -26,6 +26,7 @@ class MonitorConfig(BaseModel):
     revision_days: int = Field(ge=0)
     ports: list[PortConfig] = []
     min_link_capacity: float = Field(default=1000, ge=0)
+    download_country_trade: bool = False
 
 
 def load_monitor_config(path: Path) -> MonitorConfig:

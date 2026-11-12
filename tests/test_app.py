@@ -164,3 +164,15 @@ def test_flows_tab(settings: Settings) -> None:
     app = create_app(settings)
     layout_ids = {c.id for c in app.layout._traverse() if getattr(c, "id", None)}
     assert {"flow-map", "flow-mix", "flow-ranking"} <= layout_ids
+
+
+def test_flows_tab_without_country_trade_shows_network_and_hint(settings: Settings) -> None:
+    add_flow_data(settings)
+    (settings.clean_dir / "country_trade.parquet").unlink()
+
+    app = create_app(settings)
+
+    layout_ids = {c.id for c in app.layout._traverse() if getattr(c, "id", None)}
+    assert "flow-map" in layout_ids
+    assert "flow-mix" not in layout_ids  # replaced by the hint
+    assert "download_country_trade" in str(app.layout)
