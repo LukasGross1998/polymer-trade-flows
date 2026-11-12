@@ -35,7 +35,7 @@ def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig
 
     comtrade.ingest_reference("partnerAreas", raw)
     reporters_path = comtrade.ingest_reference("Reporters", raw)
-    reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.countries())
+    reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.reporters())
 
     comtrade.ingest_comtrade(
         reporters,
@@ -73,7 +73,7 @@ def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig)
 
 def run_report(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
     reporters_path = settings.raw_dir / "comtrade_reference" / "Reporters.parquet"
-    reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.countries())
+    reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.reporters())
     path = build_report(
         settings.clean_dir,
         settings.docs_dir,

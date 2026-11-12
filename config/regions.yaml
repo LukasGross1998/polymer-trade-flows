@@ -1,12 +1,15 @@
 # Mapping of countries (ISO 3166-1 alpha-3) to model regions.
 #
-# source: assumption — own grouping of the ~30 largest polyethylene exporters/importers into
-# 10 regions with similar supply economics and shipping geography.
-# Rationale per region: docs/methodology.md, section "Regions".
+# source: assumption — own grouping into 10 regions with similar supply economics and
+# shipping geography. Rationale per region: docs/methodology.md, section "Regions".
 #
-# Every country that is not listed here is mapped to the rest-of-world region, so no trade
-# volume is lost. Only the listed countries are queried as Comtrade *reporters*; as trade
-# *partners* the whole world is kept.
+# Per region:
+# - `reporters`: the ~30 largest polyethylene traders. Only these are queried from Comtrade.
+# - `members`:   all other countries of the region. They are not queried, but their trade is
+#                visible through the reporters' reports and must be counted in the right
+#                region (otherwise e.g. Germany -> Spain would look like trade with "rest of
+#                world" instead of trade within Europe).
+# Countries listed nowhere (mainly Oceania) fall into the rest-of-world region.
 #
 # `port` is the representative seaport used for sea distances (searoute). Coordinates are
 # approximate (lon, lat in decimal degrees); searoute snaps them to the nearest sea lane.
@@ -19,42 +22,58 @@ comtrade_aliases:
 
 regions:
   NAM:
-    name: North America
+    name: North and Central America
     port: {name: Houston, lon: -95.0, lat: 29.7}
-    countries: [USA, CAN, MEX]
+    reporters: [USA, CAN, MEX]
+    # Central America and the Caribbean are supplied mainly from the US Gulf Coast.
+    members: [GTM, BLZ, SLV, HND, NIC, CRI, PAN, CUB, DOM, HTI, JAM, TTO, BHS, BRB, PRI]
   SAM:
     name: South America
     port: {name: Santos, lon: -46.3, lat: -24.0}
-    countries: [BRA, ARG, CHL]
+    reporters: [BRA, ARG, CHL]
+    members: [COL, PER, ECU, VEN, BOL, PRY, URY, GUY, SUR]
   EUR:
     name: Europe
     port: {name: Rotterdam, lon: 4.05, lat: 51.95}
-    countries: [DEU, BEL, NLD, FRA, ITA, GBR, POL, TUR]
+    reporters: [DEU, BEL, NLD, FRA, ITA, GBR, POL, TUR]
+    # Rest of the EU, EFTA, Western Balkans, Ukraine and Moldova
+    members: [AUT, BGR, HRV, CYP, CZE, DNK, EST, FIN, GRC, HUN, IRL, LVA, LTU, LUX, MLT,
+              PRT, ROU, SVK, SVN, ESP, SWE, CHE, NOR, ISL, SRB, BIH, MNE, MKD, ALB, UKR, MDA]
   CIS:
-    name: Russia
+    name: Russia and CIS
     port: {name: St. Petersburg, lon: 30.2, lat: 59.9}
-    countries: [RUS]
+    reporters: [RUS]
+    members: [BLR, KAZ, UZB, TKM, KGZ, TJK, ARM, AZE, GEO]
   MDE:
     name: Middle East
     port: {name: Jebel Ali, lon: 55.0, lat: 25.0}
-    countries: [SAU, ARE, QAT, IRN]
+    reporters: [SAU, ARE, QAT, IRN]
+    members: [KWT, OMN, BHR, IRQ, ISR, JOR, LBN, SYR, YEM, PSE]
   AFR:
     name: Africa
     port: {name: Durban, lon: 31.05, lat: -29.9}
-    countries: [EGY, ZAF]
+    reporters: [EGY, ZAF]
+    members: [DZA, AGO, BEN, BWA, BFA, BDI, CPV, CMR, CAF, TCD, COM, COG, COD, CIV, DJI, GNQ,
+              ERI, SWZ, ETH, GAB, GMB, GHA, GIN, GNB, KEN, LSO, LBR, LBY, MDG, MWI, MLI, MRT,
+              MUS, MAR, MOZ, NAM, NER, NGA, RWA, STP, SEN, SYC, SLE, SOM, SSD, SDN, TZA, TGO,
+              TUN, UGA, ZMB, ZWE]
   IND:
-    name: India
+    name: India and South Asia
     port: {name: Nhava Sheva, lon: 72.95, lat: 18.95}
-    countries: [IND]
+    reporters: [IND]
+    members: [PAK, BGD, LKA, NPL, BTN, MDV, AFG]
   CHN:
     name: China
     port: {name: Shanghai, lon: 121.8, lat: 31.2}
-    countries: [CHN, HKG]
+    reporters: [CHN, HKG]
+    members: [MAC]
   NEA:
     name: Northeast Asia (excl. China)
     port: {name: Busan, lon: 129.05, lat: 35.1}
-    countries: [JPN, KOR, TWN]
+    reporters: [JPN, KOR, TWN]
+    members: [PRK, MNG]
   SEA:
     name: Southeast Asia
     port: {name: Singapore, lon: 103.85, lat: 1.25}
-    countries: [SGP, THA, MYS, VNM, IDN]
+    reporters: [SGP, THA, MYS, VNM, IDN]
+    members: [PHL, MMR, KHM, LAO, BRN, TLS]

@@ -14,8 +14,8 @@ REGIONS = RegionConfig.model_validate(
     {
         "rest_of_world": "ROW",
         "regions": {
-            "EUR": {"name": "E", "port": {"name": "p", "lon": 0, "lat": 0}, "countries": ["DEU"]},
-            "NAM": {"name": "N", "port": {"name": "p", "lon": 0, "lat": 0}, "countries": ["USA"]},
+            "EUR": {"name": "E", "port": {"name": "p", "lon": 0, "lat": 0}, "reporters": ["DEU"]},
+            "NAM": {"name": "N", "port": {"name": "p", "lon": 0, "lat": 0}, "reporters": ["USA"]},
         },
     }
 )

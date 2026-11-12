@@ -22,8 +22,8 @@ def test_distance_table_covers_all_pairs_with_zero_on_diagonal() -> None:
         {
             "rest_of_world": "ROW",
             "regions": {
-                "EUR": {"name": "Europe", "port": ROTTERDAM.model_dump(), "countries": ["DEU"]},
-                "CHN": {"name": "China", "port": SHANGHAI.model_dump(), "countries": ["CHN"]},
+                "EUR": {"name": "Europe", "port": ROTTERDAM.model_dump(), "reporters": ["DEU"]},
+                "CHN": {"name": "China", "port": SHANGHAI.model_dump(), "reporters": ["CHN"]},
             },
         }
     )
