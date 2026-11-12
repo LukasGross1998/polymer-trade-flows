@@ -77,3 +77,33 @@ reproduce the data.
   waits between requests, retries with exponential backoff and caches every response in the
   `raw` layer so each request runs only once.
 - The repo is reproducible without credentials.
+
+---
+
+## ADR-004: Phase-1 data sources and layer formats
+
+- **Date:** 2026-11-12
+- **Status:** accepted
+
+**Context.** Phase 1 needs country codes, an oil price and a clear contract between the raw
+and clean layers. The Comtrade preview API returns only numeric area codes (no ISO codes, no
+names). The EIA oil-price API needs a registered key.
+
+**Decision.**
+- Country codes come from Comtrade's own reference tables (`partnerAreas`, `Reporters`),
+  cached in the raw layer. "Other Asia, nes" (`S19`) is mapped to Taiwan via
+  `comtrade_aliases` in `config/regions.yaml`.
+- Brent comes from **FRED** (`DCOILBRENTEU`) as a keyless CSV; the raw layer keeps the CSV
+  byte for byte.
+- Raw Comtrade data is stored as one Parquet file per reporter and year with the API records
+  unchanged plus `fetched_at`. One file per request makes the cache trivial: file exists ->
+  skip.
+- The clean layer has three tables: `trade_reports` (one row per report),
+  `mirror` (both reports of a relation side by side) and `bilateral_flows` (one agreed
+  quantity per relation). The data-quality report is a **script**, not a notebook, so it is
+  tested and can later run as an Airflow task.
+- HTTP retries are a small hand-written loop with exponential backoff instead of a retry
+  library: fewer dependencies, every line explainable.
+
+**Consequences.** No credentials are needed for any phase-1 source. Cached raw files must be
+deleted by hand to pick up late-reported years.

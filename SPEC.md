@@ -1,6 +1,8 @@
 # SPEC: Polymer Trade Flow & Disruption Simulator
 
-Status: v0.2 (Entwurf) – wird in jeder Phase verfeinert.
+Status: v0.3 (Entwurf) – wird in jeder Phase verfeinert.
+
+Änderungen v0.3 (Phase 1): Comtrade ein Jahr pro Abfrage, ISO-Codes aus Referenztabellen, `qty_estimated_by_source`, Brent über FRED, drei Clean-Tabellen, konkrete Ausreißerregel, Häfen in `regions.yaml`, Regionen festgelegt.
 
 Änderungen v0.2 (Phase 0): Nachfrage-Definition, Schlupfvariable für ungedeckte Nachfrage, Vergleich nur interregionaler Ströme, Jahre 2019–2024, Region „Rest der Welt“, Zoll in USD/t, Comtrade-Filter, Spiegelstatistik über Mengen, offene Fragen beantwortet.
 
@@ -29,17 +31,17 @@ Ein Analyst oder Trader im Chemiemarkt, der fragt: *„Was passiert mit den PE-S
 | UN Comtrade | Bilaterale Handelsmengen (kg) und -werte (USD), monatlich/jährlich, HS 3901 | öffentlicher Preview-Endpunkt **ohne Key** (Key optional, siehe unten) | 1 |
 | Eurostat Comext | EU-Handel, detaillierter, als Abgleich | öffentliche API/Bulk | 1 (optional) |
 | Seewege/Distanzen | Distanz zwischen repräsentativen Häfen je Region | Python-Paket `searoute` | 1 |
-| Brent-Ölpreis | Treiber für Rohstoff- und Bunkerkosten | EIA oder FRED | 1 |
+| Brent-Ölpreis | Treiber für Rohstoff- und Bunkerkosten | FRED-CSV `DCOILBRENTEU` ohne Key (ADR-004) | 1 |
 | Kapazitäten/Kosten | Regionale PE-Kapazität und Cash-Kosten | **Annahmen** aus öffentlichen Quellen, klar gekennzeichnet | 2 |
 
 API-Details (Endpunkte, Limits, Parameter) vor der Implementierung in der aktuellen Doku prüfen.
 
-**Comtrade-Zugang (entschieden in Phase 0, ADR-003):** Wir nutzen den öffentlichen Endpunkt `https://comtradeapi.un.org/public/v1/preview/C/{freq}/HS` ohne Registrierung. Grenzen: max. 500 Datensätze pro Abfrage, Folgeanfragen werden gedrosselt (HTTP 429, beobachtet am 2026-11-12). Der Ingest wartet daher zwischen Abfragen, wiederholt bei 429 mit Backoff und cacht jede Antwort im `raw`-Layer. Ist `COMTRADE_API_KEY` gesetzt, darf der Ingest später auf den Key-Endpunkt umschalten; erforderlich ist das nicht.
+**Comtrade-Zugang (entschieden in Phase 0, ADR-003):** Wir nutzen den öffentlichen Endpunkt `https://comtradeapi.un.org/public/v1/preview/C/{freq}/HS` ohne Registrierung. Grenzen: max. 500 Datensätze und **ein Jahr** pro Abfrage (Abfrage daher je Melder und Jahr; bei genau 500 Zeilen getrennt nach Import/Export), keine ISO-Codes in der Antwort (Zuordnung über die Comtrade-Referenztabellen), Folgeanfragen werden gedrosselt (HTTP 429, beobachtet am 2026-11-12). Der Ingest wartet daher zwischen Abfragen, wiederholt bei 429 mit Backoff und cacht jede Antwort im `raw`-Layer. Ist `COMTRADE_API_KEY` gesetzt, darf der Ingest später auf den Key-Endpunkt umschalten; erforderlich ist das nicht.
 
 ### Startumfang
 - Jahre: 2019–2024 (2025 erst, wenn die Meldeabdeckung ausreicht; viele Länder melden mit 6–18 Monaten Verzug)
 - Frequenz: zuerst jährlich, später monatlich
-- Länder: die ca. 25–30 größten Exporteure/Importeure, gruppiert in **8–10 Modellregionen** (z. B. Nordamerika, Südamerika, Westeuropa, Naher Osten, China, Nordostasien ohne China, Südostasien, Indien, Afrika) – Zuordnung in `config/regions.yaml`
+- Länder: 30 große Exporteure/Importeure in **10 Modellregionen** (NAM, SAM, EUR, CIS, MDE, AFR, IND, CHN, NEA, SEA) – Zuordnung und repräsentativer Hafen je Region in `config/regions.yaml`, Begründung in `docs/methodology.md`. Taiwan meldet nicht und erscheint in Comtrade als „Other Asia, nes“ (`S19` → `TWN`).
 - Alle übrigen Länder fallen in eine Region **„Rest der Welt“ (`ROW`)**, damit keine Mengen verloren gehen.
 
 ## 3. Datenpipeline
@@ -50,15 +52,18 @@ API-Details (Endpunkte, Limits, Parameter) vor der Implementierung in der aktuel
 - **model:** Region-zu-Region-Matrizen, Inputs für das LP
 
 ### Clean-Schema (Minimum)
-`year, month, reporter_iso3, partner_iso3, flow (import|export), hs_code, qty_t, value_usd, source, is_imputed, imputation_method`
+`year, month, reporter_iso3, partner_iso3, flow (import|export), hs_code, qty_t, value_usd, source, qty_estimated_by_source, is_imputed, imputation_method`
+
+- `qty_estimated_by_source` übernimmt das Comtrade-Flag `isNetWgtEstimated` (Comtrade schätzt Gewichte teils selbst).
+- Clean-Tabellen: `trade_reports` (eine Zeile je Meldung, Schema oben), `mirror` (Export- und Importmeldung je Relation nebeneinander), `bilateral_flows` (eine abgestimmte Menge je Jahr/Exporteur/Importeur).
 
 - `month` ist bei Jahresdaten leer (null).
 - Ausgefiltert werden: Re-Exporte/Re-Importe sowie Aggregat-Partner wie „World“ (Comtrade-Code 0).
 
 ### Qualitätsregeln
-1. Einheitswerte (USD/t) berechnen; Ausreißer markieren (z. B. außerhalb eines robusten Bandes pro Jahr/Region).
+1. Einheitswerte (USD/t) berechnen; Ausreißer markieren: |log(Einheitswert) − Median| > 3 × MAD·1,4826, je Jahr und Flussrichtung (Schwelle in `config/pipeline.yaml`).
 2. **Spiegelstatistik:** Export A→B vs. Import B←A vergleichen. Abweichung messen und dokumentieren. Primär über **Mengen** (t), da Importwerte CIF und Exportwerte FOB sind und sich systematisch um Fracht/Versicherung unterscheiden.
-3. **Abgleich-Regel (MVP):** Importmeldungen bevorzugen (CIF, meist zuverlässiger), Export als Fallback; Mengen ohne Gewicht über Wert ÷ regionalen Einheitswert imputieren.
+3. **Abgleich-Regel (MVP):** Importmeldungen bevorzugen (CIF, meist zuverlässiger), Export als Fallback; eine plausible Exportmeldung schlägt eine Importmeldung mit Ausreißer-Einheitswert. Mengen ohne Gewicht über Wert ÷ regionalen Median-Einheitswert (Region des Melders, Jahr, Flussrichtung; Fallback global) imputieren.
 4. Jede Imputation setzt `is_imputed=True` und nennt die Methode.
 5. Data-Quality-Report (Abdeckung, Abweichungen, Imputationsanteil) als Tabelle/Grafik.
 
