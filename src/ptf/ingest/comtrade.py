@@ -33,6 +33,14 @@ RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 Sleep = Callable[[float], None]
 
 
+class QuotaExceededError(RuntimeError):
+    """The daily request quota of the API is used up (HTTP 403 "Quota Exceeded").
+
+    Retrying within the same day is pointless, so this is not retried. Cached files stay
+    valid; rerun the ingest after the quota has been reset.
+    """
+
+
 def build_params(reporter_code: int, year: int, hs_code: str, flow_codes: str) -> dict:
     """Query parameters for one reporter, one year and one HS code.
 
@@ -62,6 +70,8 @@ def get_json(
     """GET a JSON document; on throttling or server errors wait 2, 4, 8, ... seconds and retry."""
     for attempt in range(max_retries + 1):
         response = session.get(url, params=params, timeout=60)
+        if response.status_code == 403:
+            raise QuotaExceededError(f"HTTP 403 for {url}: daily quota probably exceeded")
         if response.status_code not in RETRYABLE_STATUS:
             response.raise_for_status()  # other 4xx errors are bugs, not worth retrying
             return response.json()
@@ -138,6 +148,9 @@ def ingest_comtrade(
     `reporters` maps ISO3 codes to Comtrade reporter codes. Cached files are never refetched;
     delete a file to refresh it (e.g. when a country publishes a late year).
     An empty response (country has not reported that year) is cached as an empty file too.
+
+    When the daily quota is used up, the download stops with a warning instead of an error:
+    everything fetched so far is cached, and the next run continues where this one stopped.
     """
     session = session or requests.Session()
     written: list[Path] = []
@@ -148,13 +161,28 @@ def ingest_comtrade(
                 logger.debug("cached: %s", path)
                 continue
 
-            raw = fetch_reporter_year(session, code, year, hs_code, max_retries, sleep)
+            try:
+                raw = fetch_reporter_year(session, code, year, hs_code, max_retries, sleep)
+            except QuotaExceededError:
+                missing = _count_missing(reporters, years, raw_dir)
+                logger.warning(
+                    "Comtrade daily quota exceeded at %s %s; %s reporter-years still missing. "
+                    "Rerun `ingest` later, cached files are kept.",
+                    iso3,
+                    year,
+                    missing,
+                )
+                return written
             path.parent.mkdir(parents=True, exist_ok=True)
             raw.to_parquet(path, index=False)
             written.append(path)
             logger.info("%s %s: %s records -> %s", iso3, year, len(raw), path)
             sleep(pause_seconds)  # be polite: the public endpoint throttles hard
     return written
+
+
+def _count_missing(reporters: dict[str, int], years: list[int], raw_dir: Path) -> int:
+    return sum(not raw_path(raw_dir, iso3, year).exists() for iso3 in reporters for year in years)
 
 
 def ingest_reference(

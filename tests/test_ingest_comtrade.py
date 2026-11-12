@@ -137,3 +137,14 @@ def test_reporter_codes_skip_historic_entries_and_non_reporters() -> None:
     codes = comtrade.reporter_codes(reference, ["DEU", "USA", "TWN"])
 
     assert codes == {"DEU": 276, "USA": 842}
+
+
+def test_quota_exceeded_stops_download_but_keeps_cached_files(tmp_path: Path) -> None:
+    session = FakeSession([FakeResponse(200, deu_payload()), FakeResponse(403)])
+
+    written = comtrade.ingest_comtrade(
+        {"DEU": 276}, [2023, 2024], "3901", tmp_path, session=session, sleep=no_sleep
+    )
+
+    assert written == [tmp_path / "comtrade" / "DEU_2023.parquet"]
+    assert len(session.calls) == 2  # 403 is not retried

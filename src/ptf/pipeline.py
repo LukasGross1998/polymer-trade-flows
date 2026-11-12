@@ -29,6 +29,10 @@ logger = logging.getLogger("ptf.pipeline")
 
 def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
     raw = settings.raw_dir
+    # Cheap, unlimited sources first, so a Comtrade quota stop does not block them.
+    distances.ingest_distances(regions, raw)
+    brent.ingest_brent(raw, config.brent.fred_series)
+
     comtrade.ingest_reference("partnerAreas", raw)
     reporters_path = comtrade.ingest_reference("Reporters", raw)
     reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.countries())
@@ -41,8 +45,6 @@ def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig
         pause_seconds=config.comtrade.request_pause_seconds,
         max_retries=config.comtrade.max_retries,
     )
-    distances.ingest_distances(regions, raw)
-    brent.ingest_brent(raw, config.brent.fred_series)
 
 
 def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
