@@ -1,6 +1,8 @@
 # SPEC: Polymer Trade Flow & Disruption Simulator
 
-Status: v0.5 (Entwurf) – wird in jeder Phase verfeinert.
+Status: v0.6 (Entwurf) – wird in jeder Phase verfeinert.
+
+Änderungen v0.6: Dashboard mit vier Tabs (Überblick, Meerengen, Häfen, Energie & Fracht), Abschnitt 7b; Szenario-Modelle zurückgestellt.
 
 Änderungen v0.5: Schifffahrts-Monitor (IMF PortWatch) als erster Tab der Dash-App, Abschnitt 7a.
 
@@ -158,6 +160,20 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 **Ansichten:** Weltkarte aller Meerengen (Größe = aktuelles Volumen, Farbe = Abweichung), Kennzahl-Kacheln, Zeitreihe mit Band für das Normalniveau (Auswahl Meerenge, Schiffstyp, Zeitraum), Grafik Rotes-Meer-Umleitung, Datenstand mit Quelle, Knopf „Daten aktualisieren“.
 
 **Akzeptanzkriterien:** Start mit `uv run python -m ptf.app`; Reaktion auf Auswahl < 1 s; Aktualisierung lädt nur neue Tage; Kennzahlen getestet; keine Logik in Callbacks.
+
+## 7b. Dashboard: Häfen, Ereignisse, Energie & Fracht
+
+**Tabs:** Überblick (Lagebild), Meerengen (7a), Häfen, Energie & Fracht.
+
+**Daten** (alle frei, ohne Key; Details `docs/methodology.md` Abschnitt 5):
+- PortWatch `Daily_Ports_Data` für die Häfen in `config/monitor.yaml` (Anläufe, geschätzte Import-/Exportmengen), gleiche Kennzahlen wie bei den Meerengen
+- PortWatch `portwatch_disruptions_database` (Ereignisse mit Alarmstufe)
+- FRED-Reihen in `config/market_data.yaml` (Öl, Gas, Frachtindex als Näherung, Harzpreisindex, Wechselkurse) und NY Fed GSCPI
+- Containerraten (WCI, FBX, SCFI): nicht frei verfügbar, daher nicht enthalten
+
+**Darstellung:** Reihen mit unterschiedlichen Einheiten indexiert (Start = 100) statt zweiter y-Achse; Schlüsselereignisse als Markierung in allen Zeitreihen; Statusfarben nur mit Symbol und Text.
+
+**Akzeptanzkriterien:** Jeder Tab reagiert in < 1 s; fehlende Daten führen zu einem Hinweis statt zu einem Fehler; keine Logik in Callbacks.
 
 ## 8. Engineering
 

@@ -36,6 +36,10 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.ingest.distances` |
 | `chokepoint_transits` | `data/clean/chokepoint_transits.parquet` | one chokepoint and day | `ptf.clean.portwatch` |
 | `chokepoints` | `data/clean/chokepoints.parquet` | one chokepoint | `ptf.clean.portwatch` |
+| `port_activity` | `data/clean/port_activity.parquet` | one port and day | `ptf.clean.portwatch` |
+| `ports` | `data/clean/ports.parquet` | one configured port | `ptf.clean.portwatch` |
+| `events` | `data/clean/events.parquet` | one disruption event | `ptf.clean.portwatch` |
+| `market_series` | `data/clean/market_series.parquet` | one series and date | `ptf.clean.market` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
@@ -213,6 +217,68 @@ Daily vessel transits from IMF PortWatch (raw downloads in
 | `chokepoint` | name | str | Suez Canal |
 | `lat` | latitude | degrees | 30.59 |
 | `lon` | longitude | degrees | 32.44 |
+
+## `port_activity`
+
+Daily activity of the ports configured in `config/monitor.yaml` (IMF PortWatch
+`Daily_Ports_Data`; raw downloads in `data/raw/portwatch/ports_daily/`). Example: Jubail,
+2026-11-06.
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `date` | day | date | 2026-11-06 |
+| `port_id` | PortWatch id | str | port24 |
+| `port` | short name from the config | str | Jubail |
+| `portcalls` | port calls, all vessels | vessels/day | 1 |
+| `portcalls_tanker` | port calls of tankers | vessels/day | 1 |
+| `portcalls_container` | port calls of container ships | vessels/day | 0 |
+| `import` | estimated import volume (PortWatch estimate from draught and capacity) | t/day | 536 |
+| `export` | estimated export volume | t/day | 62,716 |
+| `fetched_at` | when this value was downloaded; the latest download per day is kept | UTC timestamp | 2026-11-12 20:34 |
+
+## `ports`
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `port_id` | PortWatch id | str | port24 |
+| `port` | short name from the config | str | Jubail |
+| `country` | country | str | Saudi Arabia |
+| `lat` | latitude | degrees | 27.06 |
+| `lon` | longitude | degrees | 49.66 |
+
+## `events`
+
+PortWatch disruption events (`portwatch_disruptions_database`, newest download).
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `event_id` | PortWatch id | int | (id) |
+| `event_type` | DR drought, EQ earthquake, FL flood, OT other (e.g. conflict), TC tropical cyclone, VO volcano, WF wildfire | str | OT |
+| `event` | name | str | HORMUZ-26 |
+| `alert_level` | GREEN, ORANGE or RED | str | RED |
+| `country` | affected country, if any | str | – |
+| `from_date` | start | date | 2026-03-01 |
+| `to_date` | end; empty while ongoing | date | – |
+| `lat` | latitude | degrees | 26.30 |
+| `lon` | longitude | degrees | 56.86 |
+| `affected_ports` | PortWatch ids of affected ports or chokepoints | str | chokepoint6 |
+| `n_affected_ports` | number of affected ports | int | 1 |
+| `description` | short text | str | Trade Disruptions in the Strait of Hormuz from: 01 Mar 2026 |
+
+## `market_series`
+
+All market series in one long table: FRED series from `config/market_data.yaml` and the NY
+Fed GSCPI (raw downloads in `data/raw/fred/{id}/` and `data/raw/gscpi/`).
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `date` | observation date (monthly series: first day of the month; GSCPI: last day) | date | 2026-11-03 |
+| `series_id` | FRED id, or `GSCPI` | str | DCOILBRENTEU |
+| `name` | readable name | str | Brent crude oil |
+| `unit` | unit of `value` | str | USD/bbl |
+| `frequency` | daily or monthly | str | daily |
+| `group` | energy, gas, freight_polymers, fx, supply_chain | str | energy |
+| `value` | observation | see `unit` | 107.03 |
 
 ---
 

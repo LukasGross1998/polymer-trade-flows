@@ -295,3 +295,63 @@ not always "fewer ships".
 The diversion ratio and the Hormuz figures are natural inputs for scenarios (SPEC section 5):
 longer distances via the Cape for Asia–Europe trade, and reduced export capacity or a cost
 markup for Gulf producers.
+
+## 5. Dashboard data: ports, events, energy and freight
+
+The app (`uv run python -m ptf.app`) has four tabs: Overview, Chokepoints (section 4),
+Ports and Energy & freight. All data are free and need no key; `pipeline portwatch` and
+`pipeline market` (or the "Update data" button) refresh them.
+
+### 5.1 Ports and disruption events (IMF PortWatch)
+
+- **Port activity** (`Daily_Ports_Data`): port calls by vessel type and *estimated* import
+  and export volumes (t/day) per port, derived by PortWatch from vessel draught and capacity
+  (not customs statistics). Only the eleven ports in `config/monitor.yaml` are downloaded
+  (Houston, Santos, Antwerp, Rotterdam, Jubail, Yanbu, Jebel Ali, Shanghai, Ningbo,
+  Singapore, Busan): export hubs of the low-cost producers, the European polymer hubs and the
+  large Asian import ports. Ports added later get their full history on the next update.
+- The ports use **the same metrics as the chokepoints** (7-day average, normal = same
+  calendar week 2019–2023, flag below 70 %); `ptf.monitor.metrics` works on generic
+  "locations".
+- **Disruption events** (`portwatch_disruptions_database`, ~130 events): cyclones,
+  earthquakes, floods, droughts, wildfires and "other" events such as conflicts, with alert
+  level and affected ports. The app shows open events and events ended in the last 30 days,
+  orange and red alerts only.
+
+### 5.2 Energy, freight and supply-chain indicators
+
+| Series | Source | Frequency | Why |
+|---|---|---|---|
+| Brent, WTI | FRED | daily | crude oil: feedstock cost of naphtha crackers, bunker fuel |
+| Henry Hub (US gas) | FRED | daily | feedstock cost of US ethane crackers |
+| Natural gas Europe, LNG Japan | FRED (IMF) | monthly | feedstock and energy cost in Europe and Asia |
+| Gas spread Europe − US | computed (monthly means) | monthly | cost advantage of US producers |
+| US PPI deep sea freight | FRED (BLS) | monthly | **proxy** for ocean freight rates |
+| US PPI thermoplastic resins | FRED (BLS) | monthly | **proxy** for polymer price trends |
+| CNY per USD, broad USD index | FRED | daily | competitiveness of Chinese and dollar-priced trade |
+| GSCPI | New York Fed | monthly | global supply-chain stress, in standard deviations from the average |
+
+- **Container freight rates** (Drewry WCI, Freightos FBX, SCFI) have no free downloadable
+  history; the BLS producer price index for deep sea freight is the only free official
+  series with a long history and is labelled as a proxy.
+- Series with different units are compared **indexed to 100 at the start of the selected
+  period**, never on a second y-axis.
+- Two **key events** from `config/market_data.yaml` (Red Sea attacks from 19 Nov 2023,
+  Hormuz disruption from 1 Mar 2026) are drawn as dotted lines in all time series.
+
+### 5.3 What the data show (as of early November 2026)
+
+- **Oil and gas:** Brent rose from ~71 USD/bbl (February 2026) to up to 127 in March and
+  135 in October 2026, and stood at 107 on 3 November. European gas and Japanese LNG are at
+  ~25 USD/MMBtu (September), US Henry Hub at ~3: a spread of ~22 USD/MMBtu in favour of US
+  producers.
+- **Freight and supply chains:** the deep sea freight price index is 37 % above its level
+  a year earlier; the GSCPI is +1.26 (October 2026), clearly above its long-run average of 0.
+- **Gulf ports:** port calls at Jebel Ali are 78 % and at Jubail 67 % below normal, export
+  volumes of Jubail 57 % below normal. **Yanbu**, Saudi Arabia's Red Sea port outside
+  Hormuz, saw *more* calls from March to July 2026 (151–217 a month vs. ~90 before) – a
+  plausible rerouting of Saudi exports – but almost none from August 2026 on. PortWatch
+  reports zeros for these days (not missing rows); whether the port is idle or ships are not
+  visible in the AIS data cannot be told from the data.
+- PortWatch lists two open red-alert events: **HORMUZ-26** (since 1 Mar 2026) and **RED SEA
+  TENSIONS** (since 16 Dec 2023).

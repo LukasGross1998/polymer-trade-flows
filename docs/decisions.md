@@ -165,3 +165,34 @@ chokepoints. "Real-time" was the wish; free data had to be checked.
 
 **Consequences.** The monitor runs offline from the clean layer; "Update data" fetches new
 days. The view update takes ~0.2 s for all 28 chokepoints.
+
+---
+
+## ADR-007: Dashboard with four tabs and free market data
+
+- **Date:** 2026-11-12
+- **Status:** accepted
+
+**Context.** The monitor should give a fuller picture of the drivers of polyethylene trade
+(ports, events, energy, freight) before building scenario models.
+
+**Decision.**
+- Sources: IMF PortWatch ports and disruption events (same API as the chokepoints), FRED
+  series listed in `config/market_data.yaml`, NY Fed GSCPI. All free, no key.
+- Container rate indices (WCI, FBX, SCFI) are **not** used: no free history. The US PPI for
+  deep sea freight is the labelled proxy.
+- FRED and GSCPI raw files: one file per download, refreshed when older than one day
+  (`max_age_days`); Brent for the model now uses the same FRED module.
+- The GSCPI file is an old Excel format despite its `.xlsx` name; it is read with the
+  `calamine` engine (`python-calamine`), which pandas recommends over the deprecated `xlrd`.
+- Monitor metrics generalised from "chokepoint" to "location", so ports reuse them unchanged.
+- App structure: one module per tab in `src/ptf/app/tabs/` with `layout(data)`,
+  `update(...)` (plain, tested function) and `register(app, state)`; shared figures in
+  `charts.py`, colours in `style.py`. Tabs whose data are missing show a hint instead of
+  failing.
+- Charts: fixed x-range per selected period (Plotly would otherwise widen the axis for
+  annotation text), indexed series instead of dual axes, colours tied to the series and
+  not to their position among the visible ones.
+
+**Consequences.** Scenario models (SPEC section 5) are postponed; the dashboard data (Red
+Sea diversion, Hormuz, gas spread, freight index) are the planned inputs for them.
