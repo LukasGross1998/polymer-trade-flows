@@ -103,6 +103,9 @@ def reconcile_flows(
         .fillna(False)
         .astype(bool)
     )
+    # An imputed quantity is our own estimate, not Comtrade's: Comtrade's flag on the
+    # (weightless) report it came from does not apply to it.
+    flows.loc[flows["is_imputed"], "qty_estimated_by_source"] = False
 
     columns = [
         "year",

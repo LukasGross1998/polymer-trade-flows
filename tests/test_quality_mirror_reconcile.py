@@ -134,12 +134,14 @@ def test_missing_quantity_is_imputed_from_regional_unit_value() -> None:
             report("DEU", "USA", "import", 100.0, 120_000.0),
             report("DEU", "FRA", "import", 100.0, 120_000.0),
             # Value without weight: 60,000 USD / 1,200 USD/t = 50 t.
-            report("DEU", "CHN", "import", None, 60_000.0),
+            report("DEU", "CHN", "import", None, 60_000.0)
+            | {"qty_estimated_by_source": True},  # Comtrade flag on a report without weight
         ]
     ).set_index("exporter_iso3")
 
     imputed = flows.loc["CHN"]
     assert imputed["is_imputed"]
+    assert not imputed["qty_estimated_by_source"]
     assert imputed["imputation_method"] == IMPUTATION_METHOD
     assert imputed["qty_t"] == pytest.approx(50.0)
     assert not flows.loc["USA", "is_imputed"]
