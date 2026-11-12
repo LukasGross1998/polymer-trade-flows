@@ -4,6 +4,7 @@
     uv run python -m ptf.pipeline clean    # build the clean layer
     uv run python -m ptf.pipeline report   # write docs/data_quality.md and charts
     uv run python -m ptf.pipeline model    # model layer, transport LP, docs/model_results.md
+    uv run python -m ptf.pipeline portwatch  # chokepoint transits (incremental) -> clean layer
     uv run python -m ptf.pipeline all      # all steps
 
 Each step is a plain function, so Airflow (phase 5) can call the same steps as tasks.
@@ -18,15 +19,17 @@ from ptf.clean import brent as clean_brent
 from ptf.clean.comtrade import build_country_lookup, load_raw_comtrade, to_trade_reports
 from ptf.clean.dq_report import build_report
 from ptf.clean.mirror import build_mirror_table
+from ptf.clean.portwatch import clean_chokepoints, clean_transits
 from ptf.clean.quality import add_unit_values, flag_unit_value_outliers
 from ptf.clean.reconcile import reconcile_flows, regional_unit_values
 from ptf.config import Settings, get_settings
-from ptf.ingest import brent, comtrade, distances
+from ptf.ingest import brent, comtrade, distances, portwatch
 from ptf.model import inputs as model_inputs
 from ptf.model.compare import comparison_metrics, comparison_table
 from ptf.model.config import load_model_config
 from ptf.model.report import build_model_report
 from ptf.model.transport import solve
+from ptf.monitor.config import load_monitor_config
 from ptf.pipeline_config import PipelineConfig, load_pipeline_config
 from ptf.regions import RegionConfig, load_regions
 
@@ -114,9 +117,20 @@ def run_model(settings: Settings) -> None:
     )
 
 
+def run_portwatch(settings: Settings) -> None:
+    """Download new chokepoint days (incremental) and rebuild the clean PortWatch tables."""
+    config = load_monitor_config(settings.config_dir / "monitor.yaml")
+    raw, clean = settings.raw_dir, settings.clean_dir
+    portwatch.ingest_chokepoints(raw)
+    portwatch.ingest_chokepoint_transits(raw, revision_days=config.revision_days)
+    clean.mkdir(parents=True, exist_ok=True)
+    clean_transits(raw).to_parquet(clean / "chokepoint_transits.parquet", index=False)
+    clean_chokepoints(raw).to_parquet(clean / "chokepoints.parquet", index=False)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m ptf.pipeline", description=__doc__)
-    parser.add_argument("step", choices=["ingest", "clean", "report", "model", "all"])
+    parser.add_argument("step", choices=["ingest", "clean", "report", "model", "portwatch", "all"])
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -132,6 +146,8 @@ def main(argv: list[str] | None = None) -> None:
         run_report(settings, regions, config)
     if args.step in ("model", "all"):
         run_model(settings)
+    if args.step in ("portwatch", "all"):
+        run_portwatch(settings)
 
 
 if __name__ == "__main__":

@@ -9,6 +9,10 @@ rolling_window_days: 7
 # A chokepoint counts as disrupted when its 7-day average falls below this share of normal.
 disruption_threshold: 0.70
 
+# Below this normal traffic (vessels per day) a chokepoint is not flagged: at 0.1 ships a day,
+# a single quiet week would otherwise read as "-100 %, disrupted".
+min_baseline_per_day: 2.0
+
 # Chokepoints of the Red Sea diversion ratio (PortWatch ids).
 red_sea:
   red_sea_route: chokepoint4   # Bab el-Mandeb Strait

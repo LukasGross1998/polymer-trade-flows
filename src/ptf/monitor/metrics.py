@@ -57,13 +57,19 @@ def weekly_baseline(series: pd.DataFrame, baseline_years: list[int]) -> pd.DataF
 
 
 def compare_to_baseline(
-    series: pd.DataFrame, baseline: pd.DataFrame, threshold: float
+    series: pd.DataFrame, baseline: pd.DataFrame, threshold: float, min_baseline: float = 0.0
 ) -> pd.DataFrame:
-    """Add baseline columns, `deviation_pct` and `is_disrupted` to a series with `rolling`."""
+    """Add baseline columns, `deviation_pct` and `is_disrupted` to a series with `rolling`.
+
+    Chokepoints whose normal traffic is below `min_baseline` vessels per day are never
+    flagged: with so few ships, percentage changes are noise.
+    """
     with_week = pd.concat([series, _iso_year_week(series["date"])[["week"]]], axis=1)
     table = with_week.merge(baseline, on=["chokepoint_id", "week"], how="left")
     table["deviation_pct"] = (table["rolling"] / table["baseline"] - 1) * 100
-    table["is_disrupted"] = (table["rolling"] < threshold * table["baseline"]).fillna(False)
+    below_threshold = table["rolling"] < threshold * table["baseline"]
+    enough_traffic = table["baseline"] >= min_baseline
+    table["is_disrupted"] = (below_threshold & enough_traffic).fillna(False)
     return table
 
 
@@ -71,7 +77,9 @@ def monitor_table(transits: pd.DataFrame, vessel_type: str, config: MonitorConfi
     """Daily series with rolling mean, baseline and deviation for every chokepoint."""
     series = add_rolling_mean(daily_series(transits, vessel_type), config.rolling_window_days)
     baseline = weekly_baseline(series, config.baseline_years)
-    return compare_to_baseline(series, baseline, config.disruption_threshold)
+    return compare_to_baseline(
+        series, baseline, config.disruption_threshold, config.min_baseline_per_day
+    )
 
 
 def latest_status(table: pd.DataFrame) -> pd.DataFrame:

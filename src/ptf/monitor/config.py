@@ -15,6 +15,7 @@ class MonitorConfig(BaseModel):
     baseline_years: list[int]
     rolling_window_days: int = Field(ge=1)
     disruption_threshold: float = Field(gt=0, lt=1)
+    min_baseline_per_day: float = Field(ge=0)
     red_sea: RedSeaConfig
     revision_days: int = Field(ge=0)
 

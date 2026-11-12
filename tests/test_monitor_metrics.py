@@ -19,6 +19,7 @@ CONFIG = MonitorConfig.model_validate(
         "baseline_years": [2019],
         "rolling_window_days": 3,
         "disruption_threshold": 0.7,
+        "min_baseline_per_day": 2.0,
         "red_sea": {"red_sea_route": "red", "cape_route": "cape"},
         "revision_days": 14,
     }
@@ -141,3 +142,23 @@ def test_diversion_ratio_is_cape_share_of_both_routes() -> None:
     ratio = diversion_ratio(data, CONFIG)
 
     assert ratio["cape_share"].iloc[-1] == pytest.approx(0.75)  # 30 / (30 + 10)
+
+
+def test_low_traffic_chokepoints_are_not_flagged() -> None:
+    series = pd.DataFrame(
+        {"date": pd.to_datetime(["2024-01-08"]), "chokepoint_id": "x", "rolling": [0.0]}
+    )
+    baseline = pd.DataFrame(
+        {
+            "chokepoint_id": ["x"],
+            "week": [2],
+            "baseline": [0.5],  # half a ship per day is normal here
+            "baseline_low": [0.0],
+            "baseline_high": [1.0],
+        }
+    )
+
+    table = compare_to_baseline(series, baseline, threshold=0.7, min_baseline=2.0)
+
+    assert table["deviation_pct"].iloc[0] == pytest.approx(-100)  # still shown
+    assert not table["is_disrupted"].iloc[0]  # but not flagged
