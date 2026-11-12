@@ -1,6 +1,8 @@
 # SPEC: Polymer Trade Flow & Disruption Simulator
 
-Status: v0.4 (Entwurf) – wird in jeder Phase verfeinert.
+Status: v0.5 (Entwurf) – wird in jeder Phase verfeinert.
+
+Änderungen v0.5: Schifffahrts-Monitor (IMF PortWatch) als erster Tab der Dash-App, Abschnitt 7a.
 
 Änderungen v0.4 (Phase 2): Regionen mit `reporters` und `members` (alle Länder einer Region), `ROW` nicht im LP, Basisjahr 2023, Definition „erklärter Anteil“, Vorzeichen der Duals, Annahmen in `config/model.yaml`.
 
@@ -130,6 +132,7 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 ## 7. Dash-App
 
 ### Seiten/Tabs
+0. **Schifffahrts-Monitor:** siehe Abschnitt 7a (zuerst gebaut)
 1. **Datenqualität:** Abdeckung, Spiegelabweichungen, Imputationsanteil
 2. **Beobachtete Ströme:** Weltkarte mit Strompfeilen (Plotly `scattergeo`), Filter Jahr/Region
 3. **Modell vs. Realität:** Vergleichsmatrix/Heatmap, Kennzahlen
@@ -139,6 +142,22 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 - App startet mit einem Befehl lokal und in Docker
 - Szenario-Neuberechnung < 5 s
 - Keine Geschäftslogik in Callbacks (nur Aufrufe von `src/ptf/...`)
+
+## 7a. Schifffahrts-Monitor (IMF PortWatch)
+
+**Ziel:** Störungen an maritimen Meerengen früh erkennen und einordnen: Wie viel Verkehr gibt es aktuell im Vergleich zum Normalniveau, und wohin weicht er aus?
+
+**Daten:** IMF PortWatch, ArcGIS-API ohne Key. `Daily_Chokepoints_Data`: Durchfahrten je Tag, Meerenge und Schiffstyp (Container, Massengut, Stückgut, RoRo, Tanker) plus Tragfähigkeit, ab 2019-01-01, 28 Meerengen. `PortWatch_chokepoints_database`: Stammdaten (Name, Lage). Max. 1.000 Zeilen pro Abfrage → seitenweise; inkrementell nur Tage nach dem letzten Stand. **Keine Echtzeit:** Tageswerte mit einigen Tagen Verzug, etwa wöchentlich aktualisiert.
+
+**Kennzahlen** (Logik in `src/ptf/monitor/`, Parameter in `config/monitor.yaml`):
+- 7-Tage-Durchschnitt der Durchfahrten je Meerenge und Schiffstyp
+- Normalniveau: Mittel derselben Kalenderwoche im Basiszeitraum 2019–2023 (vor der Rotes-Meer-Krise)
+- Abweichung vom Normalniveau in % und Störungs-Flag unterhalb einer Schwelle (Start: 70 % des Normalniveaus)
+- Umleitungsquote Rotes Meer: Containerschiffe am Kap / (Kap + Bab el-Mandeb), 7-Tage-Basis
+
+**Ansichten:** Weltkarte aller Meerengen (Größe = aktuelles Volumen, Farbe = Abweichung), Kennzahl-Kacheln, Zeitreihe mit Band für das Normalniveau (Auswahl Meerenge, Schiffstyp, Zeitraum), Grafik Rotes-Meer-Umleitung, Datenstand mit Quelle, Knopf „Daten aktualisieren“.
+
+**Akzeptanzkriterien:** Start mit `uv run python -m ptf.app`; Reaktion auf Auswahl < 1 s; Aktualisierung lädt nur neue Tage; Kennzahlen getestet; keine Logik in Callbacks.
 
 ## 8. Engineering
 

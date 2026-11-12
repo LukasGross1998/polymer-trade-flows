@@ -1,0 +1,15 @@
+# Parameters of the shipping monitor (IMF PortWatch). Rationale: docs/methodology.md, section 4.
+
+# Years whose average defines "normal" traffic for each calendar week: before the Red Sea
+# crisis (attacks from late 2023 on) and including the 2019-2023 Covid swings.
+baseline_years: [2019, 2020, 2021, 2022, 2023]
+
+rolling_window_days: 7
+
+# A chokepoint counts as disrupted when its 7-day average falls below this share of normal.
+disruption_threshold: 0.70
+
+# Chokepoints of the Red Sea diversion ratio (PortWatch ids).
+red_sea:
+  red_sea_route: chokepoint4   # Bab el-Mandeb Strait
+  cape_route: chokepoint7      # Cape of Good Hope
