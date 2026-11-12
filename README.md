@@ -10,6 +10,20 @@ regional prices, and disruption scenarios (Suez/Red Sea closure, Panama Canal dr
 plant outages, oil shocks) show how flows, costs and prices shift. Results will be explorable in an
 interactive Dash app.
 
+## Shipping chokepoint monitor
+
+![Shipping chokepoint monitor](docs/figures/monitor_screenshot.jpg)
+
+A Dash app that tracks daily vessel transits through 28 maritime chokepoints (IMF PortWatch)
+against their 2019–2023 normal: map of current deviations, 7-day averages with a normal band,
+and the Red Sea diversion (share of container ships taking the Cape route: ~25 % before the
+crisis, ~77 % since 2024).
+
+```bash
+uv run python -m ptf.pipeline portwatch   # download/update transits (incremental)
+uv run python -m ptf.app                  # open http://127.0.0.1:8050
+```
+
 ## Approach
 
 1. **Data:** UN Comtrade bilateral trade -> cleaning, mirror statistics, imputation -> Parquet/DuckDB
@@ -47,6 +61,7 @@ uv run python -m ptf.pipeline ingest   # download raw data (cached, resumable)
 uv run python -m ptf.pipeline clean    # raw -> clean layer (Parquet in data/clean)
 uv run python -m ptf.pipeline report   # docs/data_quality.md + docs/figures
 uv run python -m ptf.pipeline model    # transport LP -> docs/model_results.md
+uv run python -m ptf.pipeline portwatch  # chokepoint transits for the monitor app
 uv run python -m ptf.pipeline all      # all three steps
 ```
 
@@ -66,6 +81,6 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | 0 | Repo scaffold, tooling, CI | done |
 | 1 | Ingest, cleaning, data-quality report | code done, download ~60 % |
 | 2 | Transport LP, model vs. reality, shadow prices | first version done (base year 2023) |
-| 3 | Scenarios, cost curves, Dash app (MVP) | planned |
+| 3 | Scenarios, cost curves, Dash app (MVP) | started: shipping monitor tab done |
 | 4 | Import forecasting (optional) | planned |
 | 5 | Docker, Airflow, final polish | planned |

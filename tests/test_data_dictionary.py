@@ -1,11 +1,16 @@
 """docs/data_dictionary.md must list exactly the columns the pipeline writes."""
 
+import json
 import re
+from pathlib import Path
 
 import pandas as pd
 import pytest
 from conftest import REPO_ROOT, PipelineSetup, write_synthetic_distances
+from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
 
+from ptf.clean.portwatch import clean_chokepoints, clean_transits
+from ptf.ingest import portwatch
 from ptf.ingest.distances import build_distance_table
 from ptf.pipeline import run_clean, run_model
 
@@ -51,3 +56,16 @@ def test_model_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str
     written = pd.read_parquet(settings.model_dir / "2023" / f"{table}.parquet")
 
     assert documented_columns(table) == list(written.columns)
+
+
+def test_portwatch_tables_match_dictionary(tmp_path: Path) -> None:
+    features = json.loads((REPO_ROOT / "tests/fixtures/portwatch_daily_sample.json").read_text())
+    session = FakeSession([FakeResponse(200, features)])
+    portwatch.ingest_chokepoint_transits(tmp_path, session=session, sleep=no_sleep)
+    reference = [{"attributes": {"portid": "c1", "portname": "X", "lat": 1.0, "lon": 2.0}}]
+    portwatch.ingest_chokepoints(
+        tmp_path, session=FakeSession([FakeResponse(200, {"features": reference})]), sleep=no_sleep
+    )
+
+    assert documented_columns("chokepoint_transits") == list(clean_transits(tmp_path).columns)
+    assert documented_columns("chokepoints") == list(clean_chokepoints(tmp_path).columns)

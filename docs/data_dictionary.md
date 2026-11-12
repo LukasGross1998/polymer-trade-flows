@@ -34,6 +34,8 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | `bilateral_flows` | `data/clean/bilateral_flows.parquet` | one trade relation: year, exporter, importer | `ptf.clean.reconcile` |
 | `brent_annual` | `data/clean/brent_annual.parquet` | one year | `ptf.clean.brent` |
 | `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.ingest.distances` |
+| `chokepoint_transits` | `data/clean/chokepoint_transits.parquet` | one chokepoint and day | `ptf.clean.portwatch` |
+| `chokepoints` | `data/clean/chokepoints.parquet` | one chokepoint | `ptf.clean.portwatch` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
@@ -177,6 +179,40 @@ further passages blocked (e.g. Suez).
 | `origin_port` | representative port of the origin region (`config/regions.yaml`) | str | Jebel Ali |
 | `dest_port` | representative port of the destination region | str | Rotterdam |
 | `distance_nm` | shortest sea route according to `searoute`; 0 within a region | nautical miles | 6,262 |
+
+---
+
+## `chokepoint_transits`
+
+Daily vessel transits from IMF PortWatch (raw downloads in
+`data/raw/portwatch/chokepoints_daily/`, one file per download). Example: Suez Canal,
+2026-11-03.
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `date` | day of the transits | date | 2026-11-03 |
+| `chokepoint_id` | PortWatch id | str | chokepoint1 |
+| `chokepoint` | name | str | Suez Canal |
+| `n_total` | all vessels | vessels/day | 39 |
+| `n_container` | container ships | vessels/day | 12 |
+| `n_tanker` | tankers | vessels/day | 16 |
+| `n_dry_bulk` | dry bulk carriers | vessels/day | 8 |
+| `n_general_cargo` | general cargo ships | vessels/day | 2 |
+| `n_roro` | roll-on/roll-off ships | vessels/day | 1 |
+| `n_cargo` | all cargo ships except tankers | vessels/day | 23 |
+| `capacity` | deadweight tonnage of all transits | t/day | 1,918,291 |
+| `capacity_container` | deadweight tonnage of container ships | t/day | 716,075 |
+| `capacity_tanker` | deadweight tonnage of tankers | t/day | 924,628 |
+| `fetched_at` | when this value was downloaded; the latest download per day is kept | UTC timestamp | 2026-11-12 20:18 |
+
+## `chokepoints`
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `chokepoint_id` | PortWatch id | str | chokepoint1 |
+| `chokepoint` | name | str | Suez Canal |
+| `lat` | latitude | degrees | 30.59 |
+| `lon` | longitude | degrees | 32.44 |
 
 ---
 

@@ -136,3 +136,32 @@ how to treat the rest-of-world region, which has no representative port.
 
 **Consequences.** The base model is deliberately simple and produces a corner solution
 (expensive regions shut down completely). Calibration is a separate step (phase 2b).
+
+---
+
+## ADR-006: Shipping monitor with IMF PortWatch and Dash
+
+- **Date:** 2026-11-12
+- **Status:** accepted
+
+**Context.** A first interactive app should show current disruptions at maritime
+chokepoints. "Real-time" was the wish; free data had to be checked.
+
+**Decision.**
+- Source: IMF PortWatch `Daily_Chokepoints_Data` via the public ArcGIS REST API (no key,
+  1,000 rows per page). Daily counts with a few days' delay are accurate enough for a
+  disruption monitor. Raw AIS streams (true real-time) were rejected: they would require own
+  transit detection from millions of positions, a project of its own.
+- Incremental download with a 14-day revision window; one raw file per download, file names
+  with microseconds and an explicit no-overwrite check (a test caught two downloads in the
+  same second overwriting each other).
+- Normal level = same calendar week in 2019–2023; minimum traffic of 2 vessels a day before a
+  chokepoint can be flagged.
+- App structure: `layout.py` (components), `figures.py` (pure functions DataFrame -> figure),
+  `callbacks.py` (only wiring; `update_views` is a plain, tested function), `data.py`
+  (loading and refresh). Business logic stays in `src/ptf/monitor/`.
+- Light theme only for now; palette from the dataviz guidelines (blue = observed, gray =
+  normal, red <-> gray <-> blue for deviation; no dual axes).
+
+**Consequences.** The monitor runs offline from the clean layer; "Update data" fetches new
+days. The view update takes ~0.2 s for all 28 chokepoints.

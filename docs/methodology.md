@@ -246,3 +246,52 @@ Full output: [model_results.md](model_results.md).
 - Possible calibration (SPEC phase 2b): a minimum utilisation per region (e.g. ≥ 60 %)
   to represent contracts and integration, a maximum utilisation below 100 % of nameplate,
   route-specific calibration markups, or an entropy/gravity model as benchmark.
+
+## 4. Shipping monitor (IMF PortWatch)
+
+### 4.1 Data
+
+IMF PortWatch counts vessel transits through 28 maritime chokepoints per day and vessel
+type (container, dry bulk, general cargo, RoRo, tanker), derived from satellite AIS
+positions, from 2019-01-01 on. Access: ArcGIS REST API without a key, at most 1,000 rows
+per request (paged with `resultOffset`). **Not real-time:** data arrive a few days late and
+are published about weekly. Updates are incremental; the last `revision_days` (14) before the
+latest stored day are fetched again because PortWatch revises recent days, and the clean
+step keeps the latest download per day. Raw downloads are never overwritten.
+
+AIS-based counts drop when ships switch off their transponders or when GPS jamming disturbs
+positions. A collapse in counts therefore means "fewer ships visible", which is usually but
+not always "fewer ships".
+
+### 4.2 Metrics (`src/ptf/monitor/metrics.py`, parameters in `config/monitor.yaml`)
+
+- **7-day average** per chokepoint and vessel type: daily counts are noisy (weekdays,
+  convoys).
+- **Normal level:** for each day, the average daily traffic in the same ISO calendar week
+  across the baseline years 2019–2023 (each year's weekly average first, then the mean over
+  the years; the band in the chart is the lowest to highest year). Using the calendar week
+  removes seasonality; 2019–2023 ends before the Red Sea attacks.
+- **Deviation from normal** in % and a **disruption flag** when the 7-day average falls below
+  70 % of normal. Chokepoints with less than 2 vessels a day of normal traffic are never
+  flagged (Bering or Kerch Strait would otherwise flip to "-100 %" on a single quiet week).
+- **Year-on-year:** against the same day 364 days earlier (same weekday).
+- **Red Sea diversion ratio:** container ships at the Cape of Good Hope / (Cape +
+  Bab el-Mandeb), 7-day basis.
+
+### 4.3 What the data show (as of 2026-11-08)
+
+- **Red Sea:** the Cape share of container ships was 22–27 % per year in 2019–2023 and
+  75–78 % in 2024–2026. Container transits through Bab el-Mandeb fell from 6,739 (2023) to
+  1,967 (2024), −71 %; at the Cape they tripled. There is no recovery in 2025–2026; in the
+  latest week Bab el-Mandeb container traffic is 67 % below normal.
+- **Strait of Hormuz:** total transits drop from ~78 a day (February 2026) to 3–13 a day from
+  March 2026 on, tankers included; in the latest week tanker traffic is 98 % below normal.
+  The cause is not analysed here (see the AIS caveat in 4.1). For polyethylene it matters
+  directly: Middle East exports from the Gulf (e.g. Jubail, Jebel Ali) pass Hormuz.
+- **Panama:** 12 % fewer transits in 2024 than in 2023 (drought restrictions).
+
+### 4.4 Link to the transport model (next step)
+
+The diversion ratio and the Hormuz figures are natural inputs for scenarios (SPEC section 5):
+longer distances via the Cape for Asia–Europe trade, and reduced export capacity or a cost
+markup for Gulf producers.
