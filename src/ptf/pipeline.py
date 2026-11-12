@@ -23,8 +23,10 @@ from ptf.clean.market import clean_market_series, parse_fred_csv
 from ptf.clean.mirror import build_mirror_table
 from ptf.clean.portwatch import (
     clean_chokepoints,
+    clean_country_trade,
     clean_events,
     clean_port_activity,
+    clean_port_links,
     clean_ports,
     clean_transits,
 )
@@ -138,6 +140,8 @@ def run_portwatch(settings: Settings) -> None:
     portwatch.ingest_ports_reference(raw, list(port_names))
     portwatch.ingest_port_activity(raw, list(port_names), revision_days=config.revision_days)
     portwatch.ingest_events(raw)
+    portwatch.ingest_country_trade(raw, revision_days=config.revision_days)
+    portwatch.ingest_port_links(raw, config.min_link_capacity)
 
     clean.mkdir(parents=True, exist_ok=True)
     clean_transits(raw).to_parquet(clean / "chokepoint_transits.parquet", index=False)
@@ -145,6 +149,8 @@ def run_portwatch(settings: Settings) -> None:
     clean_port_activity(raw, port_names).to_parquet(clean / "port_activity.parquet", index=False)
     clean_ports(raw, port_names).to_parquet(clean / "ports.parquet", index=False)
     clean_events(raw).to_parquet(clean / "events.parquet", index=False)
+    clean_country_trade(raw).to_parquet(clean / "country_trade.parquet", index=False)
+    clean_port_links(raw).to_parquet(clean / "port_links.parquet", index=False)
 
 
 def run_market(settings: Settings) -> None:

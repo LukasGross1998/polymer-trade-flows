@@ -6,6 +6,9 @@
 - `Daily_Ports_Data`: port calls and estimated import/export volumes (t) per port and day;
   only the ports configured in `config/monitor.yaml` are downloaded (5.9 m rows in total).
 - `portwatch_disruptions_database`: disruption events (cyclones, earthquakes, conflicts, ...).
+- `Daily_Trade_Data_REG`: estimated imports and exports per country and day, by vessel type.
+- `spillovers_port_level_impact`: port-to-port links (average transit days, daily vessel
+  capacity), a static snapshot of the shipping network; only links above a minimum capacity.
 
 The API returns at most 1,000 rows per request, so queries are paged with `resultOffset`.
 Updates are incremental: only days from (last stored date - revision_days) are requested,
@@ -31,6 +34,16 @@ CHOKEPOINTS_URL = f"{SERVICES}/PortWatch_chokepoints_database/FeatureServer/0/qu
 PORTS_DAILY_URL = f"{SERVICES}/Daily_Ports_Data/FeatureServer/0/query"
 PORTS_URL = f"{SERVICES}/PortWatch_ports_database/FeatureServer/0/query"
 EVENTS_URL = f"{SERVICES}/portwatch_disruptions_database/FeatureServer/0/query"
+COUNTRY_TRADE_URL = f"{SERVICES}/Daily_Trade_Data_REG/FeatureServer/0/query"
+PORT_LINKS_URL = f"{SERVICES}/spillovers_port_level_impact/FeatureServer/0/query"
+
+TRADE_TYPES = ["container", "dry_bulk", "general_cargo", "roro", "tanker"]
+# Country trade: totals and the split by vessel type (the dataset also has 30-day averages,
+# which we compute ourselves and therefore do not download).
+COUNTRY_TRADE_FIELDS = ",".join(
+    ["ISO3", "country", "date", "import", "export"]
+    + [f"{flow}_{kind}" for flow in ("import", "export") for kind in TRADE_TYPES]
+)
 PAGE_SIZE = 1000
 
 
@@ -205,4 +218,45 @@ def ingest_chokepoints(
     rows = query_all(session, CHOKEPOINTS_URL, "1=1", "*", "portid", sleep)
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_parquet(path, index=False)
+    return path
+
+
+def ingest_country_trade(
+    raw_dir: Path,
+    revision_days: int = 14,
+    session: requests.Session | None = None,
+    sleep: Sleep = time.sleep,
+) -> Path | None:
+    """Daily imports and exports by vessel type for all countries (incremental)."""
+    session = session or requests.Session()
+    dataset = "country_trade_daily"
+    where = _since_filter(last_stored_date(raw_dir, dataset), revision_days)
+    rows = query_all(session, COUNTRY_TRADE_URL, where, COUNTRY_TRADE_FIELDS, "date,ISO3", sleep)
+    if not rows:
+        return None
+    path = _write_raw(rows, daily_dir(raw_dir, dataset))
+    logger.info("PortWatch country trade: %s rows (%s) -> %s", len(rows), where, path)
+    return path
+
+
+def ingest_port_links(
+    raw_dir: Path,
+    min_capacity: float,
+    session: requests.Session | None = None,
+    sleep: Sleep = time.sleep,
+) -> Path:
+    """Port-to-port links with at least `min_capacity` daily vessel capacity.
+
+    The dataset is a static snapshot, so it is downloaded once; delete the folder
+    `data/raw/portwatch/port_links/` to fetch it again.
+    """
+    folder = raw_dir / "portwatch" / "port_links"
+    existing = sorted(folder.glob("*.parquet"))
+    if existing:
+        return existing[-1]
+    session = session or requests.Session()
+    where = f"daily_capacity_at_risk >= {min_capacity}"
+    rows = query_all(session, PORT_LINKS_URL, where, "*", "ObjectId", sleep)
+    path = _write_raw(rows, folder)
+    logger.info("PortWatch port links: %s links -> %s", len(rows), path)
     return path

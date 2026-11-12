@@ -36,3 +36,7 @@ ports:
   - {id: port824, name: Ningbo, role: Chinese import port}
   - {id: port1201, name: Singapore, role: Southeast Asian hub}
   - {id: port1065, name: Busan, role: Korean export port}
+
+# Port-to-port network (PortWatch snapshot): only links with at least this daily vessel
+# capacity are downloaded. 1,000 keeps ~8,100 of 227,000 links and ~71 % of total capacity.
+min_link_capacity: 1000

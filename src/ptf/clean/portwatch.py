@@ -135,6 +135,75 @@ def clean_events(raw_dir: Path) -> pd.DataFrame:
     return events.sort_values("from_date", ascending=False)[EVENT_COLUMNS].reset_index(drop=True)
 
 
+CARGO_TYPES = {
+    "tanker": "tankers (crude oil, products, chemicals, LNG/LPG)",
+    "dry_bulk": "dry bulk (ore, coal, grain)",
+    "container": "containers (manufactured goods, also bagged polymers)",
+    "general_cargo": "general cargo",
+    "roro": "RoRo (vehicles)",
+}
+COUNTRY_TRADE_COLUMNS = [
+    "date",
+    "iso3",
+    "country",
+    "import",
+    "export",
+    *[f"{flow}_{kind}" for flow in ("import", "export") for kind in CARGO_TYPES],
+    "fetched_at",
+]
+PORT_LINK_COLUMNS = [
+    "from_port_id",
+    "from_port",
+    "from_country",
+    "from_lat",
+    "from_lon",
+    "to_port_id",
+    "to_port",
+    "to_country",
+    "to_lat",
+    "to_lon",
+    "transit_days",
+    "daily_capacity",
+]
+
+
+def clean_country_trade(raw_dir: Path) -> pd.DataFrame:
+    """Daily estimated imports and exports per country, total and by vessel type (t/day)."""
+    files = sorted(daily_dir(raw_dir, "country_trade_daily").glob("*.parquet"))
+    if not files:
+        raise FileNotFoundError("no PortWatch country trade data")
+    raw = pd.concat((pd.read_parquet(f) for f in files), ignore_index=True)
+    raw = raw.rename(columns={"ISO3": "iso3"}).dropna(subset=["iso3"])
+    trade = _latest_per_day(raw, "iso3")
+    return trade[COUNTRY_TRADE_COLUMNS].reset_index(drop=True)
+
+
+def clean_port_links(raw_dir: Path) -> pd.DataFrame:
+    """Port-to-port links of the newest snapshot: transit days and daily vessel capacity.
+
+    `daily_capacity` is PortWatch's "daily capacity at risk": the vessel capacity (deadweight
+    tonnes) that travels from the origin to the destination port per day on average.
+    """
+    files = sorted((raw_dir / "portwatch" / "port_links").glob("*.parquet"))
+    if not files:
+        raise FileNotFoundError("no PortWatch port network data")
+    raw = pd.read_parquet(files[-1])
+    links = raw.rename(
+        columns={
+            "from_portid": "from_port_id",
+            "from_portname": "from_port",
+            "to_portid": "to_port_id",
+            "to_portname": "to_port",
+            "average_transit_days": "transit_days",
+            "daily_capacity_at_risk": "daily_capacity",
+        }
+    )
+    links = links[links["from_port_id"] != links["to_port_id"]]
+    return links.sort_values("daily_capacity", ascending=False)[PORT_LINK_COLUMNS].reset_index(
+        drop=True
+    )
+
+
 def clean_chokepoints(raw_dir: Path) -> pd.DataFrame:
     """Chokepoint id, name and coordinates."""
     raw = pd.read_parquet(raw_dir / "portwatch" / "chokepoints.parquet")

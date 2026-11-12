@@ -25,6 +25,7 @@ class MonitorConfig(BaseModel):
     red_sea: RedSeaConfig
     revision_days: int = Field(ge=0)
     ports: list[PortConfig] = []
+    min_link_capacity: float = Field(default=1000, ge=0)
 
 
 def load_monitor_config(path: Path) -> MonitorConfig:

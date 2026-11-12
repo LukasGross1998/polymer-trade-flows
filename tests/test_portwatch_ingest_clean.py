@@ -7,10 +7,14 @@ import pandas as pd
 from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
 
 from ptf.clean.portwatch import (
+    COUNTRY_TRADE_COLUMNS,
     EVENT_COLUMNS,
+    PORT_LINK_COLUMNS,
     TRANSIT_COLUMNS,
+    clean_country_trade,
     clean_events,
     clean_port_activity,
+    clean_port_links,
     clean_transits,
 )
 from ptf.ingest import portwatch
@@ -140,3 +144,49 @@ def test_events_get_dates_from_epoch_milliseconds(tmp_path: Path) -> None:
     assert list(events.columns) == EVENT_COLUMNS
     assert str(events.loc[0, "from_date"].date()) == "2026-03-01"
     assert pd.isna(events.loc[0, "to_date"])  # still ongoing
+
+
+def test_country_trade_incremental_and_clean(tmp_path: Path) -> None:
+    row = {"ISO3": "SAU", "country": "Saudi Arabia", "date": "2026-11-06", "import": 1, "export": 2}
+    for flow in ("import", "export"):
+        for kind in portwatch.TRADE_TYPES:
+            row[f"{flow}_{kind}"] = 0
+    portwatch.ingest_country_trade(
+        tmp_path, session=FakeSession([page([{"attributes": row}], more=False)]), sleep=no_sleep
+    )
+    second = FakeSession([page([], more=False)])
+    portwatch.ingest_country_trade(tmp_path, session=second, sleep=no_sleep)
+
+    assert second.calls[0]["params"]["where"] == "date >= DATE '2026-10-23'"
+    trade = clean_country_trade(tmp_path)
+    assert list(trade.columns) == COUNTRY_TRADE_COLUMNS
+    assert trade.loc[0, "iso3"] == "SAU"
+
+
+def test_port_links_downloaded_once_and_self_links_dropped(tmp_path: Path) -> None:
+    def link(src: str, dst: str, capacity: float) -> dict:
+        return {
+            "attributes": {
+                "from_portid": src,
+                "from_portname": src,
+                "from_country": "X",
+                "from_lat": 0.0,
+                "from_lon": 0.0,
+                "to_portid": dst,
+                "to_portname": dst,
+                "to_country": "Y",
+                "to_lat": 1.0,
+                "to_lon": 1.0,
+                "average_transit_days": 3.0,
+                "daily_capacity_at_risk": capacity,
+            }
+        }
+
+    session = FakeSession([page([link("a", "b", 2000.0), link("a", "a", 5000.0)], more=False)])
+    portwatch.ingest_port_links(tmp_path, 1000, session=session, sleep=no_sleep)
+    portwatch.ingest_port_links(tmp_path, 1000, session=FakeSession([]), sleep=no_sleep)  # cached
+
+    assert session.calls[0]["params"]["where"] == "daily_capacity_at_risk >= 1000"
+    links = clean_port_links(tmp_path)
+    assert list(links.columns) == PORT_LINK_COLUMNS
+    assert links["to_port_id"].tolist() == ["b"]
