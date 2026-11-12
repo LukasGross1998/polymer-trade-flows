@@ -1,20 +1,6 @@
-"""Parse the raw FRED Brent CSV and aggregate it to annual average prices."""
-
-from pathlib import Path
+"""Annual average Brent prices for the model, from the daily FRED series."""
 
 import pandas as pd
-
-
-def parse_brent_csv(path: Path) -> pd.DataFrame:
-    """Daily prices with columns `date`, `usd_per_bbl`; days without a quote are dropped.
-
-    FRED marks missing days (holidays) with an empty field or ".", depending on the export.
-    """
-    daily = pd.read_csv(path, na_values=["."])
-    daily.columns = ["date", "usd_per_bbl"]
-    daily["date"] = pd.to_datetime(daily["date"])
-    daily["usd_per_bbl"] = pd.to_numeric(daily["usd_per_bbl"])
-    return daily.dropna(subset=["usd_per_bbl"]).reset_index(drop=True)
 
 
 def annual_brent(daily: pd.DataFrame) -> pd.DataFrame:

@@ -40,8 +40,9 @@ def write_raw_layer(raw_dir: Path) -> None:
     reporters = json.loads((FIXTURES / "reporters.json").read_text())["results"]
     pd.DataFrame(reporters).to_parquet(raw_dir / "comtrade_reference" / "Reporters.parquet")
 
-    (raw_dir / "brent").mkdir()
-    shutil.copy(FIXTURES / "brent_sample.csv", raw_dir / "brent" / "DCOILBRENTEU.csv")
+    brent_dir = raw_dir / "fred" / "DCOILBRENTEU"
+    brent_dir.mkdir(parents=True)
+    shutil.copy(FIXTURES / "brent_sample.csv", brent_dir / "20260101T000000000000.csv")
 
 
 def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:

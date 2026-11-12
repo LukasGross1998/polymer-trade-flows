@@ -1,0 +1,66 @@
+# Market data for the dashboard. All sources are free and need no key.
+# Rationale and caveats: docs/methodology.md, section 5.
+
+# FRED (St. Louis Fed) series, downloaded as CSV from fredgraph.csv.
+# A series is downloaded again when its newest raw file is older than `max_age_days`.
+max_age_days: 1
+
+fred_series:
+  - id: DCOILBRENTEU
+    name: Brent crude oil
+    unit: USD/bbl
+    frequency: daily
+    group: energy
+  - id: DCOILWTICO
+    name: WTI crude oil
+    unit: USD/bbl
+    frequency: daily
+    group: energy
+  - id: DHHNGSP
+    name: Natural gas, US (Henry Hub)
+    unit: USD/MMBtu
+    frequency: daily
+    group: gas
+  - id: PNGASEUUSDM
+    name: Natural gas, Europe
+    unit: USD/MMBtu
+    frequency: monthly
+    group: gas
+  - id: PNGASJPUSDM
+    name: LNG, Japan
+    unit: USD/MMBtu
+    frequency: monthly
+    group: gas
+  - id: PCU483111483111
+    name: US PPI deep sea freight (proxy for ocean freight rates)
+    unit: index
+    frequency: monthly
+    group: freight_polymers
+  - id: PCU3252113252111
+    name: US PPI thermoplastic resins (proxy for polymer prices)
+    unit: index
+    frequency: monthly
+    group: freight_polymers
+  - id: DEXCHUS
+    name: Chinese yuan per US dollar
+    unit: CNY/USD
+    frequency: daily
+    group: fx
+  - id: DTWEXBGS
+    name: US dollar index (broad)
+    unit: index
+    frequency: daily
+    group: fx
+
+# New York Fed Global Supply Chain Pressure Index (monthly, standard deviations from the
+# historical average). The file is an old-format .xls despite its .xlsx extension.
+gscpi_url: https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/downloads/gscpi_data.xlsx
+
+# Key events, drawn as vertical markers in time-series charts.
+key_events:
+  - date: 2023-11-19
+    label: Red Sea attacks on shipping begin
+    source: public reporting (seizure of the Galaxy Leader)
+  - date: 2026-03-01
+    label: Strait of Hormuz disruption
+    source: IMF PortWatch disruption event HORMUZ-26
