@@ -90,16 +90,20 @@ def kpi_values(market: pd.DataFrame) -> list[dict]:
     ]
 
 
-def oil_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) -> go.Figure:
+def oil_figure(
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+) -> go.Figure:
     frames = [
         (_name(market, s), indicators.series(market, s)) for s in ["DCOILBRENTEU", "DCOILWTICO"]
     ]
     frames = [(n, f[f["date"] >= start]) for n, f in frames]
     fig = charts.line_chart(frames, "Crude oil", "USD per barrel")
-    return charts.add_key_events(fig, key_events, start)
+    return charts.add_key_events(fig, key_events, start, end)
 
 
-def gas_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) -> go.Figure:
+def gas_figure(
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+) -> go.Figure:
     """Monthly averages so the daily US series is comparable with the monthly EU/Japan series."""
     frames = [
         (_name(market, s), indicators.monthly_mean(market, s))
@@ -107,10 +111,12 @@ def gas_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) -> g
     ]
     frames = [(n, f[f["date"] >= start]) for n, f in frames]
     fig = charts.line_chart(frames, "Natural gas, monthly average", "USD per MMBtu")
-    return charts.add_key_events(fig, key_events, start)
+    return charts.add_key_events(fig, key_events, start, end)
 
 
-def indexed_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) -> go.Figure:
+def indexed_figure(
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+) -> go.Figure:
     ids = ["PCU483111483111", "PCU3252113252111", "DEXCHUS", "DTWEXBGS"]
     rebased = indicators.indexed(market, ids, start)
     # Empty series are skipped by `line_chart` without shifting the other colours.
@@ -119,17 +125,20 @@ def indexed_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) 
         frames, "Freight, resins and currencies (start of period = 100)", "index"
     )
     fig.add_hline(y=100, line={"color": style.GRID, "width": 1})
-    return charts.add_key_events(fig, key_events, start)
+    return charts.add_key_events(fig, key_events, start, end)
 
 
-def gscpi_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) -> go.Figure:
+def gscpi_figure(
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+) -> go.Figure:
     one = indicators.series(market, "GSCPI")
     one = one[one["date"] >= start]
     fig = go.Figure(
         go.Bar(
             x=one["date"],
             y=one["value"],
-            marker={"color": [style.ORANGE if v > 0 else style.BLUE for v in one["value"]]},
+            # Diverging colours: red = more pressure than average, blue = less.
+            marker={"color": [style.RED if v > 0 else style.BLUE for v in one["value"]]},
             name="GSCPI",
             hovertemplate="%{y:+.2f}",
         )
@@ -137,7 +146,7 @@ def gscpi_figure(market: pd.DataFrame, start: pd.Timestamp, key_events: list) ->
     fig.add_hline(y=0, line={"color": style.INK_SECONDARY, "width": 1})
     fig.update_yaxes(title={"text": "std. dev. from average", "font": {"color": style.MUTED}})
     charts.base_layout(fig, height=340, title="Global Supply Chain Pressure Index (NY Fed)")
-    return charts.add_key_events(fig, key_events, start)
+    return charts.add_key_events(fig, key_events, start, end)
 
 
 def update(data: AppData, period: str) -> tuple:
@@ -147,10 +156,10 @@ def update(data: AppData, period: str) -> tuple:
     events = data.market_config.key_events
     return (
         charts.tiles(kpi_values(market)),
-        oil_figure(market, start, events),
-        gas_figure(market, start, events),
-        indexed_figure(market, start, events),
-        gscpi_figure(market, start, events),
+        oil_figure(market, start, latest, events),
+        gas_figure(market, start, latest, events),
+        indexed_figure(market, start, latest, events),
+        gscpi_figure(market, start, latest, events),
     )
 
 

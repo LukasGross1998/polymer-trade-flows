@@ -47,20 +47,28 @@ def base_layout(fig: go.Figure, height: int, title: str | None = None) -> go.Fig
     return fig
 
 
-def add_key_events(fig: go.Figure, key_events: list, start: pd.Timestamp) -> go.Figure:
-    """Dotted vertical lines with a short label for key events inside the visible period."""
-    for event in key_events:
+def add_key_events(
+    fig: go.Figure, key_events: list, start: pd.Timestamp, end: pd.Timestamp
+) -> go.Figure:
+    """Dotted vertical lines with a short label for key events inside the visible period.
+
+    The x-axis is fixed to [start, end]: otherwise Plotly widens the axis to make room for
+    the label text. Labels alternate between two heights so neighbours do not overlap.
+    """
+    fig.update_xaxes(range=[start, end])
+    visible = [e for e in key_events if start <= pd.Timestamp(e.date) <= end]
+    for position, event in enumerate(visible):
         when = pd.Timestamp(event.date)
-        if when < start:
-            continue
+        # Events near the right edge get their label on the left of the line.
+        near_right_edge = (when - start) / (end - start) > 0.75
         fig.add_vline(x=when, line={"color": style.MUTED, "width": 1, "dash": "dot"})
         fig.add_annotation(
             x=when,
-            y=1,
+            y=1 if position % 2 == 0 else 0.93,
             yref="paper",
             text=event.label,
             showarrow=False,
-            xanchor="left",
+            xanchor="right" if near_right_edge else "left",
             yanchor="top",
             font={"size": 10, "color": style.INK_SECONDARY},
             bgcolor=style.SURFACE,

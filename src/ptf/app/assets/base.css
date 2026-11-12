@@ -1,0 +1,7 @@
+/* Dash serves this folder automatically. Page background for the whole window, not only
+   the content area (otherwise browsers in dark mode show black below the page). */
+body {
+  margin: 0;
+  background-color: #f9f9f7;
+  color-scheme: light;
+}

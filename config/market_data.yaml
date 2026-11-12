@@ -59,8 +59,8 @@ gscpi_url: https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/d
 # Key events, drawn as vertical markers in time-series charts.
 key_events:
   - date: 2023-11-19
-    label: Red Sea attacks on shipping begin
+    label: Red Sea attacks
     source: public reporting (seizure of the Galaxy Leader)
   - date: 2026-03-01
-    label: Strait of Hormuz disruption
+    label: Hormuz disruption
     source: IMF PortWatch disruption event HORMUZ-26

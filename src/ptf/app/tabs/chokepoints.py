@@ -85,7 +85,9 @@ def layout(data: AppData) -> html.Div:
     )
 
 
-def diversion_figure(ratio: pd.DataFrame, key_events: list, start: pd.Timestamp) -> go.Figure:
+def diversion_figure(
+    ratio: pd.DataFrame, key_events: list, start: pd.Timestamp, end: pd.Timestamp
+) -> go.Figure:
     """Red Sea vs. Cape route for container ships, and the Cape share below (no dual axis)."""
     fig = make_subplots(
         rows=2,
@@ -125,7 +127,7 @@ def diversion_figure(ratio: pd.DataFrame, key_events: list, start: pd.Timestamp)
     fig.update_yaxes(rangemode="tozero", row=1, col=1)
     fig.update_yaxes(range=[0, 100], ticksuffix=" %", row=2, col=1)
     fig.update_annotations(font={"color": style.INK, "size": 13})
-    charts.add_key_events(fig, key_events, start)
+    charts.add_key_events(fig, key_events, start, end)
     return charts.base_layout(fig, height=460)
 
 
@@ -162,11 +164,11 @@ def update(data: AppData, chokepoint_id: str, vessel_type: str, period: str) -> 
         f"{row['location']}: {label} per day",
         f"{label} per day",
     )
-    charts.add_key_events(series_fig, key_events, start)
+    charts.add_key_events(series_fig, key_events, start, data.latest_date)
     ratio = charts.filter_period(
         diversion_ratio(data.transits, data.monitor_config), period, data.latest_date
     )
-    return map_fig, kpis, series_fig, diversion_figure(ratio, key_events, start)
+    return map_fig, kpis, series_fig, diversion_figure(ratio, key_events, start, data.latest_date)
 
 
 def register(app: Dash, state: AppState) -> None:

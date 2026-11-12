@@ -129,7 +129,7 @@ def update(data: AppData, port_id: str, metric: str, period: str) -> tuple:
     selected = charts.filter_period(table[table["location_id"] == port_id], period, latest)
     series_fig = charts.location_timeseries(selected, f"{row['location']}: {label}", unit)
     start = charts.period_start(period, latest, data.port_activity["date"].min())
-    charts.add_key_events(series_fig, data.market_config.key_events, start)
+    charts.add_key_events(series_fig, data.market_config.key_events, start, latest)
     return map_fig, kpis, status_table(status, unit), series_fig
 
 
