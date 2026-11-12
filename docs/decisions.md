@@ -77,6 +77,9 @@ reproduce the data.
   waits between requests, retries with exponential backoff and caches every response in the
   `raw` layer so each request runs only once.
 - The repo is reproducible without credentials.
+- *Added in phase 1:* the endpoint also has a **daily quota** (HTTP 403 "Quota Exceeded" after
+  roughly 100 requests on 2026-11-12). The ingest stops cleanly on 403 and resumes from the
+  cache on the next run; a full download of 30 reporters × 6 years takes about two days.
 
 ---
 

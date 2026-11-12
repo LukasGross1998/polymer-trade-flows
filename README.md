@@ -1,6 +1,6 @@
 # Polymer Trade Flow & Disruption Simulator
 
-> **Status: work in progress** (phase 0 of 5: project scaffold)
+> **Status: work in progress** (phase 1 of 5: data pipeline; Comtrade download partly done, see below)
 
 What happens to polyethylene flows into Europe when the Red Sea closes, and who gains market share?
 This project rebuilds global polyethylene trade (HS 3901) from official UN Comtrade statistics,
@@ -40,12 +40,28 @@ uv run ruff check .              # lint
 uv run ruff format .             # format
 ```
 
+### Data pipeline
+
+```bash
+uv run python -m ptf.pipeline ingest   # download raw data (cached, resumable)
+uv run python -m ptf.pipeline clean    # raw -> clean layer (Parquet in data/clean)
+uv run python -m ptf.pipeline report   # docs/data_quality.md + docs/figures
+uv run python -m ptf.pipeline all      # all three steps
+```
+
+The public UN Comtrade endpoint has a daily request quota of roughly 100 requests. A full
+download (30 reporters × 6 years) therefore takes two days: `ingest` stops cleanly when the
+quota is used up and continues where it stopped on the next run.
+
+Results so far: [data-quality report](docs/data_quality.md) ·
+methodology: [docs/methodology.md](docs/methodology.md)
+
 ## Roadmap
 
 | Phase | Content | Status |
 |---|---|---|
 | 0 | Repo scaffold, tooling, CI | done |
-| 1 | Ingest, cleaning, data-quality report | planned |
+| 1 | Ingest, cleaning, data-quality report | in progress (code done, download ~60 %) |
 | 2 | Transport LP, model vs. reality, shadow prices | planned |
 | 3 | Scenarios, cost curves, Dash app (MVP) | planned |
 | 4 | Import forecasting (optional) | planned |

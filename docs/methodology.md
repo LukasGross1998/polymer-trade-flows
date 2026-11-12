@@ -101,6 +101,27 @@ year, mirror gaps, source of the agreed quantity, outliers and an inter-regional
   counting disappears in intra-regional trade; HK's own re-exports (flow `RX`) are excluded.
 - Annual data mixes timing effects at year boundaries into the mirror gaps.
 
+### 1.6 First observations (partial data, 2026-11-12)
+
+Based on 17 of 30 reporters (Americas, Europe, Russia, Saudi Arabia, UAE, partly Qatar);
+all of Asia and Africa are still missing because of the API quota. To be revisited once the
+download is complete.
+
+- **Mirror gaps are large.** Of the relations reported by both sides, only 21–30 % agree
+  within ±10 % in quantity, and the median absolute gap is 26–40 %. The CIF/FOB value ratio
+  has a median of 1.1–1.3, i.e. the value difference expected from freight and insurance.
+- **Hub effects dominate the largest gaps.** Saudi Arabia reports 480 kt of exports to
+  Belgium in 2024, Belgium records only 171 kt from Saudi Arabia. Goods shipped to Antwerp
+  are often declared for customs in another EU country (the "Rotterdam/Antwerp effect").
+- **Comtrade estimates a lot itself.** 12–38 % of the agreed tonnage per year rests on weights
+  that Comtrade flags as estimated (`qty_estimated_by_source`).
+- **A missing reporter is not a missing flow.** Russia stopped reporting after 2021. With the
+  reporters loaded so far, its visible exports fall from 1.3 Mt (2021) to 0.2 Mt (2022):
+  largely an artefact, because its main buyer China is not downloaded yet. Mirror data can
+  only show what the loaded partners report.
+- **US exports to China tripled** from 0.8 Mt (2019) to 2.7 Mt (2023) as new shale-based
+  capacity on the Gulf Coast came online; the US is by far the largest net exporter.
+
 ## 2. Regions
 
 source: assumption. Ten regions plus rest of world (`ROW`), grouped by supply economics
