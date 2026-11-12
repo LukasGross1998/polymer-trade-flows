@@ -21,7 +21,13 @@ from ptf.clean.comtrade import build_country_lookup, load_raw_comtrade, to_trade
 from ptf.clean.dq_report import build_report
 from ptf.clean.market import clean_market_series, parse_fred_csv
 from ptf.clean.mirror import build_mirror_table
-from ptf.clean.portwatch import clean_chokepoints, clean_transits
+from ptf.clean.portwatch import (
+    clean_chokepoints,
+    clean_events,
+    clean_port_activity,
+    clean_ports,
+    clean_transits,
+)
 from ptf.clean.quality import add_unit_values, flag_unit_value_outliers
 from ptf.clean.reconcile import reconcile_flows, regional_unit_values
 from ptf.config import Settings, get_settings
@@ -122,14 +128,23 @@ def run_model(settings: Settings) -> None:
 
 
 def run_portwatch(settings: Settings) -> None:
-    """Download new chokepoint days (incremental) and rebuild the clean PortWatch tables."""
+    """Download new PortWatch days (incremental) and events, rebuild the clean tables."""
     config = load_monitor_config(settings.config_dir / "monitor.yaml")
     raw, clean = settings.raw_dir, settings.clean_dir
+    port_names = {p.id: p.name for p in config.ports}
+
     portwatch.ingest_chokepoints(raw)
     portwatch.ingest_chokepoint_transits(raw, revision_days=config.revision_days)
+    portwatch.ingest_ports_reference(raw, list(port_names))
+    portwatch.ingest_port_activity(raw, list(port_names), revision_days=config.revision_days)
+    portwatch.ingest_events(raw)
+
     clean.mkdir(parents=True, exist_ok=True)
     clean_transits(raw).to_parquet(clean / "chokepoint_transits.parquet", index=False)
     clean_chokepoints(raw).to_parquet(clean / "chokepoints.parquet", index=False)
+    clean_port_activity(raw, port_names).to_parquet(clean / "port_activity.parquet", index=False)
+    clean_ports(raw, port_names).to_parquet(clean / "ports.parquet", index=False)
+    clean_events(raw).to_parquet(clean / "events.parquet", index=False)
 
 
 def run_market(settings: Settings) -> None:

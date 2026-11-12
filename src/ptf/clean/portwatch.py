@@ -48,6 +48,93 @@ def clean_transits(raw_dir: Path) -> pd.DataFrame:
     return transits[TRANSIT_COLUMNS].reset_index(drop=True)
 
 
+# Port metrics of PortWatch: calls (vessels per day) and estimated trade volumes (t per day).
+PORT_METRICS = {
+    "portcalls": "port calls, all vessels",
+    "portcalls_tanker": "port calls, tankers",
+    "portcalls_container": "port calls, container ships",
+    "import": "import volume (t)",
+    "export": "export volume (t)",
+}
+PORT_COLUMNS = ["date", "port_id", "port", *PORT_METRICS, "fetched_at"]
+EVENT_COLUMNS = [
+    "event_id",
+    "event_type",
+    "event",
+    "alert_level",
+    "country",
+    "from_date",
+    "to_date",
+    "lat",
+    "lon",
+    "affected_ports",
+    "n_affected_ports",
+    "description",
+]
+EVENT_TYPES = {
+    "DR": "drought",
+    "EQ": "earthquake",
+    "FL": "flood",
+    "OT": "other (e.g. conflict)",
+    "TC": "tropical cyclone",
+    "VO": "volcano",
+    "WF": "wildfire",
+}
+
+
+def _latest_per_day(raw: pd.DataFrame, id_column: str) -> pd.DataFrame:
+    raw = raw.assign(date=pd.to_datetime(raw["date"]))
+    return (
+        raw.sort_values("fetched_at")
+        .drop_duplicates(["date", id_column], keep="last")
+        .sort_values([id_column, "date"])
+    )
+
+
+def clean_port_activity(raw_dir: Path, port_names: dict[str, str]) -> pd.DataFrame:
+    """Daily activity of the configured ports; `port_names` maps PortWatch id -> short name."""
+    files = sorted(daily_dir(raw_dir, "ports_daily").glob("*.parquet"))
+    if not files:
+        raise FileNotFoundError(f"no PortWatch port data in {daily_dir(raw_dir, 'ports_daily')}")
+    raw = pd.concat((pd.read_parquet(f) for f in files), ignore_index=True)
+    raw = raw[raw["portid"].isin(port_names)].rename(columns={"portid": "port_id"})
+    ports = _latest_per_day(raw, "port_id")
+    ports["port"] = ports["port_id"].map(port_names)
+    return ports[PORT_COLUMNS].reset_index(drop=True)
+
+
+def clean_ports(raw_dir: Path, port_names: dict[str, str]) -> pd.DataFrame:
+    raw = pd.read_parquet(raw_dir / "portwatch" / "ports.parquet")
+    raw = raw[raw["portid"].isin(port_names)].rename(columns={"portid": "port_id"})
+    raw["port"] = raw["port_id"].map(port_names)
+    return raw[["port_id", "port", "country", "lat", "lon"]].reset_index(drop=True)
+
+
+def clean_events(raw_dir: Path) -> pd.DataFrame:
+    """Disruption events from the newest download; dates from epoch milliseconds."""
+    files = sorted((raw_dir / "portwatch" / "events").glob("*.parquet"))
+    if not files:
+        raise FileNotFoundError("no PortWatch event data")
+    raw = pd.read_parquet(files[-1])
+    events = raw.rename(
+        columns={
+            "eventid": "event_id",
+            "eventtype": "event_type",
+            "eventname": "event",
+            "alertlevel": "alert_level",
+            "fromdate": "from_date",
+            "todate": "to_date",
+            "long": "lon",
+            "affectedports": "affected_ports",
+            "n_affectedports": "n_affected_ports",
+            "htmldescription": "description",
+        }
+    )
+    for column in ["from_date", "to_date"]:
+        events[column] = pd.to_datetime(events[column], unit="ms").dt.normalize()
+    return events.sort_values("from_date", ascending=False)[EVENT_COLUMNS].reset_index(drop=True)
+
+
 def clean_chokepoints(raw_dir: Path) -> pd.DataFrame:
     """Chokepoint id, name and coordinates."""
     raw = pd.read_parquet(raw_dir / "portwatch" / "chokepoints.parquet")

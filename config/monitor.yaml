@@ -21,3 +21,18 @@ red_sea:
 # PortWatch revises recent days after publication. Each update re-fetches this many days
 # before the last stored date; the clean step keeps the most recently fetched value per day.
 revision_days: 14
+
+# Ports shown in the ports tab (PortWatch ids). Chosen for polyethylene trade: export hubs
+# of the cheap producers, the main European import hubs and the large Asian import ports.
+ports:
+  - {id: port481, name: Houston, role: US Gulf Coast export hub}
+  - {id: port1160, name: Santos, role: South American import port}
+  - {id: port57, name: Antwerp, role: European polymer hub}
+  - {id: port1114, name: Rotterdam, role: European import hub}
+  - {id: port24, name: Jubail, role: Saudi petrochemical port inside the Gulf}
+  - {id: port570, name: Yanbu, role: Saudi Red Sea port outside Hormuz}
+  - {id: port744, name: Jebel Ali, role: UAE hub inside the Gulf}
+  - {id: port1188, name: Shanghai, role: Chinese import port}
+  - {id: port824, name: Ningbo, role: Chinese import port}
+  - {id: port1201, name: Singapore, role: Southeast Asian hub}
+  - {id: port1065, name: Busan, role: Korean export port}

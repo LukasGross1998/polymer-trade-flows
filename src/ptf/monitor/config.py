@@ -11,6 +11,12 @@ class RedSeaConfig(BaseModel):
     cape_route: str  # PortWatch id of the Cape of Good Hope
 
 
+class PortConfig(BaseModel):
+    id: str  # PortWatch id
+    name: str
+    role: str
+
+
 class MonitorConfig(BaseModel):
     baseline_years: list[int]
     rolling_window_days: int = Field(ge=1)
@@ -18,6 +24,7 @@ class MonitorConfig(BaseModel):
     min_baseline_per_day: float = Field(ge=0)
     red_sea: RedSeaConfig
     revision_days: int = Field(ge=0)
+    ports: list[PortConfig] = []
 
 
 def load_monitor_config(path: Path) -> MonitorConfig:
