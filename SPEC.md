@@ -1,6 +1,8 @@
 # SPEC: Polymer Trade Flow & Disruption Simulator
 
-Status: v0.6 (Entwurf) – wird in jeder Phase verfeinert.
+Status: v0.7 (Entwurf) – wird in jeder Phase verfeinert.
+
+Änderungen v0.7: Tab „Trade flows“ (Hafennetz, Ladungsmix je Land optional), Abschnitt 7b.
 
 Änderungen v0.6: Dashboard mit vier Tabs (Überblick, Meerengen, Häfen, Energie & Fracht), Abschnitt 7b; Szenario-Modelle zurückgestellt.
 
@@ -163,7 +165,9 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 
 ## 7b. Dashboard: Häfen, Ereignisse, Energie & Fracht
 
-**Tabs:** Überblick (Lagebild), Meerengen (7a), Häfen, Energie & Fracht.
+**Tabs:** Überblick (Lagebild), Meerengen (7a), Häfen, Trade flows, Energie & Fracht.
+
+**Trade flows:** Hafen-zu-Hafen-Netz von PortWatch (fester Stand Mai 2025, alle Schiffstypen, Kapazität statt Ladung; Standard: Langstrecken ab 5 Tagen zwischen Ländern) und – optional, weil der erste Abruf 20–25 min dauert – Importe/Exporte je Land nach Schiffstyp als Stellvertreter für die Ladungsart. Ströme nach Ware zwischen Ländern (BACI) folgen später.
 
 **Daten** (alle frei, ohne Key; Details `docs/methodology.md` Abschnitt 5):
 - PortWatch `Daily_Ports_Data` für die Häfen in `config/monitor.yaml` (Anläufe, geschätzte Import-/Exportmengen), gleiche Kennzahlen wie bei den Meerengen

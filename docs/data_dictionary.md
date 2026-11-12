@@ -40,6 +40,8 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | `ports` | `data/clean/ports.parquet` | one configured port | `ptf.clean.portwatch` |
 | `events` | `data/clean/events.parquet` | one disruption event | `ptf.clean.portwatch` |
 | `market_series` | `data/clean/market_series.parquet` | one series and date | `ptf.clean.market` |
+| `port_links` | `data/clean/port_links.parquet` | one directed port-to-port link | `ptf.clean.portwatch` |
+| `country_trade` | `data/clean/country_trade.parquet` (optional) | one country and day | `ptf.clean.portwatch` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
@@ -279,6 +281,53 @@ Fed GSCPI (raw downloads in `data/raw/fred/{id}/` and `data/raw/gscpi/`).
 | `frequency` | daily or monthly | str | daily |
 | `group` | energy, gas, freight_polymers, fx, supply_chain | str | energy |
 | `value` | observation | see `unit` | 107.03 |
+
+## `port_links`
+
+Port-to-port shipping network (PortWatch `spillovers_port_level_impact`, a static snapshot
+last updated May 2025). Only links with at least `min_link_capacity` (1,000 t) of daily
+capacity: 8,084 of ~227,000 links, ~71 % of the total capacity. All vessel types together.
+Example: Port Hedland → Tianjin, the largest long-haul link (iron ore).
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `from_port_id` | PortWatch id of the origin port | str | port955 |
+| `from_port` | origin port | str | Port Hedland |
+| `from_country` | origin country | str | Australia |
+| `from_lat` | latitude of the origin | degrees | −20.33 |
+| `from_lon` | longitude of the origin | degrees | 118.56 |
+| `to_port_id` | PortWatch id of the destination port | str | port1297 |
+| `to_port` | destination port | str | Tianjin Xin Gang |
+| `to_country` | destination country | str | China |
+| `to_lat` | latitude of the destination | degrees | 38.94 |
+| `to_lon` | longitude of the destination | degrees | 117.73 |
+| `transit_days` | average voyage time | days | 18.5 |
+| `daily_capacity` | vessel capacity (deadweight tonnes) travelling on the link per day; PortWatch's "daily capacity at risk"; not the cargo carried | t/day | 125,444 |
+
+## `country_trade`
+
+Optional (`download_country_trade` in `config/monitor.yaml`, off by default: the first
+download takes 20–25 minutes). Daily estimated imports and exports per country by vessel
+type (PortWatch `Daily_Trade_Data_REG`, from vessel draught and capacity).
+
+| Column | Meaning | Unit / type | Example |
+|---|---|---|---|
+| `date` | day | date | 2026-11-06 |
+| `iso3` | country code | ISO3 | SAU |
+| `country` | country name | str | Saudi Arabia |
+| `import` | estimated imports, all vessel types | t/day | 38,716 |
+| `export` | estimated exports, all vessel types | t/day | 64,036 |
+| `import_tanker` | imports by tankers (oil, products, chemicals, LNG/LPG) | t/day | – |
+| `import_dry_bulk` | imports by dry bulk carriers (ore, coal, grain) | t/day | – |
+| `import_container` | imports by container ships | t/day | – |
+| `import_general_cargo` | imports by general cargo ships | t/day | – |
+| `import_roro` | imports by RoRo ships (vehicles) | t/day | – |
+| `export_tanker` | exports by tankers | t/day | 62,716 |
+| `export_dry_bulk` | exports by dry bulk carriers | t/day | 0 |
+| `export_container` | exports by container ships | t/day | 273 |
+| `export_general_cargo` | exports by general cargo ships | t/day | – |
+| `export_roro` | exports by RoRo ships | t/day | – |
+| `fetched_at` | when this value was downloaded; the latest download per day is kept | UTC timestamp | – |
 
 ---
 

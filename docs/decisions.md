@@ -196,3 +196,30 @@ days. The view update takes ~0.2 s for all 28 chokepoints.
 
 **Consequences.** Scenario models (SPEC section 5) are postponed; the dashboard data (Red
 Sea diversion, Hormuz, gas spread, freight index) are the planned inputs for them.
+
+---
+
+## ADR-008: Trade flows tab from the PortWatch port network
+
+- **Date:** 2026-11-12
+- **Status:** accepted
+
+**Context.** Flows of goods between large ports, split by cargo type, were requested. No free
+source combines both: PortWatch has a port-to-port network (all vessel types) and daily
+country trade by vessel type (no partner).
+
+**Decision.**
+- Show both side by side in a "Trade flows" tab: a flow map of the port network and the
+  cargo mix of a country over time, plus a ranking of countries per cargo type.
+- Long-haul links (international, 5+ days) by default; short feeder services dominate the
+  network otherwise.
+- Network download once (static snapshot), links above 1,000 t/day only.
+- Country trade download opt-in (`download_country_trade: false`): 560,000 rows at 2–3.5 s
+  per page of 1,000 rows take 20–25 minutes the first time. Without it, the tab shows the
+  network and a hint how to enable the cargo section.
+- Flow lines are drawn as one Plotly trace per width class (four quartiles) with
+  `None`-separated segments, plus invisible midpoint markers for the hover text: hundreds of
+  single-line traces would make the map slow.
+
+**Consequences.** Commodity flows between countries by product (crude oil, LNG, iron ore,
+polyethylene) would need CEPII BACI, a later step.

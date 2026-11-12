@@ -11,6 +11,8 @@ from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
 
 from ptf.clean.market import MARKET_COLUMNS
 from ptf.clean.portwatch import (
+    COUNTRY_TRADE_COLUMNS,
+    PORT_LINK_COLUMNS,
     clean_chokepoints,
     clean_events,
     clean_port_activity,
@@ -115,3 +117,8 @@ def test_port_event_and_market_tables_match_dictionary(tmp_path: Path) -> None:
     assert documented_columns("ports") == list(clean_ports(tmp_path, names).columns)
     assert documented_columns("events") == list(clean_events(tmp_path).columns)
     assert documented_columns("market_series") == MARKET_COLUMNS
+
+
+def test_flow_tables_match_dictionary() -> None:
+    assert documented_columns("port_links") == PORT_LINK_COLUMNS
+    assert documented_columns("country_trade") == COUNTRY_TRADE_COLUMNS

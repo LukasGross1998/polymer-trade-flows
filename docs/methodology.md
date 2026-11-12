@@ -355,3 +355,23 @@ Ports and Energy & freight. All data are free and need no key; `pipeline portwat
   visible in the AIS data cannot be told from the data.
 - PortWatch lists two open red-alert events: **HORMUZ-26** (since 1 Mar 2026) and **RED SEA
   TENSIONS** (since 16 Dec 2023).
+
+### 5.4 Trade flows: port network and cargo types
+
+- **Port network** (PortWatch `spillovers_port_level_impact`): directed links between ports
+  with average transit days and the vessel capacity (deadweight tonnes) travelling on them per
+  day. It is a **static snapshot** (last updated May 2025), covers **all vessel types
+  together** and measures capacity, not the cargo actually carried. Only links with at least
+  1,000 t/day are kept (8,084 of ~227,000, ~71 % of capacity).
+- The largest links overall are short coastal and feeder services (Shanghai–Ningbo,
+  Hong Kong–Shenzhen). The map therefore shows **long-haul links** by default: between
+  different countries and at least 5 days of transit. Among the 100 largest of those, 18 start
+  in **Port Hedland** (Australian iron ore to Chinese steel ports, 13–20 days); the largest
+  outbound links of **Jubail** go to Singapore (15 days), Fujairah and Bahrain.
+- **Cargo types** (PortWatch `Daily_Trade_Data_REG`): daily imports and exports per country
+  by vessel type, where the vessel type stands for the cargo (tankers ~ oil, products,
+  chemicals, LNG/LPG; dry bulk ~ ore, coal, grain; containers ~ manufactured goods including
+  bagged polyethylene; RoRo ~ vehicles). The dataset has ~560,000 rows; the first download
+  takes 20–25 minutes, so it is **switched off by default** (`download_country_trade`).
+- Not freely available: port-to-port flows by cargo (e.g. crude oil tanker flows), which are
+  the business of commercial providers such as Kpler or Vortexa.

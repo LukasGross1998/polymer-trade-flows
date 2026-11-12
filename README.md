@@ -14,7 +14,7 @@ interactive Dash app.
 
 ![Overview](docs/figures/dashboard_overview.jpg)
 
-A Dash app with four tabs on what moves polyethylene trade right now:
+A Dash app with five tabs on what moves polyethylene trade right now:
 
 - **Overview:** disrupted chokepoints, oil price, gas spread Europe–US, supply-chain stress,
   ports furthest below normal and active disruption events.
@@ -23,11 +23,14 @@ A Dash app with four tabs on what moves polyethylene trade right now:
   Cape route: ~25 % before the crisis, ~77 % since 2024).
 - **Ports:** port calls and estimated trade volumes of eleven polyethylene-relevant ports
   (Houston, Jubail, Yanbu, Jebel Ali, Antwerp, Rotterdam, Shanghai, ...).
+- **Trade flows:** the port-to-port shipping network (long-haul links, line width = vessel
+  capacity per day) and, optionally, countries' imports and exports by cargo type.
 - **Energy & freight:** Brent/WTI, natural gas in the US, Europe and Japan, freight and resin
   price indices, exchange rates and the NY Fed Global Supply Chain Pressure Index.
 
 ![Energy and freight](docs/figures/dashboard_markets.jpg)
 ![Ports](docs/figures/dashboard_ports.jpg)
+![Trade flows](docs/figures/dashboard_flows.jpg)
 
 ```bash
 uv run python -m ptf.pipeline portwatch   # chokepoints, ports, events (incremental)
@@ -93,6 +96,6 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | 0 | Repo scaffold, tooling, CI | done |
 | 1 | Ingest, cleaning, data-quality report | code done, download ~60 % |
 | 2 | Transport LP, model vs. reality, shadow prices | first version done (base year 2023) |
-| 3 | Scenarios, cost curves, Dash app (MVP) | dashboard with 4 tabs done; scenarios next |
+| 3 | Scenarios, cost curves, Dash app (MVP) | dashboard with 5 tabs done; scenarios next |
 | 4 | Import forecasting (optional) | planned |
 | 5 | Docker, Airflow, final polish | planned |
