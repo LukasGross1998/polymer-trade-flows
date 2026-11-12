@@ -69,9 +69,14 @@ def _network_section(data: AppData) -> html.Div:
                     charts.control(
                         "Links",
                         dcc.Checklist(
-                            id="flow-international",
-                            options=[{"label": " International links only", "value": "intl"}],
-                            value=["intl"],
+                            id="flow-long-haul",
+                            options=[
+                                {
+                                    "label": " Long-haul links only (international, 5+ days)",
+                                    "value": "long",
+                                }
+                            ],
+                            value=["long"],
                         ),
                     ),
                 ],
@@ -333,14 +338,14 @@ def ranking_figure(ranking: pd.DataFrame, title: str) -> go.Figure:
     return fig
 
 
-def update_network(data: AppData, port_id: str, direction: str, international: list[str]) -> tuple:
+def update_network(data: AppData, port_id: str, direction: str, long_haul: list[str]) -> tuple:
     port = None if port_id == ALL_PORTS else port_id
     links = top_links(
         data.port_links,
         n=150 if port is None else 40,
         port_id=port,
         direction=direction,
-        international_only="intl" in international,
+        long_haul_only="long" in long_haul,
     )
     return network_figure(links, port), links_table(links)
 
@@ -367,11 +372,11 @@ def register(app: Dash, state: AppState) -> None:
         Output("flow-table", "children"),
         Input("flow-port", "value"),
         Input("flow-direction", "value"),
-        Input("flow-international", "value"),
+        Input("flow-long-haul", "value"),
         Input("data-version", "data"),
     )
-    def _network(port_id: str, direction: str, international: list[str], _version: int) -> tuple:
-        return update_network(state.data, port_id, direction, international)
+    def _network(port_id: str, direction: str, long_haul: list[str], _version: int) -> tuple:
+        return update_network(state.data, port_id, direction, long_haul)
 
     if state.data.country_trade is not None:
         _register_trade(app, state)

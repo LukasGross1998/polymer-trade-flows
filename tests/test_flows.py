@@ -19,8 +19,11 @@ CONFIG = MonitorConfig.model_validate(
 )
 
 
-def link(src: str, dst: str, src_country: str, dst_country: str, capacity: float) -> dict:
+def link(
+    src: str, dst: str, src_country: str, dst_country: str, capacity: float, days: float = 10.0
+) -> dict:
     return {
+        "transit_days": days,
         "from_port_id": src,
         "from_port": src.upper(),
         "from_country": src_country,
@@ -37,13 +40,15 @@ LINKS = pd.DataFrame(
         link("sha", "rtm", "China", "Netherlands", 300.0),
         link("jub", "sha", "Saudi Arabia", "China", 200.0),
         link("sha", "sgp", "China", "Singapore", 100.0),
+        link("hkg", "szx", "Hong Kong", "China", 800.0, days=1.0),  # short feeder service
     ]
 )
 
 
-def test_top_links_drop_domestic_links_by_default() -> None:
+def test_top_links_keep_long_haul_by_default() -> None:
+    # Domestic (sha-nin) and short international (hkg-szx, 1 day) links are dropped.
     assert top_links(LINKS, n=2)["to_port_id"].tolist() == ["rtm", "sha"]
-    assert top_links(LINKS, n=1, international_only=False)["to_port_id"].tolist() == ["nin"]
+    assert top_links(LINKS, n=1, long_haul_only=False)["to_port_id"].tolist() == ["nin"]
 
 
 def test_top_links_for_one_port_by_direction() -> None:
@@ -55,9 +60,9 @@ def test_top_links_for_one_port_by_direction() -> None:
 
 
 def test_port_options_sorted_by_name() -> None:
-    options = port_options(LINKS, n=2)  # the two largest exporters: sha (1,300), jub (200)
+    options = port_options(LINKS, n=2)  # the two largest exporters: sha (1,300), hkg (800)
 
-    assert options["port"].tolist() == ["JUB", "SHA"]
+    assert options["port"].tolist() == ["HKG", "SHA"]
 
 
 def country_trade(iso3: str, start: str, exports_tanker: list[float]) -> pd.DataFrame:

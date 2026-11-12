@@ -147,7 +147,7 @@ def test_flows_tab(settings: Settings) -> None:
     add_flow_data(settings)
     data = load_app_data(settings)
 
-    network_fig, table = flows.update_network(data, flows.ALL_PORTS, "outbound", ["intl"])
+    network_fig, table = flows.update_network(data, flows.ALL_PORTS, "outbound", ["long"])
     mix_fig, ranking_fig = flows.update_trade(data, "SAU", "export", "tanker", "1y")
 
     port_markers = network_fig.data[-1]

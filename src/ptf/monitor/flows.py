@@ -19,20 +19,23 @@ def top_links(
     n: int = 100,
     port_id: str | None = None,
     direction: str = "outbound",
-    international_only: bool = True,
+    long_haul_only: bool = True,
+    min_transit_days: float = 5.0,
 ) -> pd.DataFrame:
     """The `n` links with the largest daily capacity.
 
     With `port_id`, only links leaving (`outbound`) or reaching (`inbound`) that port.
-    `international_only` drops links within one country, which otherwise dominate the list
-    (short coastal and feeder services, e.g. Shanghai - Ningbo).
+    `long_haul_only` keeps links between different countries with at least
+    `min_transit_days` of transit. Otherwise short coastal and feeder services dominate the
+    list (e.g. Shanghai - Ningbo, or Hong Kong - Shenzhen, which counts as international).
     """
     selected = links
     if port_id is not None:
         column = "from_port_id" if direction == "outbound" else "to_port_id"
         selected = selected[selected[column] == port_id]
-    if international_only:
-        selected = selected[selected["from_country"] != selected["to_country"]]
+    if long_haul_only:
+        international = selected["from_country"] != selected["to_country"]
+        selected = selected[international & (selected["transit_days"] >= min_transit_days)]
     return selected.nlargest(n, "daily_capacity").reset_index(drop=True)
 
 
