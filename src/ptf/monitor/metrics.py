@@ -1,7 +1,10 @@
-"""Key figures of the shipping monitor, computed from the clean daily transit table.
+"""Key figures of the shipping monitor, for chokepoints and ports alike.
 
-Daily transit counts are noisy (weekdays, convoys, single large days), so everything works on
-a rolling mean. "Normal" for a given day is the average daily traffic in the same ISO calendar
+All functions work on a "location series" with columns date, location_id, location, value:
+a chokepoint and a vessel type, or a port and a metric (port calls, import volume, ...).
+
+Daily counts are noisy (weekdays, convoys, single large days), so everything works on a
+rolling mean. "Normal" for a given day is the average daily value in the same ISO calendar
 week across the baseline years (2019-2023), which removes seasonality: comparing November
 with an annual average would flag every quiet season as a disruption.
 """
@@ -15,16 +18,29 @@ from ptf.monitor.config import MonitorConfig
 ONE_YEAR = pd.Timedelta(days=364)
 
 
+def location_series(
+    frame: pd.DataFrame, id_column: str, name_column: str, value_column: str
+) -> pd.DataFrame:
+    """Columns date, location_id, location, value, sorted by location and date."""
+    series = frame[["date", id_column, name_column, value_column]].rename(
+        columns={id_column: "location_id", name_column: "location", value_column: "value"}
+    )
+    return series.sort_values(["location_id", "date"]).reset_index(drop=True)
+
+
 def daily_series(transits: pd.DataFrame, vessel_type: str) -> pd.DataFrame:
-    """Columns date, chokepoint_id, chokepoint, value for one vessel type (e.g. 'container')."""
-    column = VESSEL_TYPES[vessel_type]
-    series = transits[["date", "chokepoint_id", "chokepoint", column]]
-    return series.rename(columns={column: "value"}).sort_values(["chokepoint_id", "date"])
+    """Chokepoint transits of one vessel type (e.g. 'container') as a location series."""
+    return location_series(transits, "chokepoint_id", "chokepoint", VESSEL_TYPES[vessel_type])
+
+
+def port_series(ports: pd.DataFrame, metric: str) -> pd.DataFrame:
+    """One port metric (e.g. 'portcalls', 'export') as a location series."""
+    return location_series(ports, "port_id", "port", metric)
 
 
 def add_rolling_mean(series: pd.DataFrame, window_days: int) -> pd.DataFrame:
-    """Add `rolling`: mean of the last `window_days` days per chokepoint (NaN until full)."""
-    rolling = series.groupby("chokepoint_id")["value"].transform(
+    """Add `rolling`: mean of the last `window_days` days per location (NaN until full)."""
+    rolling = series.groupby("location_id")["value"].transform(
         lambda values: values.rolling(window_days, min_periods=window_days).mean()
     )
     return series.assign(rolling=rolling)
@@ -40,17 +56,17 @@ def _iso_year_week(dates: pd.Series) -> pd.DataFrame:
 
 
 def weekly_baseline(series: pd.DataFrame, baseline_years: list[int]) -> pd.DataFrame:
-    """Normal traffic per chokepoint and calendar week, from the baseline years.
+    """Normal level per location and calendar week, from the baseline years.
 
-    `baseline` is the mean over the years of each year's average daily traffic in that week;
+    `baseline` is the mean over the years of each year's average daily value in that week;
     `baseline_low` / `baseline_high` are the lowest and highest of those yearly averages
     (the band shown in the chart).
     """
     with_week = pd.concat([series, _iso_year_week(series["date"])], axis=1)
     base = with_week[with_week["iso_year"].isin(baseline_years)]
-    per_year = base.groupby(["chokepoint_id", "iso_year", "week"], as_index=False)["value"].mean()
+    per_year = base.groupby(["location_id", "iso_year", "week"], as_index=False)["value"].mean()
     return (
-        per_year.groupby(["chokepoint_id", "week"])["value"]
+        per_year.groupby(["location_id", "week"])["value"]
         .agg(baseline="mean", baseline_low="min", baseline_high="max")
         .reset_index()
     )
@@ -61,11 +77,11 @@ def compare_to_baseline(
 ) -> pd.DataFrame:
     """Add baseline columns, `deviation_pct` and `is_disrupted` to a series with `rolling`.
 
-    Chokepoints whose normal traffic is below `min_baseline` vessels per day are never
-    flagged: with so few ships, percentage changes are noise.
+    Locations whose normal level is below `min_baseline` per day are never flagged: with so
+    few ships, percentage changes are noise.
     """
     with_week = pd.concat([series, _iso_year_week(series["date"])[["week"]]], axis=1)
-    table = with_week.merge(baseline, on=["chokepoint_id", "week"], how="left")
+    table = with_week.merge(baseline, on=["location_id", "week"], how="left")
     table["deviation_pct"] = (table["rolling"] / table["baseline"] - 1) * 100
     below_threshold = table["rolling"] < threshold * table["baseline"]
     enough_traffic = table["baseline"] >= min_baseline
@@ -73,21 +89,31 @@ def compare_to_baseline(
     return table
 
 
-def monitor_table(transits: pd.DataFrame, vessel_type: str, config: MonitorConfig) -> pd.DataFrame:
-    """Daily series with rolling mean, baseline and deviation for every chokepoint."""
-    series = add_rolling_mean(daily_series(transits, vessel_type), config.rolling_window_days)
+def series_table(series: pd.DataFrame, config: MonitorConfig) -> pd.DataFrame:
+    """Rolling mean, baseline and deviation for every location of a location series."""
+    series = add_rolling_mean(series, config.rolling_window_days)
     baseline = weekly_baseline(series, config.baseline_years)
     return compare_to_baseline(
         series, baseline, config.disruption_threshold, config.min_baseline_per_day
     )
 
 
+def monitor_table(transits: pd.DataFrame, vessel_type: str, config: MonitorConfig) -> pd.DataFrame:
+    """Chokepoints: daily series with rolling mean, baseline and deviation."""
+    return series_table(daily_series(transits, vessel_type), config)
+
+
+def port_table(ports: pd.DataFrame, metric: str, config: MonitorConfig) -> pd.DataFrame:
+    """Ports: daily series with rolling mean, baseline and deviation."""
+    return series_table(port_series(ports, metric), config)
+
+
 def latest_status(table: pd.DataFrame) -> pd.DataFrame:
-    """One row per chokepoint at the latest date, plus `yoy_pct` against 52 weeks earlier."""
+    """One row per location at the latest date, plus `yoy_pct` against 52 weeks earlier."""
     latest_date = table["date"].max()
     latest = table[table["date"] == latest_date].copy()
-    year_ago = table[table["date"] == latest_date - ONE_YEAR].set_index("chokepoint_id")
-    previous = latest["chokepoint_id"].map(year_ago["rolling"])
+    year_ago = table[table["date"] == latest_date - ONE_YEAR].set_index("location_id")
+    previous = latest["location_id"].map(year_ago["rolling"])
     latest["yoy_pct"] = (latest["rolling"] / previous - 1) * 100
     return latest.reset_index(drop=True)
 
@@ -100,7 +126,7 @@ def diversion_ratio(transits: pd.DataFrame, config: MonitorConfig) -> pd.DataFra
     around Africa.
     """
     series = add_rolling_mean(daily_series(transits, "container"), config.rolling_window_days)
-    wide = series.pivot(index="date", columns="chokepoint_id", values="rolling")
+    wide = series.pivot(index="date", columns="location_id", values="rolling")
     red_sea = wide[config.red_sea.red_sea_route]
     cape = wide[config.red_sea.cape_route]
     return pd.DataFrame(

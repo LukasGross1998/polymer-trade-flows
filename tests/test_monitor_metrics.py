@@ -57,7 +57,7 @@ def test_rolling_mean_needs_a_full_window() -> None:
     series = pd.DataFrame(
         {
             "date": pd.date_range("2024-01-01", periods=4),
-            "chokepoint_id": "x",
+            "location_id": "x",
             "value": [1, 2, 3, 4],
         }
     )
@@ -75,7 +75,7 @@ def test_baseline_averages_each_years_week_then_across_years() -> None:
             pd.DataFrame({"date": pd.date_range("2019-01-07", periods=7), "value": 10}),
             pd.DataFrame({"date": pd.date_range("2020-01-06", periods=7), "value": 20}),
         ]
-    ).assign(chokepoint_id="x")
+    ).assign(location_id="x")
 
     baseline = weekly_baseline(series, [2019, 2020]).set_index("week").loc[2]
 
@@ -87,13 +87,13 @@ def test_traffic_below_threshold_is_flagged_as_disruption() -> None:
     series = pd.DataFrame(
         {
             "date": pd.to_datetime(["2024-01-08", "2024-01-09"]),  # ISO week 2
-            "chokepoint_id": "x",
+            "location_id": "x",
             "rolling": [8.0, 6.0],
         }
     )
     baseline = pd.DataFrame(
         {
-            "chokepoint_id": ["x"],
+            "location_id": ["x"],
             "week": [2],
             "baseline": [10.0],
             "baseline_low": [9.0],
@@ -124,7 +124,7 @@ def test_latest_status_compares_with_same_weekday_a_year_earlier() -> None:
     table = pd.DataFrame(
         {
             "date": pd.to_datetime(["2023-11-09", "2024-11-07"]),  # 364 days apart, both Thursday
-            "chokepoint_id": "x",
+            "location_id": "x",
             "rolling": [20.0, 5.0],
         }
     )
@@ -146,11 +146,11 @@ def test_diversion_ratio_is_cape_share_of_both_routes() -> None:
 
 def test_low_traffic_chokepoints_are_not_flagged() -> None:
     series = pd.DataFrame(
-        {"date": pd.to_datetime(["2024-01-08"]), "chokepoint_id": "x", "rolling": [0.0]}
+        {"date": pd.to_datetime(["2024-01-08"]), "location_id": "x", "rolling": [0.0]}
     )
     baseline = pd.DataFrame(
         {
-            "chokepoint_id": ["x"],
+            "location_id": ["x"],
             "week": [2],
             "baseline": [0.5],  # half a ship per day is normal here
             "baseline_low": [0.0],
