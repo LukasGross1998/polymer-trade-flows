@@ -72,7 +72,7 @@ lint-imports` checks these rules in CI and pre-commit.
 ## Tech stack
 
 Python 3.12 · uv · pandas · Parquet + DuckDB · dbt · Pyomo + HiGHS · Dash + Plotly ·
-pytest · ruff · pre-commit · GitHub Actions · later Docker and Airflow
+pytest · ruff · mypy · import-linter · pre-commit · GitHub Actions · Docker · later Airflow
 
 ## How to run
 
@@ -88,6 +88,20 @@ uv run pytest                    # run tests
 uv run ruff check .              # lint
 uv run ruff format .             # format
 ```
+
+### Run with Docker
+
+Docker builds one image with code, configuration and the dbt project (ADR-013); the data
+stay in `./data` on your machine and are mounted into the containers.
+
+```bash
+docker compose build                        # build the image (first time: a few minutes)
+docker compose up -d app                    # dashboard on http://localhost:8050
+docker compose run --rm pipeline portwatch  # any pipeline step, e.g. model, market, clean
+docker compose down                         # stop the app (data stay)
+```
+
+Without data the app shows a start page with the steps to run first.
 
 ### Data pipeline
 

@@ -6,6 +6,11 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Docker image built with uv in two stages, `compose.yaml` with the services `app`
+  (gunicorn, healthcheck) and `pipeline` (any `ptf` step), data on volumes; CI builds the
+  image and runs `docker/smoke_test.sh` (spec 005, ADR-013).
+- Settings `APP_HOST`, `APP_PORT`, `DBT_PROJECT_DIR`; the app shows a start page when the
+  warehouse has no data yet.
 - Package dependency rules checked with import-linter in CI and pre-commit (ADR-012).
 - `uv run ptf <step>` as command (also `python -m ptf <step>`).
 - dbt project on DuckDB (`dbt/`, spec 002): staging models, star schema (`dim_country`,

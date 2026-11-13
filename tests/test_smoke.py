@@ -33,3 +33,24 @@ def test_api_key_is_read_from_env_and_hidden(monkeypatch: pytest.MonkeyPatch) ->
     assert settings.comtrade_api_key.get_secret_value() == "dummy-test-key"
     # The secret must never show up when settings are printed or logged.
     assert "dummy-test-key" not in repr(settings)
+
+
+def test_app_and_dbt_settings_default_to_local_use(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("APP_HOST", "APP_PORT", "DBT_PROJECT_DIR"):
+        monkeypatch.delenv(name, raising=False)
+
+    settings = Settings(_env_file=None)
+
+    assert (settings.app_host, settings.app_port) == ("127.0.0.1", 8050)
+    assert (settings.dbt_project_dir / "dbt_project.yml").exists()  # the repository's dbt/
+
+
+def test_container_overrides_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_HOST", "0.0.0.0")
+    monkeypatch.setenv("APP_PORT", "9000")
+    monkeypatch.setenv("DBT_PROJECT_DIR", "/app/dbt")
+
+    settings = Settings(_env_file=None)
+
+    assert (settings.app_host, settings.app_port) == ("0.0.0.0", 9000)
+    assert settings.dbt_project_dir == Path("/app/dbt")

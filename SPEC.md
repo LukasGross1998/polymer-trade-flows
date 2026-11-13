@@ -214,7 +214,7 @@ Architektur zuerst (ADR-010), jeder Schritt als eigene Spec in `specs/` und eige
 1. ~~Arbeitsweise und Qualitätsschranken~~ (Spec 001, erledigt).
 2. ~~**Datenmodell und Transformationen**~~ (ADR-011: dbt auf DuckDB): Handelsdaten (Spec 002), PortWatch und Marktdaten, App liest aus den Marts (Spec 003) – erledigt.
 3. ~~**Paketstruktur nach Fachgebiet**~~ (ADR-012, Spec 004): `core`, `trade`, `shipping`, `markets`, `model`, `legacy`, `app`; CLI `uv run ptf <schritt>`; Regeln per import-linter – erledigt.
-4. **Docker:** Image (mehrstufig, uv), compose für die App.
+4. ~~**Docker**~~ (ADR-013, Spec 005): Image mehrstufig mit uv, compose mit `app` und `pipeline`, Rauchprobe in der CI – erledigt.
 5. **Airflow:** DAGs (Schifffahrt/Märkte täglich, Handel jährlich, Modell danach); App nur noch lesend.
 6. **Betrieb:** Laufprotokoll, Frischeprüfungen, Prüfsummen.
 

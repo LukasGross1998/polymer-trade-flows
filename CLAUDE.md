@@ -56,7 +56,7 @@ Die fachliche Spezifikation steht in `SPEC.md`. **Lies sie vor jeder neuen Phase
 - Visualisierung/App: **Dash** + Plotly
 - Qualität: **pytest**, **ruff** (lint + format), **pre-commit**, Type Hints
 - Konfiguration: `.env` + `pydantic-settings`; **niemals Secrets committen**
-- Später: **Docker**, **docker compose**, **Apache Airflow**, GitHub Actions (CI)
+- Container: **Docker** + **docker compose** (ADR-013); CI mit GitHub Actions; später **Apache Airflow**
 
 ## Projektstruktur (Zielbild)
 
@@ -97,7 +97,7 @@ polymer-trade-flows/
 ├── tests/
 │   └── fixtures/
 ├── dags/                     # Airflow, Phase 5
-└── docker/
+└── docker/                   # Rauchprobe des Images; Dockerfile und compose.yaml im Wurzelordner
 ```
 
 ## Regeln
@@ -123,5 +123,7 @@ uv run pytest --cov=ptf      # Tests mit Abdeckung (CI verlangt 85 %)
 uv run python -m ptf.app     # Dash-App starten (ab Phase 3)
 uv run ptf clean             # BACI entpacken + dbt build (Warehouse)
 uv run lint-imports          # Abhängigkeitsregeln der Pakete (ADR-012)
+docker compose up -d app     # App im Container (ADR-013), http://localhost:8050
+docker compose run --rm pipeline model   # Pipeline-Schritt im Container
 cd dbt && uv run dbt build --profiles-dir .   # nur dbt, aus dem Ordner dbt/
 ```

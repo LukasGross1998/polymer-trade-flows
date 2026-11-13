@@ -11,3 +11,4 @@ increments.
 | 002 | [dbt warehouse: trade data](002-dbt-trade-model.md) | done |
 | 003 | [dbt warehouse: shipping and market data](003-dbt-shipping-markets.md) | done |
 | 004 | [Package structure by domain](004-package-by-domain.md) | done |
+| 005 | [Docker image and compose](005-docker.md) | done |
