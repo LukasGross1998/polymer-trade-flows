@@ -10,27 +10,46 @@ lives in `config/` and is explained here. Generated figures and tables: [data_qu
 
 | Item | Choice | Where |
 |---|---|---|
-| Product | HS 3901, polyethylene in primary forms (includes EVA 390130 and other ethylene polymers 390190) | `config/pipeline.yaml` |
+| Product | HS 3901, polyethylene in primary forms, split into five HS6 products (LDPE/LLDPE 390110, HDPE 390120, EVA 390130, ethylene-alpha-olefin copolymers 390140, other 390190) | `config/pipeline.yaml` |
 | Years | 2019–2024, annual | `config/pipeline.yaml` |
-| Reporters | ~30 largest PE traders, see section 2 | `config/regions.yaml` |
-| Partners | all countries; unlisted ones map to `ROW` | `config/regions.yaml` |
-
-HS 3901 as a whole is a known simplification: grades (LDPE, LLDPE, HDPE) and EVA have
-different prices and trade patterns.
+| Countries | all ~200 countries in BACI, mapped to 10 regions (section 2) | `config/regions.yaml` |
 
 ### 1.2 Sources
 
 | Source | What | Access | Raw layer |
 |---|---|---|---|
-| UN Comtrade | annual bilateral imports and exports, net weight (kg) and value (USD) | public preview API, no key (ADR-003) | `data/raw/comtrade/{ISO3}_{year}.parquet`, records unchanged + `fetched_at` |
-| UN Comtrade reference | area codes -> ISO3 | `files/v1/app/reference/*.json` | `data/raw/comtrade_reference/` |
+| **CEPII BACI** (V202601, HS 2017) | reconciled bilateral trade per HS6 product: value (thousand USD, FOB) and quantity (t) | one ~800 MB zip, free, Etalab 2.0 (ADR-009) | `data/raw/baci/BACI_HS17_V202601.zip`, kept unchanged |
 | searoute | sea distance between representative ports | Python package, offline | `data/raw/distances/` |
-| FRED `DCOILBRENTEU` | Brent spot price, daily, USD/bbl | CSV download, no key (ADR-004) | `data/raw/brent/DCOILBRENTEU.csv` |
+| FRED `DCOILBRENTEU` | Brent spot price, daily, USD/bbl | CSV download, no key (ADR-004) | `data/raw/fred/DCOILBRENTEU/` |
+| UN Comtrade (check only) | our own download of annual reports, phase 1 | public preview API (ADR-003) | `data/raw/comtrade/` |
 
-Raw files are never overwritten. A cached Comtrade file is not fetched again; to pick up a
-late-reporting country, delete its file and rerun `ingest`.
+Raw files are never overwritten.
 
-### 1.3 raw -> clean
+### 1.3 BACI -> clean
+
+BACI is built by CEPII from UN Comtrade: for every flow it combines the exporter's and the
+importer's report, removes estimated freight and insurance from import values (so values are
+FOB) and weights each country's reports by their reliability, judged by how far they deviate
+from the partners' reports. This is what we did ourselves in phase 1 (section 1.4), for all
+countries and with a more elaborate weighting.
+
+- the yearly CSVs are read in chunks directly from the zip; only HS 3901xx is kept (28 s for
+  six years of ~10 million rows each)
+- numeric country codes -> ISO3 via BACI's country list; "Other Asia, nes" (`S19`) -> `TWN`
+- value × 1,000 (BACI reports thousand USD)
+- missing quantities (445 product flows, < 0.1 % of tonnage) are imputed as value ÷ median
+  unit value of the same HS6 product and year and flagged (`is_imputed`)
+- `trade_hs6` keeps the product split; `bilateral_flows` sums the products per relation and
+  adds the regions – the input of the model
+
+### 1.4 Own Comtrade reconciliation (phase 1, superseded, kept as a check)
+
+Phase 1 downloaded Comtrade reports directly and reconciled them ourselves. The public
+endpoint's daily quota stopped the download at 17 of 30 reporters (ADR-003, ADR-009). The
+rules below are kept in the code (`pipeline comtrade`) and the result is compared with BACI
+in the data-quality report.
+
+#### Comtrade raw -> clean
 
 `trade_reports` (one row per report, schema in SPEC section 3):
 
@@ -43,7 +62,7 @@ late-reporting country, delete its file and rerun `ingest`.
 - `qty_estimated_by_source` keeps Comtrade's own flag `isNetWgtEstimated`: Comtrade
   already fills missing weights itself, and we do not want to hide that
 
-### 1.4 Quality rules
+#### Quality rules
 
 **Rule 1 – unit values and outliers.** `unit_value_usd_t = value_usd / qty_t`. A report is an
 outlier if its log unit value is more than `outlier_mad_threshold` (3.0) robust standard
@@ -93,42 +112,42 @@ year, mirror gaps, source of the agreed quantity, outliers and an inter-regional
 
 ### 1.5 Known limitations
 
-- Only relations where at least one of the ~30 reporters is involved are covered. Trade
-  between two `ROW` countries (e.g. Nigeria–Ghana) is missing. For the inter-regional model
-  this matters little, because the large flows involve at least one listed country.
-- Russia stopped reporting in 2022, Iran reports irregularly, and Taiwan does not report to
-  Comtrade at all. Their trade is visible only through their partners' reports.
-- Hong Kong re-exports mostly to mainland China. Both are in region `CHN`, so the double
-  counting disappears in intra-regional trade; HK's own re-exports (flow `RX`) are excluded.
-- Annual data mixes timing effects at year boundaries into the mirror gaps.
+- BACI is published once a year; the latest data year is 2024. Recent months are covered
+  only by the PortWatch-based monitor (sections 4 and 5).
+- HS 3901 contains EVA and other ethylene polymers besides PE grades; the HS6 split in
+  `trade_hs6` allows excluding them.
+- Hong Kong re-exports mostly to mainland China. Both are in region `CHN`, so this double
+  counting disappears in intra-regional trade.
+- Quantities in BACI are partly converted from values or other units by CEPII; aggregate
+  quantities can differ slightly between HS revisions.
 
-### 1.6 First observations (partial data, 2026-11-12)
+### 1.6 What the data show
 
-Based on 17 of 30 reporters (Americas, Europe, Russia, Saudi Arabia, UAE, partly Qatar);
-all of Asia and Africa are still missing because of the API quota. To be revisited once the
-download is complete.
-
-- **Mirror gaps are large.** Of the relations reported by both sides, only 21–30 % agree
-  within ±10 % in quantity, and the median absolute gap is 26–40 %. The CIF/FOB value ratio
-  has a median of 1.1–1.3, i.e. the value difference expected from freight and insurance.
-- **Hub effects dominate the largest gaps.** Saudi Arabia reports 480 kt of exports to
-  Belgium in 2024, Belgium records only 171 kt from Saudi Arabia. Goods shipped to Antwerp
-  are often declared for customs in another EU country (the "Rotterdam/Antwerp effect").
-- **Comtrade estimates a lot itself.** 11–37 % of the agreed tonnage per year rests on weights
-  that Comtrade flags as estimated (`qty_estimated_by_source`).
-- **A missing reporter is not a missing flow.** Russia stopped reporting after 2021. With the
-  reporters loaded so far, its visible exports fall from 1.3 Mt (2021) to 0.2 Mt (2022):
-  largely an artefact, because its main buyer China is not downloaded yet. Mirror data can
-  only show what the loaded partners report.
-- **US exports to China tripled** from 0.8 Mt (2019) to 2.7 Mt (2023) as new shale-based
-  capacity on the Gulf Coast came online; the US is by far the largest net exporter.
+- **World polyethylene trade is 68–70 Mt a year** (2019–2024), roughly half of world
+  production. 2023 by product: HDPE 25.2 Mt, LDPE/LLDPE 20.7 Mt, ethylene-alpha-olefin
+  copolymers 15.5 Mt, EVA 3.2 Mt, other 3.2 Mt.
+- **Largest importers 2023:** China 16.5 Mt, India 4.1, USA 3.4, Turkey 2.5, Vietnam 2.3.
+  **Largest exporters:** USA 13.7 Mt, Saudi Arabia 9.9, Korea 4.4, Canada 3.8, UAE 3.5.
+- **Russia:** exports fall from 1.34 Mt (2021) to 0.69 Mt (2023). Our partial Comtrade data
+  had shown a drop to 0.2 Mt; that was mostly an artefact of missing partner reports, as
+  suspected.
+- **Check against our own reconciliation:** for the relations in both datasets, about half
+  of our Comtrade-based quantities lie within ±10 % of BACI, the median absolute gap is
+  6–11 %, and our totals are 2–13 % lower than BACI's. Example Saudi Arabia → Belgium 2024:
+  Saudi Arabia reported 480 kt, Belgium 171 kt; we took Belgium's import report (171 kt),
+  BACI's reconciled flow is 233 kt.
+- From the phase-1 mirror analysis (17 reporters): only 21–30 % of relations agree within
+  ±10 % between exporter and importer report, the CIF/FOB value ratio is 1.1–1.3, and
+  11–37 % of the tonnage rests on weights estimated by Comtrade itself. Hubs such as Antwerp
+  explain the largest gaps.
 
 ## 2. Regions
 
 source: assumption. Ten regions plus rest of world (`ROW`), grouped by supply economics
 and shipping geography. Representative ports are used for sea distances only.
 
-Each region has **reporters** (queried from Comtrade, ~30 in total) and **members** (all other
+Each region has **reporters** (~30 in total; they only matter for the Comtrade check, BACI
+covers all countries) and **members** (all other
 countries of the region, full lists in `config/regions.yaml`). Members are not queried, but
 their trade is seen through the reporters' reports and must be counted in the right region.
 Before this split, 37 % of inter-regional trade in 2023 fell into `ROW` (Spain, Austria,
@@ -219,16 +238,19 @@ All in `config/model.yaml`, each with a `source` field. Base year: **2023**.
 
 The 3-region example in `tests/test_transport.py` derives flows, prices and rents by hand.
 
-### 3.4 First results (2023, partial data) and why model and reality differ
+### 3.4 Results (2023, BACI data) and why model and reality differ
 
 Full output: [model_results.md](model_results.md).
 
-- The model explains **40 %** of observed inter-regional tonnage on the same routes
-  (Σ min(model, observed) / Σ observed); correlation 0.42. The model uses 9 routes, reality 59.
-- **Corner solution.** Global capacity (153 Mt) exceeds demand (126 Mt), so the LP shuts
-  down the most expensive producers completely: Europe produces 0 t, Northeast Asia runs at
-  4 %, while all cheaper regions run at 100 % of nameplate. North America then ships 12.8 Mt
-  to Europe (observed: 2.0 Mt).
+- Observed inter-regional trade is **44.1 Mt**; the model explains **42 %** of it on the same
+  routes (Σ min(model, observed) / Σ observed), correlation 0.57. The model uses 8 routes,
+  reality 90. With the partial Comtrade data it had been 40 % and 0.42.
+- Demand (production assumption + net imports) totals 126 Mt; China 44.8 Mt, India 11.0 Mt.
+- **Corner solution.** Global capacity (153 Mt) exceeds demand, so the LP shuts down the
+  most expensive producers: Europe produces 0 t, Northeast Asia runs at 15 %, Southeast Asia
+  at 87 %, all cheaper regions at 100 % of nameplate. North America ships 13.4 Mt to Europe
+  (observed: 2.0 Mt), while the largest observed routes go to China (Middle East 6.2 Mt,
+  North America 3.2, Southeast Asia 3.0, Northeast Asia 3.0).
 - **Northeast Asia is the marginal supplier** (idle capacity at 1,100 USD/t), which puts all
   regional prices between 1,018 and 1,106 USD/t. Rents: Middle East 518, North America 376,
   Russia 353 USD/t.
@@ -237,8 +259,6 @@ Full output: [model_results.md](model_results.md).
   suppliers for security; tariffs and trade policy (e.g. US–China) are not in the base case;
   a single cost per region hides the cost spread within a region; nameplate capacity is
   treated as fully usable.
-- Data caveat: Asian and African reporters are not downloaded yet, so imports into Asia and
-  hence demand there are underestimated (China 5.5 Mt observed imports vs. ~13–14 Mt real).
 
 ### 3.5 Limitations and next steps
 

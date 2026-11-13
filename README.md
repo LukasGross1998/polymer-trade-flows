@@ -1,10 +1,10 @@
 # Polymer Trade Flow & Disruption Simulator
 
-> **Status: work in progress** (phase 2 of 5: transport LP; Comtrade download partly done, see below)
+> **Status: work in progress** (phases 1–2 done, phase 3 in progress: dashboard done, scenarios next)
 
 What happens to polyethylene flows into Europe when the Red Sea closes, and who gains market share?
-This project rebuilds global polyethylene trade (HS 3901) from official UN Comtrade statistics,
-reconciles contradictory export and import reports, and explains the observed flows with a
+This project rebuilds global polyethylene trade (HS 3901) from official trade statistics (CEPII
+BACI, reconciled UN Comtrade data, plus an own Comtrade reconciliation as a check), and explains the observed flows with a
 cost-minimising transport model (linear programming). Shadow prices from the model act as implied
 regional prices, and disruption scenarios (Suez/Red Sea closure, Panama Canal drought, tariffs,
 plant outages, oil shocks) show how flows, costs and prices shift. Results will be explorable in an
@@ -40,7 +40,7 @@ uv run python -m ptf.app                  # open http://127.0.0.1:8050
 
 ## Approach
 
-1. **Data:** UN Comtrade bilateral trade -> cleaning, mirror statistics, imputation -> Parquet/DuckDB
+1. **Data:** CEPII BACI bilateral trade by HS6 product -> Parquet/DuckDB; own Comtrade mirror reconciliation as a check
 2. **Model:** transport LP in Pyomo, solved with HiGHS; duals interpreted as regional prices
 3. **Scenarios:** declarative YAML scenarios, cost curves, before/after comparison
 4. **App:** Dash + Plotly
@@ -61,7 +61,7 @@ Prerequisites: [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 automat
 git clone <repo-url>
 cd polymer-trade-flows
 uv sync                          # create .venv and install dependencies
-cp .env.example .env             # optional: no API key needed for UN Comtrade
+cp .env.example .env             # optional: no API keys needed for any source
 uv run pre-commit install        # run lint/format checks on every commit
 uv run pytest                    # run tests
 uv run ruff check .              # lint
@@ -71,8 +71,8 @@ uv run ruff format .             # format
 ### Data pipeline
 
 ```bash
-uv run python -m ptf.pipeline ingest   # download raw data (cached, resumable)
-uv run python -m ptf.pipeline clean    # raw -> clean layer (Parquet in data/clean)
+uv run python -m ptf.pipeline ingest   # distances, Brent, BACI zip (~800 MB, downloaded once)
+uv run python -m ptf.pipeline clean    # BACI -> trade_hs6, bilateral_flows (data/clean)
 uv run python -m ptf.pipeline report   # docs/data_quality.md + docs/figures
 uv run python -m ptf.pipeline model    # transport LP -> docs/model_results.md
 uv run python -m ptf.pipeline portwatch  # chokepoints, ports and events for the app
@@ -80,9 +80,9 @@ uv run python -m ptf.pipeline market   # energy, freight and supply-chain series
 uv run python -m ptf.pipeline all      # all three steps
 ```
 
-The public UN Comtrade endpoint has a daily request quota of roughly 100 requests. A full
-download (30 reporters × 6 years) therefore takes two days: `ingest` stops cleanly when the
-quota is used up and continues where it stopped on the next run.
+Trade data come from CEPII BACI (ADR-009). The own Comtrade download of phase 1 is kept as a
+check (`pipeline comtrade`, limited by the public API's daily quota); the data-quality report
+compares it with BACI.
 
 Results so far: [data-quality report](docs/data_quality.md) ·
 [model results](docs/model_results.md) ·
@@ -94,7 +94,7 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | Phase | Content | Status |
 |---|---|---|
 | 0 | Repo scaffold, tooling, CI | done |
-| 1 | Ingest, cleaning, data-quality report | code done, download ~60 % |
+| 1 | Ingest, cleaning, data-quality report | done (BACI, ADR-009) |
 | 2 | Transport LP, model vs. reality, shadow prices | first version done (base year 2023) |
 | 3 | Scenarios, cost curves, Dash app (MVP) | dashboard with 5 tabs done; scenarios next |
 | 4 | Import forecasting (optional) | planned |

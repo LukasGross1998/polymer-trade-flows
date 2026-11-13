@@ -1,6 +1,8 @@
 # SPEC: Polymer Trade Flow & Disruption Simulator
 
-Status: v0.7 (Entwurf) – wird in jeder Phase verfeinert.
+Status: v0.8 (Entwurf) – wird in jeder Phase verfeinert.
+
+Änderungen v0.8: Handelsdaten aus CEPII BACI statt eigenem Comtrade-Abruf (ADR-009); Comtrade bleibt als Gegenprobe; Clean-Tabellen `trade_hs6`, `bilateral_flows`, `comtrade_flows`.
 
 Änderungen v0.7: Tab „Trade flows“ (Hafennetz, Ladungsmix je Land optional), Abschnitt 7b.
 
@@ -36,7 +38,8 @@ Ein Analyst oder Trader im Chemiemarkt, der fragt: *„Was passiert mit den PE-S
 
 | Quelle | Inhalt | Zugang | Phase |
 |---|---|---|---|
-| UN Comtrade | Bilaterale Handelsmengen (kg) und -werte (USD), monatlich/jährlich, HS 3901 | öffentlicher Preview-Endpunkt **ohne Key** (Key optional, siehe unten) | 1 |
+| **CEPII BACI** | Abgeglichener bilateraler Handel je HS6-Produkt (Wert FOB in Tsd. USD, Menge in t), jährlich, alle Länder | Zip-Datei V202601, HS17, ~800 MB, frei (Etalab 2.0), ADR-009 | 1 |
+| UN Comtrade (nur Gegenprobe) | Eigene Meldungsdaten aus Phase 1 | öffentlicher Preview-Endpunkt ohne Key, Tageskontingent | 1 |
 | Eurostat Comext | EU-Handel, detaillierter, als Abgleich | öffentliche API/Bulk | 1 (optional) |
 | Seewege/Distanzen | Distanz zwischen repräsentativen Häfen je Region | Python-Paket `searoute` | 1 |
 | Brent-Ölpreis | Treiber für Rohstoff- und Bunkerkosten | FRED-CSV `DCOILBRENTEU` ohne Key (ADR-004) | 1 |
@@ -44,7 +47,7 @@ Ein Analyst oder Trader im Chemiemarkt, der fragt: *„Was passiert mit den PE-S
 
 API-Details (Endpunkte, Limits, Parameter) vor der Implementierung in der aktuellen Doku prüfen.
 
-**Comtrade-Zugang (entschieden in Phase 0, ADR-003):** Wir nutzen den öffentlichen Endpunkt `https://comtradeapi.un.org/public/v1/preview/C/{freq}/HS` ohne Registrierung. Grenzen: max. 500 Datensätze und **ein Jahr** pro Abfrage (Abfrage daher je Melder und Jahr; bei genau 500 Zeilen getrennt nach Import/Export), keine ISO-Codes in der Antwort (Zuordnung über die Comtrade-Referenztabellen), Folgeanfragen werden gedrosselt (HTTP 429, beobachtet am 2026-11-12). Der Ingest wartet daher zwischen Abfragen, wiederholt bei 429 mit Backoff und cacht jede Antwort im `raw`-Layer. Ist `COMTRADE_API_KEY` gesetzt, darf der Ingest später auf den Key-Endpunkt umschalten; erforderlich ist das nicht.
+**Comtrade-Zugang (Phase 0, ADR-003; seit ADR-009 nur noch Gegenprobe):** Wir nutzen den öffentlichen Endpunkt `https://comtradeapi.un.org/public/v1/preview/C/{freq}/HS` ohne Registrierung. Grenzen: max. 500 Datensätze und **ein Jahr** pro Abfrage (Abfrage daher je Melder und Jahr; bei genau 500 Zeilen getrennt nach Import/Export), keine ISO-Codes in der Antwort (Zuordnung über die Comtrade-Referenztabellen), Folgeanfragen werden gedrosselt (HTTP 429, beobachtet am 2026-11-12). Der Ingest wartet daher zwischen Abfragen, wiederholt bei 429 mit Backoff und cacht jede Antwort im `raw`-Layer. Ist `COMTRADE_API_KEY` gesetzt, darf der Ingest später auf den Key-Endpunkt umschalten; erforderlich ist das nicht.
 
 ### Startumfang
 - Jahre: 2019–2024 (2025 erst, wenn die Meldeabdeckung ausreicht; viele Länder melden mit 6–18 Monaten Verzug)
@@ -201,17 +204,17 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 ## 10. Stand & nächste Schritte (Stand 2026-11-12)
 
 ### Stand
-- **Phase 1 (Daten):** Code fertig. Comtrade: 104 von ca. 180 Melder-Jahren geladen (Amerika, Europa, RUS, SAU, ARE, teilweise QAT); **Asien und Afrika fehlen** wegen des Tageskontingents des öffentlichen Endpunkts (ADR-003). Weiterladen: `uv run python -m ptf.pipeline ingest`, dann `clean` und `report` (oder `all`).
-- **Phase 2 (LP):** erste Version für 2023 (`docs/model_results.md`): erklärt 40 % des interregionalen Handels; Randlösung (Europa produziert 0 t). Kostenannahmen sind die schwächste Stelle.
+- **Phase 1 (Daten):** fertig. Handelsdaten aus **CEPII BACI** (ADR-009): 68–70 Mt Welthandel pro Jahr, alle Länder, Aufteilung nach PE-Typen. Eigener Comtrade-Abgleich bleibt als Gegenprobe (`pipeline comtrade`); er liegt bei etwa der Hälfte der Relationen innerhalb ±10 % von BACI.
+- **Phase 2 (LP):** gerechnet mit BACI für 2023 (`docs/model_results.md`): erklärt 42 % des interregionalen Handels (44 Mt), Korrelation 0,57; Randlösung (Europa produziert 0 t). Kostenannahmen sind die schwächste Stelle.
 - **Dashboard (Teil von Phase 3):** fünf Tabs – Overview, Chokepoints, Ports, Trade flows, Energy & freight (7a, 7b). Start: `uv run python -m ptf.pipeline portwatch`, `... market`, dann `uv run python -m ptf.app`.
 - **Länderhandel nach Ladungsart** (PortWatch, ~560.000 Zeilen) ist abgeschaltet (`download_country_trade: false` in `config/monitor.yaml`); erster Abruf 20–25 min.
 
 ### Nächste Schritte (Vorschlag, in dieser Reihenfolge)
-1. Comtrade fertig laden, Erkenntnisse in `docs/methodology.md` 1.6 prüfen (bleibt Russlands Einbruch ein Artefakt, wenn China geladen ist?), LP neu rechnen.
+1. **Kalibrierung:** Mindestauslastung je Region im LP, damit teure Regionen nicht auf 0 fallen; Kapazitäts- und Kostenannahmen gegen die BACI-Bilanz prüfen (z. B. Nachfrage Nahost nur 4,2 Mt, Nordostasien 3,5 Mt).
 2. **Szenarien** (Abschnitt 5) bauen; Design steht: `red_sea_closed` (Passagen `babalmandab`, `suez` in searoute gesperrt), `red_sea_closed_high_freight` (zusätzlich variabler Frachtsatz ×2,5), `hormuz_closed` (Exportlimit Nahost 15 % der Kapazität, nicht über Passagensperre: Jebel Ali liegt im Golf), `red_sea_and_hormuz`. Achtung: searoute liefert für blockierte Routen Distanz **0** statt Fehler – abfangen. Ausgabe: Δ Ströme, Δ Kosten, Δ Preise/Renten, Gewinner/Verlierer.
-3. **Kalibrierung:** Mindestauslastung je Region im LP, damit teure Regionen nicht auf 0 fallen.
-4. Kostenkurve und Szenario-Tab in der App.
-5. Später: CEPII BACI für Warenströme nach Ware zwischen Ländern; Phase 4 (Prognose), Phase 5 (Docker, Airflow).
+3. Kostenkurve und Szenario-Tab in der App.
+4. Warenströme nach Ware (Rohöl, LNG, Eisenerz) aus derselben BACI-Zip für das Dashboard.
+5. Später: Phase 4 (Prognose), Phase 5 (Docker, Airflow).
 
 ### Offene Fragen
 - Kapazitäten außerhalb NAM/MDE/EUR/CHN und alle Cash-Kosten sind Größenordnungen; Quellen je Region noch einzeln prüfen.
