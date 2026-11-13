@@ -41,9 +41,11 @@ def top_links(
 
 def port_options(links: pd.DataFrame, n: int = 300) -> pd.DataFrame:
     """The `n` ports with the largest outbound capacity, for a dropdown: port_id, port, country."""
-    outbound = links.groupby(["from_port_id", "from_port", "from_country"], as_index=False)[
-        "daily_capacity"
-    ].sum()
+    outbound = (
+        links.groupby(["from_port_id", "from_port", "from_country"])["daily_capacity"]
+        .sum()
+        .reset_index()
+    )
     outbound = outbound.nlargest(n, "daily_capacity").sort_values("from_port")
     return outbound.rename(
         columns={"from_port_id": "port_id", "from_port": "port", "from_country": "country"}

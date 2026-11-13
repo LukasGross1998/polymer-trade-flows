@@ -2,7 +2,7 @@
 
 import pandas as pd
 import pytest
-from conftest import REPO_ROOT
+from helpers import REPO_ROOT
 
 from ptf.monitor.config import MonitorConfig, load_monitor_config
 from ptf.monitor.metrics import (

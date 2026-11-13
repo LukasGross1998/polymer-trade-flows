@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from conftest import PipelineSetup, write_synthetic_distances
+from helpers import PipelineSetup, write_synthetic_distances
 
 from ptf.model.compare import comparison_metrics, comparison_table
 from ptf.pipeline import run_clean, run_model

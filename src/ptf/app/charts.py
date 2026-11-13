@@ -1,11 +1,18 @@
 """Reusable Plotly figures and Dash building blocks. Pure functions, no data loading."""
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from dash import dcc, html
+from dash.development.base_component import Component
 
 from ptf.app import style
+from ptf.market_config import KeyEvent
+
+# Return type of tab update functions: one value per Dash Output of the callback.
+Outputs = tuple[Any, ...]
 
 PERIODS = {"90d": 90, "1y": 365, "3y": 3 * 365, "5y": 5 * 365, "all": None}
 PERIOD_LABELS = {
@@ -48,7 +55,7 @@ def base_layout(fig: go.Figure, height: int, title: str | None = None) -> go.Fig
 
 
 def add_key_events(
-    fig: go.Figure, key_events: list, start: pd.Timestamp, end: pd.Timestamp
+    fig: go.Figure, key_events: list[KeyEvent], start: pd.Timestamp, end: pd.Timestamp
 ) -> go.Figure:
     """Dotted vertical lines with a short label for key events inside the visible period.
 
@@ -241,7 +248,7 @@ def line_chart(frames: list[tuple[str, pd.DataFrame]], title: str, y_label: str)
 # --- Dash building blocks --------------------------------------------------------------------
 
 
-def control(label: str, component: object) -> html.Div:
+def control(label: str, component: Component) -> html.Div:
     return html.Div(
         [html.Label(label, style={"fontSize": "12px", "color": style.MUTED}), component],
         style=style.CONTROL,
@@ -261,7 +268,7 @@ def graph(component_id: str) -> dcc.Graph:
     return dcc.Graph(id=component_id, config={"displayModeBar": False, "scrollZoom": False})
 
 
-def tiles(values: list[dict]) -> list[html.Div]:
+def tiles(values: list[dict[str, str]]) -> list[html.Div]:
     """Stat tiles: dicts with label, value and optional tone (only for status values)."""
     out = []
     for item in values:
@@ -282,7 +289,7 @@ def tiles(values: list[dict]) -> list[html.Div]:
     return out
 
 
-def status_value(disrupted: bool) -> dict:
+def status_value(disrupted: bool) -> dict[str, str]:
     """Status text with icon and colour: never colour alone."""
     if disrupted:
         return {"value": "▼ Disrupted", "tone": style.CRITICAL}

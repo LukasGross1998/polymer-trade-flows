@@ -73,7 +73,10 @@ def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig)
     flows = clean_baci.to_bilateral_flows(trade_hs6, regions)
     flows.to_parquet(clean / "bilateral_flows.parquet", index=False)
 
-    daily = parse_fred_csv(fred.latest_raw(raw, config.brent.fred_series))
+    brent_csv = fred.latest_raw(raw, config.brent.fred_series)
+    if brent_csv is None:
+        raise FileNotFoundError("no Brent data: run `pipeline ingest` first")
+    daily = parse_fred_csv(brent_csv)
     daily = daily.rename(columns={"value": "usd_per_bbl"})
     clean_brent.annual_brent(daily).to_parquet(clean / "brent_annual.parquet", index=False)
     logger.info("clean layer: %s HS6 flows, %s bilateral flows", len(trade_hs6), len(flows))

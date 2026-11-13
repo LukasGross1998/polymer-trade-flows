@@ -20,6 +20,7 @@ import logging
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import requests
@@ -54,12 +55,12 @@ def query_all(
     out_fields: str,
     order_by: str,
     sleep: Sleep = time.sleep,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Run an ArcGIS query page by page and return the attribute rows of all features.
 
     ArcGIS sets `exceededTransferLimit: true` while more rows are available.
     """
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     while True:
         params = {
             "where": where,
@@ -98,7 +99,7 @@ def last_stored_date(raw_dir: Path, dataset: str = "chokepoints_daily") -> date 
     return pd.to_datetime(stored["date"]).max().date()
 
 
-def _write_raw(rows: list[dict], folder: Path) -> Path:
+def _write_raw(rows: list[dict[str, Any]], folder: Path) -> Path:
     """One Parquet file per download, named by download time; never overwritten."""
     raw = pd.DataFrame(rows)
     fetched_at = datetime.now(UTC)
@@ -160,7 +161,7 @@ def ingest_port_activity(
     new_ids = [p for p in port_ids if p not in stored_ids]
     known_ids = [p for p in port_ids if p in stored_ids]
 
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     if new_ids:
         where = f"portid IN ({_id_list(new_ids)})"
         rows += query_all(session, PORTS_DAILY_URL, where, "*", "date,portid", sleep)

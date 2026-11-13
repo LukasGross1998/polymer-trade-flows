@@ -3,6 +3,7 @@
 import logging
 import time
 from collections.abc import Callable
+from typing import Any
 
 import requests
 
@@ -25,11 +26,11 @@ class QuotaExceededError(RuntimeError):
 def get_json(
     session: requests.Session,
     url: str,
-    params: dict | None = None,
+    params: dict[str, Any] | None = None,
     max_retries: int = 5,
     base_wait_seconds: float = 2.0,
     sleep: Sleep = time.sleep,
-) -> dict:
+) -> dict[str, Any]:
     """GET a JSON document; on throttling or server errors wait 2, 4, 8, ... seconds and retry."""
     for attempt in range(max_retries + 1):
         response = session.get(url, params=params, timeout=60)

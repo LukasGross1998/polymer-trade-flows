@@ -1,5 +1,5 @@
 import pytest
-from conftest import REPO_ROOT
+from helpers import REPO_ROOT
 
 from ptf.model.config import FreightAssumption, load_model_config
 from ptf.regions import load_regions

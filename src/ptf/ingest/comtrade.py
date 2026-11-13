@@ -14,6 +14,7 @@ import logging
 import time
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import requests
@@ -29,7 +30,7 @@ REFERENCE_URL = "https://comtradeapi.un.org/files/v1/app/reference/{name}.json"
 MAX_RECORDS = 500
 
 
-def build_params(reporter_code: int, year: int, hs_code: str, flow_codes: str) -> dict:
+def build_params(reporter_code: int, year: int, hs_code: str, flow_codes: str) -> dict[str, Any]:
     """Query parameters for one reporter, one year and one HS code.
 
     `partner2Code=0`, `customsCode=C00` and `motCode=0` ask for totals only (no breakdown by
@@ -83,7 +84,7 @@ def _fetch_records(
     flow_codes: str,
     max_retries: int,
     sleep: Sleep,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     params = build_params(reporter_code, year, hs_code, flow_codes)
     payload = get_json(session, DATA_URL, params, max_retries=max_retries, sleep=sleep)
     if payload.get("error"):

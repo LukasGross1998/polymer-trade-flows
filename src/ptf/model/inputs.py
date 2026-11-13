@@ -40,8 +40,9 @@ def observed_region_flows(flows: pd.DataFrame, year: int) -> pd.DataFrame:
     """Observed trade per region pair in one year, including trade within a region."""
     return (
         flows[flows["year"] == year]
-        .groupby(["exporter_region", "importer_region"], as_index=False)["qty_t"]
+        .groupby(["exporter_region", "importer_region"])["qty_t"]
         .sum()
+        .reset_index()
     )
 
 

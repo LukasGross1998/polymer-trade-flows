@@ -29,6 +29,21 @@ Die fachliche Spezifikation steht in `SPEC.md`. **Lies sie vor jeder neuen Phase
 5. **Tests zuerst oder parallel**, besonders für Datenbereinigung und Modell-Constraints.
 6. **Am Ende jeder Phase:** Tests laufen grün, `ruff` ist sauber, README/`docs/decisions.md` aktualisiert, kurze Zusammenfassung an mich mit dem, was ich im Interview darüber sagen könnte.
 7. **Unsicher bei externen APIs?** Aktuelle Doku prüfen statt raten. Endpunkte, Parameter und Limits ändern sich.
+8. **Spec → Branch → PR → Review → Merge** (ADR-010). Jede Änderung, die mehr als ein Tippfehler ist:
+   - kurze Feature-Spec in `specs/NNN-name.md` nach `specs/TEMPLATE.md` (Ziel, Akzeptanzkriterien, Nicht-Ziele); `SPEC.md` bleibt der Gesamtüberblick
+   - eigener Branch (`feat/…`, `fix/…`, `chore/…`, `docs/…`), nie direkt auf `main` committen
+   - Akzeptanzkriterien werden zu Tests, bevor oder während der Code entsteht
+   - PR mit der Checkliste aus `.github/pull_request_template.md`; CI muss grün sein; Review durch mich (oder `/code-review`) vor dem Merge
+   - nach jeder Phase: Versions-Tag (`vMAJOR.MINOR.PATCH`) und Eintrag in `CHANGELOG.md`
+
+## Definition of Done (gilt für jeden PR)
+
+- `uv run ruff check .` und `uv run ruff format --check .` sauber
+- `uv run mypy` ohne Fehler (strict, ADR-010)
+- `uv run pytest --cov=ptf --cov-fail-under=85` grün; neue Logik hat eigene Tests mit nachrechenbaren Werten
+- neue oder geänderte Tabellen stehen in `docs/data_dictionary.md` (der Datenkatalog-Test prüft das)
+- neue Annahmen stehen in `config/` mit Quelle und in `docs/methodology.md`
+- größere Entscheidungen als ADR in `docs/decisions.md`; `CHANGELOG.md` unter „Unreleased“ ergänzt
 
 ## Tech-Stack (verbindlich)
 
@@ -93,5 +108,8 @@ uv sync                      # Abhängigkeiten installieren
 uv run pytest                # Tests
 uv run ruff check . --fix    # Lint
 uv run ruff format .         # Format
+uv run mypy                  # Typprüfung (strict)
+uv run pytest -m "not slow"  # schnelle Tests ohne echte Seerouten
+uv run pytest --cov=ptf      # Tests mit Abdeckung (CI verlangt 85 %)
 uv run python -m ptf.app     # Dash-App starten (ab Phase 3)
 ```

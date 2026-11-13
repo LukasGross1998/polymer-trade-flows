@@ -6,39 +6,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 import requests
+from helpers import FakeResponse, FakeSession, no_sleep
 
 from ptf.ingest import comtrade
 
 FIXTURES = Path(__file__).parent / "fixtures"
-
-
-class FakeResponse:
-    def __init__(self, status_code: int, payload: dict | None = None) -> None:
-        self.status_code = status_code
-        self._payload = payload or {}
-
-    def json(self) -> dict:
-        return self._payload
-
-    def raise_for_status(self) -> None:
-        if self.status_code >= 400:
-            raise requests.HTTPError(f"HTTP {self.status_code}")
-
-
-class FakeSession:
-    """Returns the queued responses in order and records every request."""
-
-    def __init__(self, responses: list[FakeResponse]) -> None:
-        self.responses = list(responses)
-        self.calls: list[dict] = []
-
-    def get(self, url: str, params: dict | None = None, timeout: int = 0) -> FakeResponse:
-        self.calls.append({"url": url, "params": params})
-        return self.responses.pop(0)
-
-
-def no_sleep(seconds: float) -> None:
-    pass
 
 
 def deu_payload() -> dict:

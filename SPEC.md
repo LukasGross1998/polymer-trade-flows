@@ -210,11 +210,18 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 - **Länderhandel nach Ladungsart** (PortWatch, ~560.000 Zeilen) ist abgeschaltet (`download_country_trade: false` in `config/monitor.yaml`); erster Abruf 20–25 min.
 
 ### Nächste Schritte (Vorschlag, in dieser Reihenfolge)
-1. **Kalibrierung:** Mindestauslastung je Region im LP, damit teure Regionen nicht auf 0 fallen; Kapazitäts- und Kostenannahmen gegen die BACI-Bilanz prüfen (z. B. Nachfrage Nahost nur 4,2 Mt, Nordostasien 3,5 Mt).
-2. **Szenarien** (Abschnitt 5) bauen; Design steht: `red_sea_closed` (Passagen `babalmandab`, `suez` in searoute gesperrt), `red_sea_closed_high_freight` (zusätzlich variabler Frachtsatz ×2,5), `hormuz_closed` (Exportlimit Nahost 15 % der Kapazität, nicht über Passagensperre: Jebel Ali liegt im Golf), `red_sea_and_hormuz`. Achtung: searoute liefert für blockierte Routen Distanz **0** statt Fehler – abfangen. Ausgabe: Δ Ströme, Δ Kosten, Δ Preise/Renten, Gewinner/Verlierer.
-3. Kostenkurve und Szenario-Tab in der App.
-4. Warenströme nach Ware (Rohöl, LNG, Eisenerz) aus derselben BACI-Zip für das Dashboard.
-5. Später: Phase 4 (Prognose), Phase 5 (Docker, Airflow).
+Architektur zuerst (ADR-010), jeder Schritt als eigene Spec in `specs/` und eigener PR:
+1. ~~Arbeitsweise und Qualitätsschranken~~ (Spec 001, erledigt).
+2. **Datenmodell und Transformationen:** ADR mit Entscheidung DuckDB + dbt (Sternschema, SQL-Modelle, dbt-Tests) oder pandas + pandera; dann umsetzen, LP liest aus den Marts.
+3. **Paketstruktur nach Fachgebiet** (`trade`, `shipping`, `markets`, `model`, `app`), schlanke CLI, Comtrade nach `legacy`.
+4. **Docker:** Image (mehrstufig, uv), compose für die App.
+5. **Airflow:** DAGs (Schifffahrt/Märkte täglich, Handel jährlich, Modell danach); App nur noch lesend.
+6. **Betrieb:** Laufprotokoll, Frischeprüfungen, Prüfsummen.
+
+Danach fachlich:
+7. **Kalibrierung:** Mindestauslastung je Region im LP; Kapazitäts- und Kostenannahmen gegen die BACI-Bilanz prüfen (z. B. Nachfrage Nahost nur 4,2 Mt, Nordostasien 3,5 Mt).
+8. **Szenarien** (Abschnitt 5); Design steht: `red_sea_closed` (Passagen `babalmandab`, `suez` in searoute gesperrt), `red_sea_closed_high_freight` (zusätzlich variabler Frachtsatz ×2,5), `hormuz_closed` (Exportlimit Nahost 15 % der Kapazität; Jebel Ali liegt im Golf), `red_sea_and_hormuz`. Achtung: searoute liefert für blockierte Routen Distanz **0** statt Fehler – abfangen.
+9. Kostenkurve und Szenario-Tab; Warenströme nach Ware aus der BACI-Zip; später Phase 4 (Prognose).
 
 ### Offene Fragen
 - Kapazitäten außerhalb NAM/MDE/EUR/CHN und alle Cash-Kosten sind Größenordnungen; Quellen je Region noch einzeln prüfen.

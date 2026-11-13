@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
+from helpers import FakeResponse, FakeSession, no_sleep
 
 from ptf.app.__main__ import create_app
 from ptf.app.data import load_app_data

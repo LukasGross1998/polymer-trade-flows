@@ -1,12 +1,14 @@
 """Tab "Trade flows": the port-to-port shipping network and countries' trade by cargo type."""
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, style
-from ptf.app.data import AppData, AppState
+from ptf.app.data import AppData, AppState, require
 from ptf.clean.portwatch import CARGO_TYPES
 from ptf.monitor.flows import cargo_mix, country_ranking, port_options, top_links
 
@@ -38,7 +40,7 @@ def layout(data: AppData) -> html.Div:
 
 
 def _network_section(data: AppData) -> html.Div:
-    ports = port_options(data.port_links)
+    ports = port_options(require(data.port_links, "port_links"))
     port_choices = [{"label": "All ports (largest links worldwide)", "value": ALL_PORTS}] + [
         {"label": f"{p.port} ({p.country})", "value": p.port_id} for p in ports.itertuples()
     ]
@@ -103,7 +105,8 @@ def _network_section(data: AppData) -> html.Div:
 
 
 def _trade_section(data: AppData) -> html.Div:
-    countries = data.country_trade[["iso3", "country"]].drop_duplicates().sort_values("country")
+    trade = require(data.country_trade, "country_trade")
+    countries = trade[["iso3", "country"]].drop_duplicates().sort_values("country")
     country_choices = [{"label": c.country, "value": c.iso3} for c in countries.itertuples()]
     return html.Div(
         [
@@ -182,9 +185,9 @@ def network_figure(links: pd.DataFrame, selected_port: str | None) -> go.Figure:
     for width, group in links.groupby("width"):
         lon: list[float | None] = []
         lat: list[float | None] = []
-        for row in group.itertuples():
-            lon += [row.from_lon, row.to_lon, None]  # None breaks the line between links
-            lat += [row.from_lat, row.to_lat, None]
+        for row in group.to_dict("records"):
+            lon += [row["from_lon"], row["to_lon"], None]  # None breaks the line between links
+            lat += [row["from_lat"], row["to_lat"], None]
         fig.add_trace(
             go.Scattergeo(
                 lon=lon,
@@ -317,8 +320,8 @@ def ranking_figure(ranking: pd.DataFrame, title: str) -> go.Figure:
     """Horizontal bars: 7-day average, with the deviation from normal as text label."""
     ordered = ranking.iloc[::-1]  # largest on top
     labels = [
-        ("▼ " if r.is_disrupted else "") + charts.signed_pct(r.deviation_pct) + " vs. normal"
-        for r in ordered.itertuples()
+        ("▼ " if r["is_disrupted"] else "") + charts.signed_pct(r["deviation_pct"]) + " vs. normal"
+        for r in ordered.to_dict("records")
     ]
     fig = go.Figure(
         go.Bar(
@@ -338,10 +341,12 @@ def ranking_figure(ranking: pd.DataFrame, title: str) -> go.Figure:
     return fig
 
 
-def update_network(data: AppData, port_id: str, direction: str, long_haul: list[str]) -> tuple:
+def update_network(
+    data: AppData, port_id: str, direction: str, long_haul: list[str]
+) -> charts.Outputs:
     port = None if port_id == ALL_PORTS else port_id
     links = top_links(
-        data.port_links,
+        require(data.port_links, "port_links"),
         n=150 if port is None else 40,
         port_id=port,
         direction=direction,
@@ -350,10 +355,12 @@ def update_network(data: AppData, port_id: str, direction: str, long_haul: list[
     return network_figure(links, port), links_table(links)
 
 
-def update_trade(data: AppData, iso3: str, flow: str, cargo_type: str, period: str) -> tuple:
-    trade = data.country_trade
+def update_trade(
+    data: AppData, iso3: str, flow: str, cargo_type: str, period: str
+) -> charts.Outputs:
+    trade = require(data.country_trade, "country_trade")
     latest = trade["date"].max()
-    name = trade.loc[trade["iso3"] == iso3, "country"].iloc[0]
+    name = trade[trade["iso3"] == iso3]["country"].iloc[0]
     mix = charts.filter_period(cargo_mix(trade, iso3, flow), period, latest)
     start = charts.period_start(period, latest, trade["date"].min())
     mix_fig = mix_figure(mix, f"{name}: {flow}s by cargo type")
@@ -375,7 +382,9 @@ def register(app: Dash, state: AppState) -> None:
         Input("flow-long-haul", "value"),
         Input("data-version", "data"),
     )
-    def _network(port_id: str, direction: str, long_haul: list[str], _version: int) -> tuple:
+    def _network(
+        port_id: str, direction: str, long_haul: list[str], _version: int
+    ) -> charts.Outputs:
         return update_network(state.data, port_id, direction, long_haul)
 
     if state.data.country_trade is not None:
@@ -384,7 +393,7 @@ def register(app: Dash, state: AppState) -> None:
     @app.callback(
         Output("flow-port", "value"), Input("flow-map", "clickData"), prevent_initial_call=True
     )
-    def _select_port(click_data: dict | None) -> str:
+    def _select_port(click_data: dict[str, Any] | None) -> object:
         point = (click_data or {}).get("points", [{}])[0]
         return point.get("customdata") or no_update  # only port markers carry an id
 
@@ -399,5 +408,5 @@ def _register_trade(app: Dash, state: AppState) -> None:
         Input("flow-period", "value"),
         Input("data-version", "data"),
     )
-    def _trade(iso3: str, flow: str, cargo_type: str, period: str, _version: int) -> tuple:
+    def _trade(iso3: str, flow: str, cargo_type: str, period: str, _version: int) -> charts.Outputs:
         return update_trade(state.data, iso3, flow, cargo_type, period)
