@@ -10,3 +10,15 @@ models:
     columns:
       - name: iso3
         data_tests: [unique, not_null]
+  - name: stg_baci__all_trade
+    description: World trade per year and code (HS4; HS6 for polyethylene), from the BACI zip.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, code]
+    columns:
+      - name: value_usd
+        data_tests: [not_null, non_negative]
+      - name: qty_t
+        description: Tonnes; flows without quantity count 0 here (see value_usd_without_qty).
+        data_tests: [non_negative]

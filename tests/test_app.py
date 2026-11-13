@@ -12,7 +12,16 @@ from helpers import REPO_ROOT, PipelineSetup, write_synthetic_distances
 
 from ptf.app.__main__ import create_app
 from ptf.app.data import AppData, load_app_data
-from ptf.app.tabs import chokepoints, flows, landed_cost, ports, prices, situation, sourcing
+from ptf.app.tabs import (
+    chokepoints,
+    classes,
+    flows,
+    landed_cost,
+    ports,
+    prices,
+    situation,
+    sourcing,
+)
 from ptf.core import warehouse
 from ptf.core.settings import Settings, get_settings
 from ptf.shipping.config import load_monitor_config
@@ -154,3 +163,33 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
 
     closed, *_ = landed_cost.update(data, "closed", 2.0, "baci")
     assert closed[0].children[1].children == "1,470 EUR/t"  # freight (40 + 70) x 2 = 220
+
+
+def test_world_trade_by_class_tab(data: AppData) -> None:
+    kpis, shares, treemap, index = classes.update(data)
+
+    # Fixture 2023: 12,499 t in total, of which 9,999 t crude oil (80 %) and 2,500 t PE.
+    assert kpis[1].children[1].children == "80 % of tonnes"
+    assert "Polyethylene" in list(treemap.data[0].labels)
+    assert [t.name for t in shares.data] == ["Share of tonnes", "Share of value"]
+
+
+def test_vessel_classes_at_a_chokepoint(data: AppData) -> None:
+    figure = chokepoints.classes_figure(data, "chokepoint4")
+    table = chokepoints.class_table(data, "chokepoint4")
+
+    assert [t.name for t in figure.data][:2] == ["Container", "Tanker"]
+    assert "By carrying capacity" in table.children[1].children
+
+
+def test_grade_filter_in_sourcing_and_landed_cost(warehouse_setup: PipelineSetup) -> None:
+    raw, regions = warehouse_setup.settings.raw_dir, warehouse_setup.regions
+    write_synthetic_distances(raw, regions)
+    data = load_app_data(warehouse_setup.settings)
+
+    assert [o["value"] for o in data.grade_options()][:2] == ["all", "390110"]
+    kpis, *_ = sourcing.update(data, "390120")
+    assert kpis[0].children[1].children == "0.0 Mt"  # 1,000 t HDPE from the USA in 2023
+    # HDPE only: 1.2 m USD for 1,000 t = 1,200 USD/t, plus 75 USD/t freight, US duty 0 %.
+    landed, *_ = landed_cost.update(data, "open", 1.0, "baci", "390120")
+    assert landed[0].children[1].children == "1,275 EUR/t"

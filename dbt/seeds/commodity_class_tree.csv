@@ -1,0 +1,15 @@
+class,parent,sort_order
+All goods,,0
+Mineral fuels,All goods,1
+Ores,All goods,2
+Cereals and oilseeds,All goods,3
+Organic chemicals,All goods,4
+Plastics in primary forms,All goods,5
+Other goods,All goods,6
+Polyethylene,Plastics in primary forms,1
+Other plastics in primary forms,Plastics in primary forms,2
+LDPE and LLDPE,Polyethylene,1
+HDPE,Polyethylene,2
+EVA copolymers,Polyethylene,3
+Ethylene-alpha-olefin copolymers,Polyethylene,4
+Other ethylene polymers,Polyethylene,5

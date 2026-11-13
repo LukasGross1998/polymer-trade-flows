@@ -9,7 +9,8 @@ from dash import Dash, Input, Output, dcc, html
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
-from ptf.insights.view import LandedView, landed_view
+from ptf.app.tabs.sourcing import grade_dropdown
+from ptf.insights.view import ALL_GRADES, LandedView, landed_view
 
 COMPONENT_LABELS = {"price": "Price (FOB)", "freight": "Sea freight", "duty": "EU duty"}
 
@@ -37,6 +38,7 @@ def layout(data: AppData) -> html.Div:
         [
             html.Div(
                 [
+                    charts.control("Grade", grade_dropdown("lc-grade", data)),
                     charts.control(
                         "Route",
                         radio("lc-route", route_options, "open"),
@@ -87,11 +89,14 @@ def layout(data: AppData) -> html.Div:
     )
 
 
-def compute(data: AppData, route: str, freight_factor: float, basis: str) -> LandedView | None:
-    if data.import_sources is None or data.distances is None:
+def compute(
+    data: AppData, route: str, freight_factor: float, basis: str, grade: str = ALL_GRADES
+) -> LandedView | None:
+    sources = data.sources(grade)
+    if sources is None or sources.empty or data.distances is None:
         return None
     return landed_view(
-        data.import_sources,
+        sources,
         data.market,
         data.distances,
         data.distances_closed,
@@ -189,8 +194,10 @@ def cost_table(view: LandedView) -> html.Table:
     return html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"})
 
 
-def update(data: AppData, route: str, freight_factor: float, basis: str) -> charts.Outputs:
-    view = compute(data, route, freight_factor, basis)
+def update(
+    data: AppData, route: str, freight_factor: float, basis: str, grade: str = ALL_GRADES
+) -> charts.Outputs:
+    view = compute(data, route, freight_factor, basis, grade)
     if view is None or view.table.empty:
         return [], go.Figure(), charts.no_data("No suppliers with a sea route.")
     return charts.tiles(kpi_values(view)), bars_figure(view), cost_table(view)
@@ -207,7 +214,10 @@ def register(app: Dash, state: AppState) -> None:
         Input("lc-route", "value"),
         Input("lc-freight", "value"),
         Input("lc-basis", "value"),
+        Input("lc-grade", "value"),
         Input("data-version", "data"),
     )
-    def _update(route: str, freight_factor: float, basis: str, _version: int) -> charts.Outputs:
-        return update(state.data, route, freight_factor, basis)
+    def _update(
+        route: str, freight_factor: float, basis: str, grade: str, _version: int
+    ) -> charts.Outputs:
+        return update(state.data, route, freight_factor, basis, grade)

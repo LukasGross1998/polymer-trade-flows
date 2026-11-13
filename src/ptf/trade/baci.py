@@ -78,19 +78,45 @@ def _member(archive: zipfile.ZipFile, pattern: str) -> str:
     return matches[0]
 
 
-def _read_year(archive: zipfile.ZipFile, name: str, hs_prefix: str) -> pd.DataFrame:
-    """One yearly CSV, filtered to `hs_prefix` while reading in chunks (~10 m rows per year).
+def all_trade_code(hs6: pd.Series, detail_prefix: str) -> pd.Series:
+    """HS4 heading, except for the product group itself, which keeps its HS6 code.
+
+    Keeps the world-trade summary small (about 1,200 headings) while polyethylene stays
+    split into its grades for the drill-down.
+    """
+    return hs6.where(hs6.str.startswith(detail_prefix), hs6.str[:4])
+
+
+def _read_year(
+    archive: zipfile.ZipFile, name: str, hs_prefix: str
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """One yearly CSV read in chunks (~10 m rows per year): the flows of `hs_prefix`, and the
+    whole year's trade summed per code (`all_trade_code`) for the class breakdown.
 
     Values stay as published: `v` in thousand USD, `q` in tonnes ("NA" -> missing).
     """
-    parts = []
+    parts, totals = [], []
     with archive.open(name) as raw:
         text = io.TextIOWrapper(raw, encoding="utf-8")
         for chunk in pd.read_csv(text, dtype=str, chunksize=CHUNK_ROWS):
             chunk.columns = [c.strip() for c in chunk.columns]
-            parts.append(chunk[chunk["k"].str.strip().str.startswith(hs_prefix)])
+            hs6 = chunk["k"].str.strip()
+            parts.append(chunk[hs6.str.startswith(hs_prefix)])
+            value = pd.to_numeric(chunk["v"].str.strip(), errors="coerce")
+            qty = pd.to_numeric(chunk["q"].str.strip(), errors="coerce")
+            summary = pd.DataFrame(
+                {
+                    "year": chunk["t"].astype(int),
+                    "code": all_trade_code(hs6, hs_prefix),
+                    "value_kusd": value,
+                    "qty_t": qty,
+                    "value_kusd_without_qty": value.where(qty.isna(), 0.0),
+                    "flows": 1,
+                }
+            )
+            totals.append(summary.groupby(["year", "code"], as_index=False).sum(min_count=1))
     flows = pd.concat(parts, ignore_index=True)
-    return pd.DataFrame(
+    trade = pd.DataFrame(
         {
             "year": flows["t"].astype(int),
             "exporter_code": flows["i"].astype(int),
@@ -100,25 +126,30 @@ def _read_year(archive: zipfile.ZipFile, name: str, hs_prefix: str) -> pd.DataFr
             "qty_t": pd.to_numeric(flows["q"].str.strip(), errors="coerce"),
         }
     )
+    all_trade = pd.concat(totals).groupby(["year", "code"], as_index=False).sum(min_count=1)
+    return trade, all_trade
 
 
 def write_landing(zip_path: Path, years: list[int], hs_prefix: str, raw_dir: Path) -> list[Path]:
-    """Unpack the flows of one product group and BACI's code lists to Parquet.
+    """Unpack the flows of one product group, a world-trade summary and BACI's code lists.
 
-    Writes `landing_hs{prefix}.parquet` (flows, unchanged values), `landing_country_codes`
-    and `landing_product_codes`. Years missing in the zip are skipped with a warning.
-    These files are the dbt sources; everything else happens in SQL.
+    Writes `landing_hs{prefix}.parquet` (flows, unchanged values), `landing_all_trade`
+    (all products per year and HS4 heading, the product group per HS6; spec 008),
+    `landing_country_codes` and `landing_product_codes`. Years missing in the zip are
+    skipped with a warning. These files are the dbt sources; everything else is SQL.
     """
     folder = landing_dir(raw_dir)
     with zipfile.ZipFile(zip_path) as archive:
         names = archive.namelist()
-        flows = []
+        flows, all_trade = [], []
         for year in years:
             matches = [n for n in names if re.search(rf"_Y{year}_V\d+\.csv$", n)]
             if not matches:
                 logger.warning("BACI zip has no data for %s; skipped", year)
                 continue
-            flows.append(_read_year(archive, matches[0], hs_prefix))
+            year_flows, year_totals = _read_year(archive, matches[0], hs_prefix)
+            flows.append(year_flows)
+            all_trade.append(year_totals)
         with archive.open(_member(archive, r"country_codes.*\.csv$")) as file:
             countries = pd.read_csv(file, dtype=str, keep_default_na=False)
         with archive.open(_member(archive, r"product_codes.*\.csv$")) as file:
@@ -128,8 +159,10 @@ def write_landing(zip_path: Path, years: list[int], hs_prefix: str, raw_dir: Pat
         folder / f"landing_hs{hs_prefix}.parquet",
         folder / "landing_country_codes.parquet",
         folder / "landing_product_codes.parquet",
+        folder / "landing_all_trade.parquet",
     ]
     pd.concat(flows, ignore_index=True).to_parquet(paths[0], index=False)
+    pd.concat(all_trade, ignore_index=True).to_parquet(paths[3], index=False)
     countries.to_parquet(paths[1], index=False)
     products[products["code"].str.startswith(hs_prefix)].to_parquet(paths[2], index=False)
     logger.info("BACI landing written to %s", folder)

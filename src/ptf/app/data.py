@@ -40,6 +40,10 @@ class AppData:
     import_sources: pd.DataFrame | None = None
     distances: pd.DataFrame | None = None  # sea routes with passages (raw layer, model)
     distances_closed: pd.DataFrame | None = None  # same with the Red Sea closed
+    import_sources_by_product: pd.DataFrame | None = None
+    trade_by_class: pd.DataFrame | None = None
+    class_tree: pd.DataFrame | None = None
+    products: pd.DataFrame | None = None
 
     @property
     def latest_date(self) -> pd.Timestamp:
@@ -57,6 +61,35 @@ class AppData:
             return None
         return view.sourcing_view(
             self.import_sources,
+            self.distances,
+            self.chokepoints,
+            self.chokepoint_history,
+            self.sourcing_config,
+        )
+
+    def grade_options(self) -> list[dict[str, str]]:
+        """Dropdown options: all grades, then each PE grade (HS6) with its short name."""
+        options = [{"label": "All polyethylene grades", "value": view.ALL_GRADES}]
+        if self.products is not None:
+            for row in self.products.sort_values("hs6").to_dict("records"):
+                options.append({"label": f"{row['product']} ({row['hs6']})", "value": row["hs6"]})
+        return options
+
+    def sources(self, grade: str = view.ALL_GRADES) -> pd.DataFrame | None:
+        """Import sources of one grade (or all), in the shape of mart_import_sources."""
+        if self.import_sources_by_product is None:
+            return self.import_sources if grade == view.ALL_GRADES else None
+        return view.sources_for_grade(self.import_sources_by_product, grade)
+
+    def sourcing_for(self, grade: str) -> view.SourcingView | None:
+        """Sourcing view of one grade; the cached `sourcing` for all grades."""
+        if grade == view.ALL_GRADES:
+            return self.sourcing
+        sources = self.sources(grade)
+        if sources is None or sources.empty or self.distances is None:
+            return None
+        return view.sourcing_view(
+            sources,
             self.distances,
             self.chokepoints,
             self.chokepoint_history,
@@ -92,6 +125,10 @@ APP_TABLES = {
     "country_trade": "marts.mart_country_trade",
     "port_links": "marts.fct_port_links",
     "import_sources": "marts.mart_import_sources",
+    "import_sources_by_product": "marts.mart_import_sources_by_product",
+    "trade_by_class": "marts.mart_trade_by_class",
+    "class_tree": "reference.commodity_class_tree",
+    "products": "marts.dim_product",
 }
 
 
@@ -116,6 +153,10 @@ def load_app_data(settings: Settings) -> AppData:
         country_trade=tables["country_trade"],
         port_links=tables["port_links"],
         import_sources=tables["import_sources"],
+        import_sources_by_product=tables["import_sources_by_product"],
+        trade_by_class=tables["trade_by_class"],
+        class_tree=tables["class_tree"],
+        products=tables["products"],
         distances=read_distance_table(settings.raw_dir),
         distances_closed=read_distance_table(settings.raw_dir, "red_sea_closed"),
     )

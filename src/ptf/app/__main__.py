@@ -11,19 +11,44 @@ from dash import Dash, Input, Output, State, dcc, html
 
 from ptf.app import style
 from ptf.app.data import AppState, monitor_data_available
-from ptf.app.tabs import chokepoints, flows, landed_cost, ports, prices, situation, sourcing
+from ptf.app.tabs import (
+    chokepoints,
+    classes,
+    flows,
+    landed_cost,
+    ports,
+    prices,
+    situation,
+    sourcing,
+)
 from ptf.core.settings import Settings, get_settings
 
-# Buyer questions first (spec 006), logistics detail after.
-TABS = [
-    ("situation", "Situation", situation),
-    ("prices", "Prices & drivers", prices),
-    ("sourcing", "Sourcing", sourcing),
-    ("landed", "Landed cost", landed_cost),
-    ("chokepoints", "Chokepoints", chokepoints),
-    ("ports", "Ports", ports),
-    ("flows", "Trade flows", flows),
+# Two sections (spec 008): the buyer's questions first, market and logistics detail after.
+SECTIONS = [
+    (
+        "buying",
+        "Buying",
+        [
+            ("situation", "Situation", situation),
+            ("prices", "Prices & drivers", prices),
+            ("sourcing", "Sourcing", sourcing),
+            ("landed", "Landed cost", landed_cost),
+        ],
+    ),
+    (
+        "markets",
+        "Markets & logistics",
+        [
+            ("classes", "World trade by class", classes),
+            ("chokepoints", "Chokepoints", chokepoints),
+            ("ports", "Ports", ports),
+            ("flows", "Trade flows", flows),
+        ],
+    ),
 ]
+TABS = [tab for _, _, tabs in SECTIONS for tab in tabs]
+
+SECTION_TAB = {"fontWeight": "600", "padding": "8px 16px"}
 
 
 def build_layout(state: AppState) -> html.Div:
@@ -56,17 +81,28 @@ def build_layout(state: AppState) -> html.Div:
             "marginBottom": "12px",
         },
     )
-    tabs = dcc.Tabs(
-        [
-            dcc.Tab(
-                label=label,
-                value=value,
-                children=html.Div(module.layout(state.data), style={"paddingTop": "16px"}),
-            )
-            for value, label, module in TABS
-        ],
-        value="situation",
-    )
+    sections = [
+        dcc.Tab(
+            label=section_label,
+            value=section_id,
+            style=SECTION_TAB,
+            selected_style=SECTION_TAB,
+            children=dcc.Tabs(
+                [
+                    dcc.Tab(
+                        label=label,
+                        value=value,
+                        children=html.Div(module.layout(state.data), style={"paddingTop": "16px"}),
+                    )
+                    for value, label, module in tabs
+                ],
+                value=tabs[0][0],
+                style={"marginTop": "8px"},
+            ),
+        )
+        for section_id, section_label, tabs in SECTIONS
+    ]
+    tabs = dcc.Tabs(sections, value="buying")
     return html.Div([header, tabs, dcc.Store(id="data-version", data=0)], style=style.PAGE)
 
 

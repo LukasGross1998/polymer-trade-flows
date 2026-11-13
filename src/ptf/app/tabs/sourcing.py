@@ -5,12 +5,12 @@ Combines the BACI import sources with the sea routes and today's chokepoint stat
 """
 
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, html
+from dash import Dash, Input, Output, dcc, html
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
 from ptf.insights import signals
-from ptf.insights.view import SourcingView
+from ptf.insights.view import ALL_GRADES, SourcingView
 
 EXPOSED_COLOUR = style.RED
 SAFE_COLOUR = style.BLUE
@@ -27,6 +27,7 @@ def layout(data: AppData) -> html.Div:
     card = {**style.CARD, "marginBottom": "16px"}
     return html.Div(
         [
+            html.Div(charts.control("Grade", grade_dropdown("src-grade", data)), style=style.ROW),
             html.Div(id="src-kpis", style=style.ROW),
             html.Div(charts.graph("src-sankey"), style=card),
             html.Div(charts.graph("src-treemap"), style=card),
@@ -153,11 +154,21 @@ def treemap_figure(view: SourcingView) -> go.Figure:
     )
 
 
-def update(data: AppData) -> charts.Outputs:
-    view = data.sourcing
-    if view is None:  # layout shows a hint instead; callback is not registered
-        empty = go.Figure()
-        return [], empty, empty
+def grade_dropdown(component_id: str, data: AppData) -> dcc.Dropdown:
+    """PE grade filter (spec 008), shared with the landed-cost tab."""
+    return dcc.Dropdown(
+        id=component_id, options=data.grade_options(), value=ALL_GRADES, clearable=False
+    )
+
+
+def update(data: AppData, grade: str = ALL_GRADES) -> charts.Outputs:
+    view = data.sourcing_for(grade)
+    if view is None or view.routes.empty:
+        return (
+            [charts.no_data("No imports of this grade from outside Europe.")],
+            go.Figure(),
+            go.Figure(),
+        )
     return (
         charts.tiles(kpi_values(view, data)),
         sankey_figure(view),
@@ -173,7 +184,8 @@ def register(app: Dash, state: AppState) -> None:
         Output("src-kpis", "children"),
         Output("src-sankey", "figure"),
         Output("src-treemap", "figure"),
+        Input("src-grade", "value"),
         Input("data-version", "data"),
     )
-    def _update(_version: int) -> charts.Outputs:
-        return update(state.data)
+    def _update(grade: str, _version: int) -> charts.Outputs:
+        return update(state.data, grade)

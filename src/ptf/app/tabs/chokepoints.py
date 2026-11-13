@@ -10,7 +10,15 @@ from plotly.subplots import make_subplots
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
 from ptf.markets.config import KeyEvent
-from ptf.shipping.metrics import diversion_ratio, latest_status, monitor_table
+from ptf.shipping.metrics import (
+    VESSEL_CLASSES,
+    capacity_mix,
+    class_status,
+    diversion_ratio,
+    latest_status,
+    monitor_table,
+    vessel_mix,
+)
 from ptf.shipping.overview import active_events
 
 VESSEL_LABELS = {
@@ -70,6 +78,25 @@ def layout(data: AppData) -> html.Div:
                                 style=style.SECTION_TITLE,
                             ),
                             charts.graph("cp-diversion"),
+                        ],
+                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
+                    ),
+                ],
+                style={**style.ROW, "marginTop": "16px"},
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        charts.graph("cp-classes"),
+                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                "Change by vessel class (last 7 days vs. normal)",
+                                style=style.SECTION_TITLE,
+                            ),
+                            html.Div(id="cp-class-table"),
                         ],
                         style={**style.CARD, "flex": "1", "minWidth": "420px"},
                     ),
@@ -174,7 +201,107 @@ def update(data: AppData, chokepoint_id: str, vessel_type: str, period: str) -> 
     return map_fig, kpis, series_fig, diversion_figure(ratio, key_events, start, data.latest_date)
 
 
+CLASS_LABELS = {
+    "container": "Container",
+    "tanker": "Tanker",
+    "dry_bulk": "Dry bulk",
+    "general_cargo": "General cargo",
+    "roro": "RoRo",
+    "other": "Other (bulk, general, RoRo)",
+}
+
+
+def classes_figure(data: AppData, chokepoint_id: str) -> go.Figure:
+    """Traffic mix by vessel class: normal (baseline years) vs. the last 90 days."""
+    years = data.monitor_config.baseline_years
+    latest = data.latest_date
+    rows = [
+        (
+            f"Normal ({years[0]}-{years[-1]})",
+            vessel_mix(
+                data.transits,
+                chokepoint_id,
+                pd.Timestamp(f"{years[0]}-01-01"),
+                pd.Timestamp(f"{years[-1]}-12-31"),
+            ),
+        ),
+        (
+            "Last 90 days",
+            vessel_mix(data.transits, chokepoint_id, latest - pd.Timedelta(days=90), latest),
+        ),
+    ]
+    fig = go.Figure()
+    colours = style.SERIES + [style.MUTED]
+    for colour, vessel_type in zip(colours, VESSEL_CLASSES, strict=False):
+        fig.add_trace(
+            go.Bar(
+                y=[name for name, _ in rows],
+                x=[
+                    float(mix.set_index("vessel_type")["share"][vessel_type]) * 100
+                    for _, mix in rows
+                ],
+                name=CLASS_LABELS[vessel_type],
+                orientation="h",
+                marker={"color": colour},
+                hovertemplate="%{y}: %{x:.0f} %<extra>" + CLASS_LABELS[vessel_type] + "</extra>",
+            )
+        )
+    fig.update_layout(barmode="stack", hovermode="closest", legend={"traceorder": "normal"})
+    fig.update_yaxes(autorange="reversed")
+    fig.update_xaxes(
+        title={"text": "% of transits", "font": {"color": style.MUTED}}, range=[0, 100]
+    )
+    names = dict(
+        zip(data.chokepoints["chokepoint_id"], data.chokepoints["chokepoint"], strict=True)
+    )
+    name = str(names.get(chokepoint_id, chokepoint_id))
+    charts.base_layout(fig, height=320, title=f"{name}: traffic by vessel class")
+    fig.update_layout(legend={"y": -0.3})  # below the axis title
+    return fig
+
+
+def class_table(data: AppData, chokepoint_id: str) -> html.Div:
+    status = class_status(data.transits, chokepoint_id, data.monitor_config)
+    cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
+    header = ["Vessel class", "Last 7 days / day", "Normal / day", "Change", "Status"]
+    rows = [html.Tr([html.Th(h, style={**cell, "color": style.MUTED}) for h in header])]
+    for row in status.to_dict("records"):
+        flag = charts.status_value(bool(row["is_disrupted"]))
+        rows.append(
+            html.Tr(
+                [
+                    html.Td(CLASS_LABELS[row["vessel_type"]], style={**cell, "textAlign": "left"}),
+                    html.Td(charts.number(row["rolling"]), style=cell),
+                    html.Td(charts.number(row["baseline"]), style=cell),
+                    html.Td(charts.signed_pct(row["deviation_pct"]), style=cell),
+                    html.Td(flag["value"], style={**cell, "color": flag["tone"]}),
+                ]
+            )
+        )
+    latest = data.latest_date
+    capacity = capacity_mix(data.transits, chokepoint_id, latest - pd.Timedelta(days=365), latest)
+    parts = ", ".join(
+        f"{CLASS_LABELS[r['vessel_type']].split(' (')[0].lower()} {r['share'] * 100:.0f} %"
+        for r in capacity.to_dict("records")
+    )
+    return html.Div(
+        [
+            html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"}),
+            html.Div(f"By carrying capacity, last 12 months: {parts}.", style=style.SMALL_NOTE),
+        ]
+    )
+
+
 def register(app: Dash, state: AppState) -> None:
+    @app.callback(
+        Output("cp-classes", "figure"),
+        Output("cp-class-table", "children"),
+        Input("cp-select", "value"),
+        Input("data-version", "data"),
+    )
+    def _update_classes(chokepoint_id: str, _version: int) -> charts.Outputs:
+        return classes_figure(state.data, chokepoint_id), class_table(state.data, chokepoint_id)
+
     @app.callback(
         Output("cp-map", "figure"),
         Output("cp-kpis", "children"),

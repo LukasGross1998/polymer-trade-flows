@@ -14,7 +14,9 @@ interactive Dash app.
 
 ![Situation](docs/figures/dashboard_situation.jpg)
 
-A Dash app for a polyethylene buyer in Europe (spec 006):
+A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008).
+
+**Buying** (Sourcing and Landed cost per PE grade):
 
 - **Situation:** three traffic lights – price (Brent in EUR, 90-day change), supply (share
   of imports through disrupted chokepoints), logistics (supply-chain pressure) – plus what
@@ -26,9 +28,14 @@ A Dash app for a polyethylene buyer in Europe (spec 006):
   East and Asian supplies through Hormuz, Bab el-Mandeb and Suez.
 - **Landed cost:** price, sea freight and EU duty per supplier country in EUR/t, with the
   Red Sea open or closed and adjustable freight rates.
+
+**Markets & logistics:**
+
+- **World trade by class:** where polyethylene sits in world trade – mineral fuels are 43 % of
+  the tonnes but 13 % of the value; polyethylene 70 Mt (0.5 %), split by grade.
 - **Chokepoints:** daily transits through 28 maritime chokepoints (IMF PortWatch) against
   their 2019–2023 normal, with the Red Sea diversion (share of container ships taking the
-  Cape route: ~25 % before the crisis, ~77 % since 2024).
+  Cape route: ~25 % before the crisis, ~77 % since 2024) and the traffic mix by vessel class.
 - **Ports:** port calls and estimated trade volumes of eleven polyethylene-relevant ports
   (Houston, Jubail, Yanbu, Jebel Ali, Antwerp, Rotterdam, Shanghai, ...).
 - **Trade flows:** the port-to-port shipping network (long-haul links, line width = vessel
@@ -37,6 +44,7 @@ A Dash app for a polyethylene buyer in Europe (spec 006):
 ![Sourcing](docs/figures/dashboard_sourcing.jpg)
 ![Prices and drivers](docs/figures/dashboard_prices.jpg)
 ![Landed cost](docs/figures/dashboard_landed_cost.jpg)
+![World trade by class](docs/figures/dashboard_classes.jpg)
 ![Ports](docs/figures/dashboard_ports.jpg)
 ![Trade flows](docs/figures/dashboard_flows.jpg)
 
@@ -139,6 +147,6 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | 0 | Repo scaffold, tooling, CI | done |
 | 1 | Ingest, cleaning, data-quality report | done (BACI, ADR-009) |
 | 2 | Transport LP, model vs. reality, shadow prices | first version done (base year 2023) |
-| 3 | Scenarios, cost curves, Dash app (MVP) | buyer dashboard with 7 tabs done; landed cost and scenarios next |
+| 3 | Scenarios, cost curves, Dash app (MVP) | buyer dashboard (two sections, 8 tabs) done; landed cost and scenarios next |
 | 4 | Import forecasting (optional) | planned |
 | 5 | Docker, Airflow, final polish | planned |

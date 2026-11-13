@@ -149,3 +149,27 @@ def landed_view(
         price_scale=scale,
         closure_extra_eur_t=closure,
     )
+
+
+ALL_GRADES = "all"
+
+
+def sources_for_grade(by_product: pd.DataFrame, grade: str = ALL_GRADES) -> pd.DataFrame:
+    """Import sources summed over the selected PE grade (HS6) or over all grades.
+
+    Returns the columns of `marts.mart_import_sources` that the exposure and landed-cost
+    functions use, so they work unchanged per grade (spec 008).
+    """
+    rows = by_product if grade == ALL_GRADES else by_product[by_product["hs6"] == grade]
+    keys = [
+        "year",
+        "importer_region",
+        "exporter_iso3",
+        "exporter_name",
+        "exporter_region",
+        "is_intra_regional",
+    ]
+    summed = rows.groupby(keys, as_index=False).agg(
+        qty_t=("qty_t", "sum"), value_usd=("value_usd", "sum")
+    )
+    return summed[summed["qty_t"] > 0].reset_index(drop=True)

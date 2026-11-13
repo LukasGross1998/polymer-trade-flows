@@ -137,3 +137,73 @@ def diversion_ratio(transits: pd.DataFrame, config: MonitorConfig) -> pd.DataFra
             "cape_share": (cape / (cape + red_sea)).to_numpy(),
         }
     ).reset_index(drop=True)
+
+
+# Vessel classes without "total", in display order (spec 008).
+VESSEL_CLASSES = ["container", "tanker", "dry_bulk", "general_cargo", "roro"]
+
+
+def vessel_mix(
+    transits: pd.DataFrame, chokepoint_id: str, start: pd.Timestamp, end: pd.Timestamp
+) -> pd.DataFrame:
+    """Average daily transits per vessel class at one chokepoint between `start` and `end`.
+
+    Columns: vessel_type, transits (mean per day), share (of all classes, 0-1).
+    """
+    rows = transits[
+        (transits["chokepoint_id"] == chokepoint_id)
+        & (transits["date"] >= start)
+        & (transits["date"] <= end)
+    ]
+    means = [rows[VESSEL_TYPES[v]].mean() if len(rows) else 0.0 for v in VESSEL_CLASSES]
+    mix = pd.DataFrame({"vessel_type": VESSEL_CLASSES, "transits": means}).fillna(0.0)
+    total = mix["transits"].sum()
+    return mix.assign(share=mix["transits"] / total if total else 0.0)
+
+
+def capacity_mix(
+    transits: pd.DataFrame, chokepoint_id: str, start: pd.Timestamp, end: pd.Timestamp
+) -> pd.DataFrame:
+    """Share of carrying capacity by class where PortWatch gives it: container, tanker, other.
+
+    "Other" (dry bulk, general cargo, RoRo) = total capacity - container - tanker.
+    """
+    rows = transits[
+        (transits["chokepoint_id"] == chokepoint_id)
+        & (transits["date"] >= start)
+        & (transits["date"] <= end)
+    ]
+    total = rows["capacity"].sum()
+    container = rows["capacity_container"].sum()
+    tanker = rows["capacity_tanker"].sum()
+    parts = {"container": container, "tanker": tanker, "other": total - container - tanker}
+    mix = pd.DataFrame({"vessel_type": list(parts), "capacity_t": list(parts.values())})
+    return mix.assign(share=mix["capacity_t"] / total if total else 0.0)
+
+
+def class_status(transits: pd.DataFrame, chokepoint_id: str, config: MonitorConfig) -> pd.DataFrame:
+    """Latest rolling mean against the seasonal normal for each vessel class at one chokepoint.
+
+    The same method as for all vessels (rolling mean vs. same calendar week in the baseline
+    years), applied per class. Columns: vessel_type, rolling, baseline, deviation_pct,
+    is_disrupted.
+    """
+    rows = []
+    one = transits[transits["chokepoint_id"] == chokepoint_id]
+    for vessel_type in VESSEL_CLASSES:
+        status = latest_status(monitor_table(one, vessel_type, config))
+        if status.empty:
+            continue
+        latest = status.iloc[0]
+        rows.append(
+            {
+                "vessel_type": vessel_type,
+                "rolling": latest["rolling"],
+                "baseline": latest["baseline"],
+                "deviation_pct": latest["deviation_pct"],
+                "is_disrupted": bool(latest["is_disrupted"]),
+            }
+        )
+    return pd.DataFrame(
+        rows, columns=["vessel_type", "rolling", "baseline", "deviation_pct", "is_disrupted"]
+    )
