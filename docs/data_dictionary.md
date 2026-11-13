@@ -4,18 +4,24 @@ Every table of the data lake, every column: meaning, unit, origin and an example
 Rules and reasoning behind the columns: [methodology.md](methodology.md). Current numbers:
 [data_quality.md](data_quality.md).
 
-`tests/test_data_dictionary.py` checks that the column lists below match the tables the
-pipeline actually writes, so this page cannot silently drift from the code.
+Since ADR-011 the **trade data live in a DuckDB warehouse** (`data/warehouse.duckdb`) built
+by dbt. Its tables are documented next to their SQL in `dbt/models/**/_*.yml`; browse them
+with lineage via `cd dbt && uv run dbt docs generate --profiles-dir . && uv run dbt docs
+serve --profiles-dir .`. This page covers the files in `data/` and summarises the warehouse.
+
+`tests/test_data_dictionary.py` checks that the column lists below and in the dbt YAML match
+what the pipeline actually writes, so the documentation cannot silently drift from the code.
 
 ## Overview
 
 ```
 raw (unchanged sources)               clean (prepared)
 ─────────────────────────────────     ─────────────────────────────────────────────
-baci/BACI_HS17_V202601.zip       ──►  trade_hs6        one flow per year, exporter, importer, HS6
-                                            │
-                                            ▼
-                                      bilateral_flows  HS6 summed per relation (model input)
+baci/BACI_HS17_V202601.zip  ─(Python)─►  baci/landing_*.parquet   (unpacked, unchanged)
+config/regions.yaml         ─(Python)─►  reference/*.parquet
+                                              │  dbt build (SQL, tests)
+                                              ▼
+                     warehouse.duckdb: staging.stg_*  ──►  marts.dim_* / fct_trade / mart_*
 fred/{id}/*.csv, gscpi/*.xls     ──►  market_series, brent_annual
 portwatch/...                    ──►  chokepoint_transits, port_activity, port_links, events, ...
 distances/sea_distances_base.parquet  (used directly from raw, computed not downloaded)
@@ -30,8 +36,9 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | Table | Path | Grain (one row = …) | Written by |
 |---|---|---|---|
 | raw BACI | `data/raw/baci/BACI_HS17_V202601.zip` | one CSV per year inside the zip | `ptf.ingest.baci` |
-| `trade_hs6` | `data/clean/trade_hs6.parquet` | one flow: year, exporter, importer, HS6 product | `ptf.clean.baci` |
-| `bilateral_flows` | `data/clean/bilateral_flows.parquet` | one trade relation: year, exporter, importer | `ptf.clean.baci` |
+| BACI landing | `data/raw/baci/landing_*.parquet` | HS 3901 flows and code lists, unpacked | `ptf.ingest.baci.write_landing` |
+| reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.warehouse.write_reference_tables` |
+| warehouse marts | `data/warehouse.duckdb`, schema `marts` | see section "Warehouse" | dbt (`dbt/models`) |
 | raw Comtrade (check) | `data/raw/comtrade/{ISO3}_{year}.parquet` | one Comtrade record | `ptf.ingest.comtrade` |
 | `trade_reports` (check) | `data/clean/trade_reports.parquet` | one report: reporter, partner, flow, year | `ptf.clean.comtrade` + `ptf.clean.quality` |
 | `mirror` (check) | `data/clean/mirror.parquet` | one trade relation: year, exporter, importer | `ptf.clean.mirror` |
@@ -76,38 +83,26 @@ The running example throughout is Saudi Arabia → Belgium, 2024.
 | `v` | value, FOB (CEPII removes estimated freight and insurance from import values) | thousand USD |
 | `q` | quantity; "NA" (sometimes padded with spaces) when missing | t |
 
-## `trade_hs6`
+## Warehouse (dbt, ADR-011)
 
-Polyethylene flows (HS 3901xx) from BACI. Example: Saudi Arabia → Belgium, 2024, HDPE.
+Tables in `data/warehouse.duckdb`; column definitions, descriptions and tests are in
+`dbt/models/staging/_staging.yml` and `dbt/models/marts/_marts.yml`.
 
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `year` | year | int | 2024 |
-| `exporter_iso3` | exporter (`S19` "Other Asia, nes" mapped to `TWN`) | ISO3 | SAU |
-| `importer_iso3` | importer | ISO3 | BEL |
-| `hs6` | product code | str | 390120 |
-| `product` | short product name | str | PE, density >= 0.94 (HDPE) |
-| `value_usd` | trade value, FOB (`v` × 1,000) | USD | 220,283,137 |
-| `qty_t` | quantity; imputed where BACI has none | t | 129,750.5 |
-| `is_imputed` | quantity imputed by us | bool | False |
-| `imputation_method` | `value_div_median_unit_value` if imputed (value ÷ median unit value of the same HS6 and year) | str / None | – |
+| Table | Grain (one row = …) | Purpose |
+|---|---|---|
+| `staging.stg_baci__trade` | landing row, typed, USD and t | BACI flows in base units |
+| `staging.stg_baci__countries` | BACI country code | ISO3 with aliases (`S19` → `TWN`) |
+| `staging.stg_baci__products`, `stg_reference__*` | code / country / region | code lists and configuration |
+| `marts.dim_region` | model region (+ `ROW`) | regions and representative ports |
+| `marts.dim_country` | country (ISO3) | name, region, reporter flag |
+| `marts.dim_product` | HS6 product | short name and BACI description |
+| `marts.fct_trade` | year × exporter × importer × HS6 | value (USD, FOB), quantity (t), imputation flag |
+| `marts.mart_bilateral_trade` | year × exporter × importer | products summed, with regions |
+| `marts.mart_region_trade` | year × exporter region × importer region | input of the transport LP |
 
-## `bilateral_flows`
-
-`trade_hs6` summed over the products: one row per year, exporter and importer. This is the
-input of the model. Example: Saudi Arabia → Belgium, 2024 (Saudi Arabia reported 480 kt,
-Belgium 171 kt in Comtrade; BACI's reconciled flow lies in between).
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `year` | year | int | 2024 |
-| `exporter_iso3` | exporter | ISO3 | SAU |
-| `importer_iso3` | importer | ISO3 | BEL |
-| `exporter_region` | model region of the exporter; unlisted countries → `ROW` | region code | MDE |
-| `importer_region` | model region of the importer | region code | EUR |
-| `value_usd` | trade value, FOB | USD | 348,640,231 |
-| `qty_t` | quantity, all PE products | t | 233,458.4 |
-| `imputed_qty_t` | part of `qty_t` that was imputed | t | 0 |
+Example (Saudi Arabia → Belgium, 2024): `fct_trade` holds five rows, one per PE product,
+e.g. HDPE 129,751 t for 220.3 m USD; `mart_bilateral_trade` sums them to 233,458 t for
+348.6 m USD (Comtrade had 480 kt as Saudi export report and 171 kt as Belgian import report).
 
 ---
 

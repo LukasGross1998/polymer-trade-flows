@@ -1,0 +1,25 @@
+version: 2
+
+# Raw layer files written by Python (ptf.ingest.baci.write_landing,
+# ptf.warehouse.write_reference_tables). PTF_RAW_DIR is set by ptf.warehouse.run_dbt.
+sources:
+  - name: baci
+    description: CEPII BACI V202601 (HS 2017), polyethylene flows and code lists, unpacked from the zip.
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/baci/{name}.parquet')"
+    tables:
+      - name: landing_hs3901
+        description: One row per year, exporter, importer and HS6 product; values as published.
+      - name: landing_country_codes
+        description: BACI's country list (numeric code, name, ISO2, ISO3).
+      - name: landing_product_codes
+        description: HS6 codes of the product group with BACI's descriptions.
+
+  - name: reference
+    description: Reference tables generated from config/regions.yaml.
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/reference/{name}.parquet')"
+    tables:
+      - name: regions
+      - name: country_region
+      - name: country_aliases

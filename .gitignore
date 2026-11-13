@@ -30,3 +30,7 @@ data/
 
 # Personal working notes for the AI assistant
 START_PROMPT.md
+
+# dbt build artefacts (the warehouse itself lives in data/, which is ignored)
+dbt/target/
+dbt/logs/

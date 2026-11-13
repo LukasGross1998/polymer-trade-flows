@@ -1,4 +1,8 @@
-"""docs/data_dictionary.md must list exactly the columns the pipeline writes."""
+"""The documentation must list exactly the columns the pipeline writes.
+
+Files in data/ are documented in docs/data_dictionary.md, warehouse tables in the dbt YAML
+files (dbt/models/**/_*.yml), which `dbt docs` turns into browsable documentation.
+"""
 
 import json
 import re
@@ -6,6 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 from helpers import (
     REPO_ROOT,
     FakeResponse,
@@ -27,9 +32,11 @@ from ptf.clean.portwatch import (
 )
 from ptf.ingest import portwatch
 from ptf.ingest.distances import build_distance_table
-from ptf.pipeline import clean_comtrade, run_clean, run_model
+from ptf.pipeline import clean_comtrade, run_model
+from ptf.warehouse import read_table
 
 DICTIONARY = REPO_ROOT / "docs" / "data_dictionary.md"
+DBT_MARTS_YAML = REPO_ROOT / "dbt" / "models" / "marts" / "_marts.yml"
 
 
 def documented_columns(table: str) -> list[str]:
@@ -39,14 +46,23 @@ def documented_columns(table: str) -> list[str]:
     return re.findall(r"^\| `([a-z0-9_]+)` \|", section, flags=re.MULTILINE)
 
 
-@pytest.mark.parametrize("table", ["trade_hs6", "bilateral_flows", "brent_annual"])
-def test_clean_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str) -> None:
-    settings = pipeline_setup.settings
-    run_clean(settings, pipeline_setup.regions, pipeline_setup.config)
+def dbt_documented_columns() -> dict[str, list[str]]:
+    """Model name -> documented column names, from the dbt marts YAML."""
+    spec = yaml.safe_load((DBT_MARTS_YAML).read_text(encoding="utf-8"))
+    return {m["name"]: [c["name"] for c in m["columns"]] for m in spec["models"]}
 
-    written = pd.read_parquet(settings.clean_dir / f"{table}.parquet")
 
-    assert documented_columns(table) == list(written.columns)
+def test_brent_annual_matches_dictionary(warehouse_setup: PipelineSetup) -> None:
+    written = pd.read_parquet(warehouse_setup.settings.clean_dir / "brent_annual.parquet")
+
+    assert documented_columns("brent_annual") == list(written.columns)
+
+
+@pytest.mark.parametrize("model", list(dbt_documented_columns()))
+def test_warehouse_marts_match_dbt_docs(warehouse_setup: PipelineSetup, model: str) -> None:
+    written = read_table(warehouse_setup.settings, f"marts.{model}")
+
+    assert dbt_documented_columns()[model] == list(written.columns)
 
 
 @pytest.mark.parametrize("table", ["trade_reports", "mirror", "comtrade_flows"])
@@ -72,10 +88,9 @@ def test_sea_distances_match_dictionary(pipeline_setup: PipelineSetup) -> None:
     "table",
     ["observed_region_flows", "region_balance", "route_costs", "lp_flows", "lp_regions"],
 )
-def test_model_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str) -> None:
-    settings = pipeline_setup.settings
-    run_clean(settings, pipeline_setup.regions, pipeline_setup.config)
-    write_synthetic_distances(settings.raw_dir, pipeline_setup.regions)
+def test_model_tables_match_dictionary(warehouse_setup: PipelineSetup, table: str) -> None:
+    settings = warehouse_setup.settings
+    write_synthetic_distances(settings.raw_dir, warehouse_setup.regions)
     run_model(settings)
 
     written = pd.read_parquet(settings.model_dir / "2023" / f"{table}.parquet")

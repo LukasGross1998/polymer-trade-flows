@@ -1,0 +1,128 @@
+version: 2
+
+models:
+  - name: dim_region
+    description: Model regions (config/regions.yaml) plus rest of world.
+    columns:
+      - name: region
+        description: Region code, e.g. EUR, MDE, ROW.
+        data_tests: [unique, not_null]
+      - name: region_name
+      - name: port
+        description: Representative seaport for sea distances; empty for ROW.
+      - name: port_lon
+      - name: port_lat
+
+  - name: dim_country
+    description: One row per country (ISO3) with its model region; unlisted countries -> ROW.
+    columns:
+      - name: iso3
+        description: ISO 3166-1 alpha-3; "S19" (Other Asia, nes) is mapped to TWN.
+        data_tests: [unique, not_null]
+      - name: country_name
+      - name: region
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: region
+      - name: is_reporter
+        description: Queried from Comtrade in phase 1 (only relevant for the Comtrade check).
+
+  - name: dim_product
+    description: Polyethylene HS6 products (HS 2017).
+    columns:
+      - name: hs6
+        data_tests: [unique, not_null]
+      - name: product
+        description: Short name (seed product_short_names), BACI description as fallback.
+      - name: description
+        description: BACI's official description.
+
+  - name: fct_trade
+    description: >
+      One row per year, exporter, importer and HS6 product (CEPII BACI, values FOB).
+      Missing quantities are imputed as value / median unit value of the same product
+      and year and flagged.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, exporter_iso3, importer_iso3, hs6]
+    columns:
+      - name: year
+        data_tests: [not_null]
+      - name: exporter_iso3
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: iso3
+      - name: importer_iso3
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: iso3
+      - name: hs6
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: hs6
+      - name: value_usd
+        description: Trade value, FOB, current USD.
+        data_tests: [not_null, non_negative]
+      - name: qty_t
+        description: Quantity in tonnes; imputed where BACI has none.
+        data_tests: [non_negative]
+      - name: is_imputed
+        description: True if qty_t was imputed by us.
+
+  - name: mart_bilateral_trade
+    description: fct_trade summed over the products per year, exporter and importer.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, exporter_iso3, importer_iso3]
+    columns:
+      - name: year
+      - name: exporter_iso3
+      - name: importer_iso3
+      - name: exporter_region
+        data_tests: [not_null]
+      - name: importer_region
+        data_tests: [not_null]
+      - name: value_usd
+      - name: qty_t
+        data_tests: [non_negative]
+      - name: imputed_qty_t
+        description: Part of qty_t that was imputed.
+
+  - name: mart_region_trade
+    description: Trade per year and region pair, including trade within a region. Input of the transport LP.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, exporter_region, importer_region]
+    columns:
+      - name: year
+      - name: exporter_region
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: region
+      - name: importer_region
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: region
+      - name: value_usd
+      - name: qty_t
+        data_tests: [non_negative]
+      - name: imputed_qty_t

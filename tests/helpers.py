@@ -88,11 +88,20 @@ BACI_2023 = (
 )
 
 
+BACI_PRODUCTS = (
+    "code,description\n"
+    '390110,"Ethylene polymers: polyethylene with specific gravity < 0.94"\n'
+    '390120,"Ethylene polymers: polyethylene with specific gravity >= 0.94"\n'
+    '270900,"Petroleum oils, crude"\n'
+)
+
+
 def write_baci_zip(path: Path) -> None:
-    """A tiny BACI-like zip: country codes and one year of flows (values in thousand USD)."""
+    """A tiny BACI-like zip: code lists and one year of flows (values in thousand USD)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(path, "w") as archive:
         archive.writestr("country_codes_V202601.csv", BACI_COUNTRIES)
+        archive.writestr("product_codes_HS17_V202601.csv", BACI_PRODUCTS)
         archive.writestr("BACI_HS17_Y2023_V202601.csv", BACI_2023)
 
 

@@ -1,6 +1,6 @@
 # 002 – dbt warehouse, first increment: trade data (BACI)
 
-- **Status:** accepted
+- **Status:** done
 - **Branch / PR:** `feat/dbt-trade-model`
 - **SPEC.md sections:** 3 (data pipeline), 4 (model inputs)
 
@@ -41,3 +41,11 @@ Airflow.
 - Staging reads the landing Parquet via a dbt source (`read_parquet`).
 - Imputation of missing quantities as a window median per year and HS6 in SQL.
 - Check before starting: dbt-duckdb with DuckDB 2.0 and dbt-core 1.12.
+
+## Result
+
+- `dbt build`: 8 models, 1 seed, 34 tests, all passing in about 5 s on the real data.
+- Parity: all 34,341 relations and 92,947 product flows identical to the pandas tables,
+  largest difference 5 × 10⁻¹⁰ t; LP results for 2023 unchanged (42 % explained).
+- dbt runs as a subprocess (`ptf.warehouse.run_dbt`): in-process `dbtRunner` kept a DuckDB
+  connection open that blocked reading the warehouse afterwards.

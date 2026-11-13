@@ -1,0 +1,9 @@
+# Connection to the DuckDB warehouse. The pipeline sets PTF_WAREHOUSE (absolute path);
+# the default works when dbt is started by hand from the dbt/ folder.
+ptf:
+  target: local
+  outputs:
+    local:
+      type: duckdb
+      path: "{{ env_var('PTF_WAREHOUSE', '../data/warehouse.duckdb') }}"
+      threads: 4

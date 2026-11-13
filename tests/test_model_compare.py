@@ -3,7 +3,7 @@ import pytest
 from helpers import PipelineSetup, write_synthetic_distances
 
 from ptf.model.compare import comparison_metrics, comparison_table
-from ptf.pipeline import run_clean, run_model
+from ptf.pipeline import run_model
 
 
 def test_comparison_keeps_only_routes_between_model_regions() -> None:
@@ -48,11 +48,10 @@ def test_explained_share_counts_overlap_per_route() -> None:
     assert metrics["routes_used_both"] == 1
 
 
-def test_model_step_writes_layer_and_report(pipeline_setup: PipelineSetup) -> None:
-    settings = pipeline_setup.settings
-    run_clean(settings, pipeline_setup.regions, pipeline_setup.config)
-    write_synthetic_distances(settings.raw_dir, pipeline_setup.regions)
-    codes = list(pipeline_setup.regions.regions)
+def test_model_step_reads_the_mart_and_writes_results(warehouse_setup: PipelineSetup) -> None:
+    settings = warehouse_setup.settings
+    write_synthetic_distances(settings.raw_dir, warehouse_setup.regions)
+    codes = list(warehouse_setup.regions.regions)
 
     run_model(settings)
 

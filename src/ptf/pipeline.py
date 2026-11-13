@@ -1,7 +1,7 @@
 """Command-line entry point for the pipeline: raw -> clean -> report -> model.
 
     uv run python -m ptf.pipeline ingest   # distances, Brent, BACI trade data (cached)
-    uv run python -m ptf.pipeline clean    # BACI -> trade_hs6, bilateral_flows
+    uv run python -m ptf.pipeline clean    # BACI landing + dbt build -> data/warehouse.duckdb
     uv run python -m ptf.pipeline report   # write docs/data_quality.md and charts
     uv run python -m ptf.pipeline model    # model layer, transport LP, docs/model_results.md
     uv run python -m ptf.pipeline portwatch  # chokepoint transits (incremental) -> clean layer
@@ -17,7 +17,7 @@ import logging
 
 import pandas as pd
 
-from ptf.clean import baci as clean_baci
+from ptf import warehouse
 from ptf.clean import brent as clean_brent
 from ptf.clean.comtrade import build_country_lookup, load_raw_comtrade, to_trade_reports
 from ptf.clean.dq_report import build_report
@@ -59,19 +59,19 @@ def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig
 
 
 def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
-    """BACI -> trade_hs6 and bilateral_flows; Brent -> annual averages."""
+    """Landing files and reference tables, then `dbt build` (ADR-011); Brent annual averages.
+
+    Python only unpacks BACI and writes the configuration as reference tables; all trade
+    transformations and their tests run in dbt (dbt/models) into data/warehouse.duckdb.
+    """
     raw, clean = settings.raw_dir, settings.clean_dir
     clean.mkdir(parents=True, exist_ok=True)
 
     baci_config = config.baci
     zip_path = baci.baci_zip_path(raw, baci_config.hs_revision, baci_config.version)
-    trade_hs6 = clean_baci.extract_trade_hs6(
-        zip_path, baci_config.years, baci_config.hs_prefix, regions.comtrade_aliases
-    )
-    trade_hs6 = clean_baci.impute_quantities(trade_hs6)
-    trade_hs6.to_parquet(clean / "trade_hs6.parquet", index=False)
-    flows = clean_baci.to_bilateral_flows(trade_hs6, regions)
-    flows.to_parquet(clean / "bilateral_flows.parquet", index=False)
+    baci.write_landing(zip_path, baci_config.years, baci_config.hs_prefix, raw)
+    warehouse.write_reference_tables(regions, raw)
+    warehouse.run_dbt(settings, ["build"])
 
     brent_csv = fred.latest_raw(raw, config.brent.fred_series)
     if brent_csv is None:
@@ -79,7 +79,7 @@ def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig)
     daily = parse_fred_csv(brent_csv)
     daily = daily.rename(columns={"value": "usd_per_bbl"})
     clean_brent.annual_brent(daily).to_parquet(clean / "brent_annual.parquet", index=False)
-    logger.info("clean layer: %s HS6 flows, %s bilateral flows", len(trade_hs6), len(flows))
+    logger.info("warehouse built: %s", warehouse.warehouse_path(settings))
 
 
 def run_comtrade(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
@@ -124,14 +124,14 @@ def clean_comtrade(settings: Settings, regions: RegionConfig, config: PipelineCo
 
 
 def run_report(settings: Settings) -> None:
-    path = build_report(settings.clean_dir, settings.docs_dir)
+    path = build_report(warehouse.warehouse_path(settings), settings.clean_dir, settings.docs_dir)
     logger.info("report written to %s", path)
 
 
 def run_model(settings: Settings) -> None:
     config = load_model_config(settings.config_dir / "model.yaml")
     year = config.base_year
-    flows = pd.read_parquet(settings.clean_dir / "bilateral_flows.parquet")
+    flows = warehouse.read_table(settings, "marts.mart_region_trade")
     distance_table = pd.read_parquet(settings.raw_dir / "distances" / "sea_distances_base.parquet")
 
     observed = model_inputs.observed_region_flows(flows, year)
