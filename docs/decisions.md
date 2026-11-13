@@ -352,3 +352,45 @@ warehouse.**
   the migration both paths exist side by side.
 - *To check during the first PR:* compatibility of dbt-duckdb with DuckDB 2.0 and dbt-core
   1.12; reading Parquet sources from DuckDB without extra extensions.
+
+## ADR-012: Package structure by domain with enforced dependency rules
+
+- **Date:** 2026-11-13
+- **Status:** accepted (spec 004)
+
+**Context.** The package grew in two directions at once: phase 1 sliced it by technical
+layer (`ingest/`, `clean/`), the dashboard by topic (`monitor/`, `market/`, `model/`).
+Configuration modules lay scattered at the top level (`market_config.py`,
+`pipeline_config.py`, `regions.py`), the superseded Comtrade code sat in the core package,
+and `pipeline.py` imported 17 modules. After the move to dbt (ADR-011) `clean/` held mostly
+legacy code. A change to the market data touched five places; every new source made the
+central pipeline longer.
+
+**Options.**
+- *A. Slice by layer* (`ingest/`, `transform/`, `report/`): familiar, but things that change
+  together lie apart, and the transformations now live in dbt anyway.
+- *B. Slice by domain* (`trade`, `shipping`, `markets`, `model`) on top of a shared `core`:
+  the same cut as the dbt project and the later Airflow DAGs.
+- *C. Leave as is*: no work, but the mix keeps growing.
+
+**Decision: B.**
+- `ptf.core`: settings, HTTP retries, the warehouse (running dbt, reading marts), shared
+  reference data (`regions.yaml`) and Markdown helpers. It imports no other `ptf` package.
+- One package per domain with its downloads, its `config.py` (reading `config/<domain>.yaml`),
+  its logic and a `steps.py` whose functions take only `Settings`.
+- **Domains do not import each other.** Data of another domain come from the warehouse (the
+  LP reads `marts.mart_region_trade`, not `ptf.trade`). The warehouse is the interface.
+- `ptf.legacy.comtrade` holds the superseded Comtrade check; only the command line uses it.
+- `ptf.cli` is the only module that knows every domain: a registry from step names to step
+  functions (`uv run ptf <step>`); argparse is enough, no extra CLI framework.
+- The rules are checked by **import-linter** (`uv run lint-imports`, CI and pre-commit):
+  a layers contract (`cli | app` → domains → `core`, domains independent) and a forbidden
+  contract (`app` must not import `legacy`).
+
+**Consequences.**
+- *Positive:* a change to one source stays in one package (plus its dbt folder); the code,
+  `config/` and dbt use the same domain names; Airflow (phase 5) can run one DAG per domain
+  that calls its `steps.py`; legacy code can be deleted without side effects.
+- *Negative:* one large move (many paths changed, `git log --follow` needed for history);
+  `regions.yaml` is shared reference data in `core`, a deliberate exception to "core has no
+  domain content".
