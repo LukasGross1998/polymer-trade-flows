@@ -2,6 +2,7 @@
 
 import pandas as pd
 from dash import Dash, Input, Output, html
+from dash.development.base_component import Component
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
@@ -55,39 +56,39 @@ def layout(data: AppData) -> html.Div:
     )
 
 
-def _location_list(rows: pd.DataFrame) -> html.Div:
+def _location_list(rows: pd.DataFrame) -> Component:
     if rows.empty:
         return html.Div("● None flagged", style={"color": style.GOOD})
     items = [
         html.Li(
             [
-                html.Span(f"▼ {row.location}", style={"color": style.CRITICAL}),
-                f"  {row.deviation_pct:+.0f} % vs. normal",
+                html.Span(f"▼ {row['location']}", style={"color": style.CRITICAL}),
+                f"  {row['deviation_pct']:+.0f} % vs. normal",
             ],
             style={"fontSize": "14px", "marginBottom": "4px"},
         )
-        for row in rows.itertuples()
+        for row in rows.to_dict("records")
     ]
     return html.Ul(items, style={"paddingLeft": "18px", "margin": "0"})
 
 
-def _event_list(events: pd.DataFrame) -> html.Div:
+def _event_list(events: pd.DataFrame) -> Component:
     if events.empty:
         return html.Div("● No active orange or red alerts", style={"color": style.GOOD})
     items = []
-    for event in events.itertuples():
-        kind = EVENT_TYPES.get(event.event_type, event.event_type)
-        since = f"since {event.from_date:%d %b %Y}" + (
-            "" if pd.isna(event.to_date) else f", until {event.to_date:%d %b %Y}"
+    for event in events.to_dict("records"):
+        kind = EVENT_TYPES.get(event["event_type"], event["event_type"])
+        since = f"since {event['from_date']:%d %b %Y}" + (
+            "" if pd.isna(event["to_date"]) else f", until {event['to_date']:%d %b %Y}"
         )
         items.append(
             html.Li(
                 [
                     html.Span(
-                        f"▲ {event.alert_level} ",
+                        f"▲ {event['alert_level']} ",
                         style={"color": style.CRITICAL, "fontWeight": "600"},
                     ),
-                    f"{event.event} ({kind}), {since}",
+                    f"{event['event']} ({kind}), {since}",
                 ],
                 style={"fontSize": "14px", "marginBottom": "4px"},
             )
@@ -95,7 +96,7 @@ def _event_list(events: pd.DataFrame) -> html.Div:
     return html.Ul(items, style={"paddingLeft": "18px", "margin": "0"})
 
 
-def update(data: AppData) -> tuple:
+def update(data: AppData) -> charts.Outputs:
     chokepoints = latest_status(monitor_table(data.transits, "total", data.monitor_config))
     flagged, total = disrupted_count(chokepoints)
     values = [
@@ -111,11 +112,11 @@ def update(data: AppData) -> tuple:
 
     if data.port_activity is not None:
         ports = latest_status(port_table(data.port_activity, "portcalls", data.monitor_config))
-        port_list = _location_list(furthest_below_normal(ports))
+        port_list: Component = _location_list(furthest_below_normal(ports))
     else:
         port_list = html.Div("No port data yet.", style={"color": style.MUTED})
 
-    events = html.Div("No event data yet.", style={"color": style.MUTED})
+    events: Component = html.Div("No event data yet.", style={"color": style.MUTED})
     if data.events is not None:
         events = _event_list(active_events(data.events, data.latest_date))
 
@@ -135,5 +136,5 @@ def register(app: Dash, state: AppState) -> None:
         Output("ov-events", "children"),
         Input("data-version", "data"),
     )
-    def _update(_version: int) -> tuple:
+    def _update(_version: int) -> charts.Outputs:
         return update(state.data)

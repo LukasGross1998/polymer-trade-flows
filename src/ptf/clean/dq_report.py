@@ -23,9 +23,15 @@ SERIES_COLOURS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4"]
 # --- tables --------------------------------------------------------------------------------
 
 
+def _query(sql: str) -> pd.DataFrame:
+    """Run SQL on an in-memory DuckDB connection and return the result as a DataFrame."""
+    with duckdb.connect() as connection:
+        return connection.execute(sql).df()
+
+
 def coverage_by_year(hs6_path: Path) -> pd.DataFrame:
     """Per year: exporters, importers, flows and total traded tonnes."""
-    return duckdb.sql(
+    return _query(
         f"""
         SELECT year,
                count(DISTINCT exporter_iso3) AS exporters,
@@ -35,7 +41,7 @@ def coverage_by_year(hs6_path: Path) -> pd.DataFrame:
         FROM read_parquet('{hs6_path}')
         GROUP BY year ORDER BY year
         """
-    ).df()
+    )
 
 
 def tonnes_by_product(trade_hs6: pd.DataFrame) -> pd.DataFrame:
@@ -73,14 +79,14 @@ def unit_values(trade_hs6: pd.DataFrame) -> pd.DataFrame:
 
 def region_matrix(flows_path: Path, year: int) -> pd.DataFrame:
     """Inter-regional trade in kt for one year (rows: exporter region, columns: importer)."""
-    long = duckdb.sql(
+    long = _query(
         f"""
         SELECT exporter_region, importer_region, sum(qty_t) / 1000 AS kt
         FROM read_parquet('{flows_path}')
         WHERE year = {int(year)} AND exporter_region <> importer_region
         GROUP BY exporter_region, importer_region
         """
-    ).df()
+    )
     return long.pivot(index="exporter_region", columns="importer_region", values="kt").fillna(0)
 
 

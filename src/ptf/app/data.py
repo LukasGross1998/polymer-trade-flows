@@ -36,7 +36,18 @@ class AppData:
         return self.chokepoints.rename(columns={"chokepoint_id": "location_id"})
 
     def port_coordinates(self) -> pd.DataFrame:
-        return self.ports.rename(columns={"port_id": "location_id"})
+        return require(self.ports, "ports").rename(columns={"port_id": "location_id"})
+
+
+def require(table: pd.DataFrame | None, name: str) -> pd.DataFrame:
+    """Return an optional table, or fail clearly if it is not loaded.
+
+    Tabs only register their callbacks when their data exist, so this narrows the type for
+    the type checker and turns a silent `None` into a readable error.
+    """
+    if table is None:
+        raise RuntimeError(f"table {name!r} is not loaded; run the pipeline step that builds it")
+    return table
 
 
 def _optional(path: Path) -> pd.DataFrame | None:

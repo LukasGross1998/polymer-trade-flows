@@ -79,9 +79,10 @@ def plot_heatmaps(table: pd.DataFrame, regions: list[str], path: Path) -> None:
         ax.set_xlabel("to (importing region)")
         ax.set_ylabel("from (exporting region)")
         ax.set_title(f"{title}, kt")
+        values = matrix.to_numpy(dtype=float)
         for i in range(len(regions)):
             for j in range(len(regions)):
-                value = matrix.iat[i, j]
+                value = values[i, j]
                 if not np.isnan(value) and value >= 50:
                     colour = "white" if value > vmax / 2 else "black"
                     ax.text(

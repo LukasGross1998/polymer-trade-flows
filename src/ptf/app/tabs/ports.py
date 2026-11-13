@@ -1,10 +1,12 @@
 """Tab "Ports": port calls and estimated trade volumes of polyethylene-relevant ports."""
 
+from typing import Any
+
 import pandas as pd
 from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, style
-from ptf.app.data import AppData, AppState
+from ptf.app.data import AppData, AppState, require
 from ptf.clean.portwatch import PORT_METRICS
 from ptf.monitor.metrics import latest_status, port_table
 from ptf.monitor.overview import active_events
@@ -85,14 +87,14 @@ def status_table(status: pd.DataFrame, unit: str) -> html.Table:
         ]
     )
     rows = []
-    for row in status.sort_values("deviation_pct").itertuples():
-        state = charts.status_value(bool(row.is_disrupted))
+    for row in status.sort_values("deviation_pct").to_dict("records"):
+        state = charts.status_value(bool(row["is_disrupted"]))
         rows.append(
             html.Tr(
                 [
-                    html.Td(row.location),
-                    html.Td(charts.number(row.rolling, ",.0f")),
-                    html.Td(charts.signed_pct(row.deviation_pct)),
+                    html.Td(row["location"]),
+                    html.Td(charts.number(row["rolling"], ",.0f")),
+                    html.Td(charts.signed_pct(row["deviation_pct"])),
                     html.Td(state["value"], style={"color": state["tone"]}),
                 ],
                 style={"fontSize": "13px"},
@@ -101,13 +103,14 @@ def status_table(status: pd.DataFrame, unit: str) -> html.Table:
     return html.Table([header, *rows], style={"width": "100%", "borderCollapse": "collapse"})
 
 
-def update(data: AppData, port_id: str, metric: str, period: str) -> tuple:
+def update(data: AppData, port_id: str, metric: str, period: str) -> charts.Outputs:
     unit = _unit(metric)
     label = PORT_METRICS[metric]
-    table = port_table(data.port_activity, metric, data.monitor_config)
+    activity = require(data.port_activity, "port_activity")
+    table = port_table(activity, metric, data.monitor_config)
     status = latest_status(table)
     row = status[status["location_id"] == port_id].iloc[0]
-    latest = data.port_activity["date"].max()
+    latest = activity["date"].max()
     events = None if data.events is None else active_events(data.events, latest)
 
     map_fig = charts.location_map(status, data.port_coordinates(), port_id, unit, events, ",.0f")
@@ -128,7 +131,7 @@ def update(data: AppData, port_id: str, metric: str, period: str) -> tuple:
     )
     selected = charts.filter_period(table[table["location_id"] == port_id], period, latest)
     series_fig = charts.location_timeseries(selected, f"{row['location']}: {label}", unit)
-    start = charts.period_start(period, latest, data.port_activity["date"].min())
+    start = charts.period_start(period, latest, activity["date"].min())
     charts.add_key_events(series_fig, data.market_config.key_events, start, latest)
     return map_fig, kpis, status_table(status, unit), series_fig
 
@@ -147,12 +150,12 @@ def register(app: Dash, state: AppState) -> None:
         Input("port-period", "value"),
         Input("data-version", "data"),
     )
-    def _update(port_id: str, metric: str, period: str, _version: int) -> tuple:
+    def _update(port_id: str, metric: str, period: str, _version: int) -> charts.Outputs:
         return update(state.data, port_id, metric, period)
 
     @app.callback(
         Output("port-select", "value"), Input("port-map", "clickData"), prevent_initial_call=True
     )
-    def _select_on_map(click_data: dict | None) -> str:
+    def _select_on_map(click_data: dict[str, Any] | None) -> object:
         point = (click_data or {}).get("points", [{}])[0]
         return point.get("customdata") or no_update

@@ -5,8 +5,9 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, html
 
 from ptf.app import charts, style
-from ptf.app.data import AppData, AppState
+from ptf.app.data import AppData, AppState, require
 from ptf.market import indicators
+from ptf.market_config import KeyEvent
 
 INDEXED_GROUPS = {
     "freight_polymers": "Freight and polymer prices (US producer price indices)",
@@ -56,7 +57,7 @@ def _name(market: pd.DataFrame, series_id: str) -> str:
     return names.iloc[0] if len(names) else series_id
 
 
-def kpi_values(market: pd.DataFrame) -> list[dict]:
+def kpi_values(market: pd.DataFrame) -> list[dict[str, str]]:
     brent = indicators.latest(market, "DCOILBRENTEU")
     spread = indicators.gas_spread(market, "PNGASEUUSDM")
     gscpi = indicators.latest(market, "GSCPI")
@@ -91,7 +92,7 @@ def kpi_values(market: pd.DataFrame) -> list[dict]:
 
 
 def oil_figure(
-    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list[KeyEvent]
 ) -> go.Figure:
     frames = [
         (_name(market, s), indicators.series(market, s)) for s in ["DCOILBRENTEU", "DCOILWTICO"]
@@ -102,7 +103,7 @@ def oil_figure(
 
 
 def gas_figure(
-    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list[KeyEvent]
 ) -> go.Figure:
     """Monthly averages so the daily US series is comparable with the monthly EU/Japan series."""
     frames = [
@@ -115,7 +116,7 @@ def gas_figure(
 
 
 def indexed_figure(
-    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list[KeyEvent]
 ) -> go.Figure:
     ids = ["PCU483111483111", "PCU3252113252111", "DEXCHUS", "DTWEXBGS"]
     rebased = indicators.indexed(market, ids, start)
@@ -129,7 +130,7 @@ def indexed_figure(
 
 
 def gscpi_figure(
-    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list
+    market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list[KeyEvent]
 ) -> go.Figure:
     one = indicators.series(market, "GSCPI")
     one = one[one["date"] >= start]
@@ -149,8 +150,8 @@ def gscpi_figure(
     return charts.add_key_events(fig, key_events, start, end)
 
 
-def update(data: AppData, period: str) -> tuple:
-    market = data.market
+def update(data: AppData, period: str) -> charts.Outputs:
+    market = require(data.market, "market_series")
     latest = market["date"].max()
     start = charts.period_start(period, latest, market["date"].min())
     events = data.market_config.key_events
@@ -176,5 +177,5 @@ def register(app: Dash, state: AppState) -> None:
         Input("mkt-period", "value"),
         Input("data-version", "data"),
     )
-    def _update(period: str, _version: int) -> tuple:
+    def _update(period: str, _version: int) -> charts.Outputs:
         return update(state.data, period)

@@ -30,9 +30,14 @@ module-name = "ptf"
 
 [dependency-groups]
 dev = [
+    "mypy>=2.4.1",
+    "pandas-stubs>=3.1.0.261029",
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.5",
+    "types-pyyaml>=6.0.12.20261111",
+    "types-requests>=2.33.0.20261030",
 ]
 
 [tool.ruff]
@@ -48,3 +53,15 @@ select = ["E", "W", "F", "I", "UP", "B", "SIM"]
 testpaths = ["tests"]
 # "-p no:dash": Dash ships a pytest plugin for browser tests that we do not use.
 addopts = "-ra -p no:dash"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+strict = true
+# pandas methods often return Any in the stubs; flagging every such return adds noise
+# without finding bugs (ADR-010). Everything else of --strict stays on.
+warn_return_any = false
+# Libraries without type information: treat their objects as Any instead of failing.
+[[tool.mypy.overrides]]
+module = ["pyomo.*", "searoute.*", "plotly.*", "highspy.*"]
+ignore_missing_imports = true

@@ -1,5 +1,7 @@
 """Tab "Chokepoints": vessel transits through maritime chokepoints vs. normal."""
 
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html, no_update
@@ -7,6 +9,7 @@ from plotly.subplots import make_subplots
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
+from ptf.market_config import KeyEvent
 from ptf.monitor.metrics import diversion_ratio, latest_status, monitor_table
 from ptf.monitor.overview import active_events
 
@@ -86,7 +89,7 @@ def layout(data: AppData) -> html.Div:
 
 
 def diversion_figure(
-    ratio: pd.DataFrame, key_events: list, start: pd.Timestamp, end: pd.Timestamp
+    ratio: pd.DataFrame, key_events: list[KeyEvent], start: pd.Timestamp, end: pd.Timestamp
 ) -> go.Figure:
     """Red Sea vs. Cape route for container ships, and the Cape share below (no dual axis)."""
     fig = make_subplots(
@@ -131,7 +134,7 @@ def diversion_figure(
     return charts.base_layout(fig, height=460)
 
 
-def update(data: AppData, chokepoint_id: str, vessel_type: str, period: str) -> tuple:
+def update(data: AppData, chokepoint_id: str, vessel_type: str, period: str) -> charts.Outputs:
     """Map, tiles, time series and diversion chart for the current selection."""
     label = VESSEL_LABELS[vessel_type]
     table = monitor_table(data.transits, vessel_type, data.monitor_config)
@@ -182,12 +185,12 @@ def register(app: Dash, state: AppState) -> None:
         Input("cp-period", "value"),
         Input("data-version", "data"),  # changes after "Update data" -> redraw
     )
-    def _update(chokepoint_id: str, vessel_type: str, period: str, _version: int) -> tuple:
+    def _update(chokepoint_id: str, vessel_type: str, period: str, _version: int) -> charts.Outputs:
         return update(state.data, chokepoint_id, vessel_type, period)
 
     @app.callback(
         Output("cp-select", "value"), Input("cp-map", "clickData"), prevent_initial_call=True
     )
-    def _select_on_map(click_data: dict | None) -> str:
+    def _select_on_map(click_data: dict[str, Any] | None) -> object:
         point = (click_data or {}).get("points", [{}])[0]
         return point.get("customdata") or no_update  # clicks on event crosses have no id
