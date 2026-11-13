@@ -1,3 +1,6 @@
 """Polymer Trade Flow & Disruption Simulator."""
 
-__version__ = "0.1.0"
+from importlib.metadata import version
+
+# Single source of truth: `version` in pyproject.toml (read from the installed package).
+__version__ = version("polymer-trade-flows")
