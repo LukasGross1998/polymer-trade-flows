@@ -1,6 +1,6 @@
 [project]
 name = "polymer-trade-flows"
-version = "0.1.0"
+version = "0.4.0"
 description = "Polymer Trade Flow & Disruption Simulator: global polyethylene trade, transport LP and disruption scenarios."
 readme = "README.md"
 authors = [{ name = "LukasGross1998" }]

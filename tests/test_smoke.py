@@ -1,5 +1,6 @@
 """Smoke tests: the package imports and settings behave as expected."""
 
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -8,8 +9,10 @@ import ptf
 from ptf.core.settings import Settings
 
 
-def test_package_has_version() -> None:
-    assert ptf.__version__ == "0.1.0"
+def test_package_version_comes_from_pyproject() -> None:
+    pyproject = tomllib.loads((Path(__file__).resolve().parents[1] / "pyproject.toml").read_text())
+
+    assert ptf.__version__ == pyproject["project"]["version"]
 
 
 def test_settings_load_without_env_file(monkeypatch: pytest.MonkeyPatch) -> None:

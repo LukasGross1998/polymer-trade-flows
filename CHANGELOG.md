@@ -5,27 +5,28 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+## 0.4.0 – 2026-11-13
+
+Architecture release: data model in dbt, package structure by domain, Docker. Results of the
+model and the monitor are unchanged (parity checks in every step).
+
 ### Added
+- dbt project on DuckDB (`dbt/`, ADR-011): staging models and a star schema for trade
+  (spec 002: `dim_country`, `dim_region`, `dim_product`, `fct_trade`, marts for analysis and
+  the LP) and for shipping and markets (spec 003: `dim_chokepoint`, `dim_port`,
+  `dim_market_series`, `dim_date`, facts for transits, port activity, market prices, port
+  links and events, app marts); organised by domain with tags; 110 nodes with dbt tests.
 - Docker image built with uv in two stages, `compose.yaml` with the services `app`
   (gunicorn, healthcheck) and `pipeline` (any `ptf` step), data on volumes; CI builds the
   image and runs `docker/smoke_test.sh` (spec 005, ADR-013).
+- `uv run ptf <step>` as command (also `python -m ptf <step>`).
 - Settings `APP_HOST`, `APP_PORT`, `DBT_PROJECT_DIR`; the app shows a start page when the
   warehouse has no data yet.
-- Package dependency rules checked with import-linter in CI and pre-commit (ADR-012).
-- `uv run ptf <step>` as command (also `python -m ptf <step>`).
-- dbt project on DuckDB (`dbt/`, spec 002): staging models, star schema (`dim_country`,
-  `dim_region`, `dim_product`, `fct_trade`) and marts for analysis and the LP, 34 dbt tests;
-  `pipeline clean` now unpacks BACI and runs `dbt build`.
-- PortWatch and market data in dbt (spec 003): `dim_chokepoint`, `dim_port`,
-  `dim_market_series`, `dim_date`, facts for transits, port activity, market prices, port
-  links and events, app marts; dbt project organised by domain with tags.
-- Strict type checking with mypy (CI and pre-commit), coverage threshold of 85 % in CI.
+- Quality gates: strict type checking with mypy, coverage threshold of 85 %, package
+  dependency rules with import-linter (ADR-012), all in CI and pre-commit.
 - Working agreement: feature specs in `specs/`, branch/PR workflow, Definition of Done,
   PR template (ADR-010).
-- Tests for the BACI and GSCPI downloads and the pipeline command line.
-
-- ADR-011: data model and transformations in SQL with dbt on DuckDB (star schema);
-  spec 002 for the first increment (trade data).
+- Tests for the BACI and GSCPI downloads and the command line.
 
 ### Changed
 - Package organised by domain (spec 004, ADR-012): `core`, `trade`, `shipping`, `markets`,
@@ -33,9 +34,10 @@ versioning (`0.x`: no stable interface yet).
   `ptf.pipeline`; the Comtrade check moved to `ptf.legacy.comtrade`.
 - One configuration file per domain: `config/pipeline.yaml` split into `trade.yaml` and
   `comtrade.yaml`; `monitor.yaml` -> `shipping.yaml`, `market_data.yaml` -> `markets.yaml`.
-- `ptf ingest` no longer downloads Brent; `ptf market` already fetches the same FRED series.
 - The transport LP, the data-quality report and the Dash app read from the warehouse marts;
-  `pipeline portwatch` / `market` run `dbt build --select tag:shipping` / `tag:markets`.
+  `ptf clean` / `portwatch` / `market` run `dbt build` for their domain.
+- `ptf ingest` no longer downloads Brent; `ptf market` already fetches the same FRED series.
+- The package version is read from `pyproject.toml` (it still said 0.1.0 at v0.3.0).
 - Shared test fakes moved to `tests/helpers.py`; optional app tables are checked with
   `require()` instead of being used unchecked.
 
