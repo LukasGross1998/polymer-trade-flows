@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  lint-and-test:
+  quality-gates:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -24,5 +24,8 @@ jobs:
       - name: Check formatting (ruff)
         run: uv run ruff format --check .
 
-      - name: Run tests (pytest)
-        run: uv run pytest
+      - name: Type check (mypy, strict)
+        run: uv run mypy
+
+      - name: Run tests with coverage (pytest, at least 85 %)
+        run: uv run pytest --cov=ptf --cov-report=term-missing:skip-covered --cov-fail-under=85
