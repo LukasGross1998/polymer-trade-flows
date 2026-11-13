@@ -6,3 +6,33 @@ seeds:
       column_types:
         hs6: varchar
         short_name: varchar
+  - name: commodity_classes
+    description: >
+      HS prefix -> commodity class for the breakdown of world trade (spec 008). The longest
+      matching prefix wins; codes without a match are "Other goods". Own grouping by HS chapter
+      (26 ores, 27 mineral fuels, 10/12 cereals and oilseeds, 29 organic chemicals, 3902-3914
+      other plastics in primary forms, 3901 polyethylene by grade).
+    config:
+      column_types:
+        prefix: varchar
+        class: varchar
+    columns:
+      - name: prefix
+        data_tests: [unique, not_null]
+      - name: class
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('commodity_class_tree')
+                field: class
+  - name: commodity_class_tree
+    description: Hierarchy of the commodity classes (class -> parent) for the drill-down.
+    config:
+      column_types:
+        class: varchar
+        parent: varchar
+        sort_order: integer
+    columns:
+      - name: class
+        data_tests: [unique, not_null]

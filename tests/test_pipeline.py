@@ -70,3 +70,15 @@ def test_report_without_and_with_comtrade_check(pipeline_setup: PipelineSetup) -
     report = (settings.docs_dir / "data_quality.md").read_text()
     assert "BACI vs. our own Comtrade" in report
     assert (settings.docs_dir / "figures" / "dq_baci_vs_comtrade.png").exists()
+
+
+def test_world_trade_by_class_from_the_whole_zip(warehouse_setup: PipelineSetup) -> None:
+    by_class = read_table(warehouse_setup.settings, "marts.mart_trade_by_class").set_index("class")
+
+    # Fixture 2023: crude oil 9,999 t of 12,499 t in total; HDPE 1,000 t plus one flow
+    # without quantity (600 thousand USD), which counts as 0 t but keeps its value.
+    assert by_class.loc["Mineral fuels", "qty_share"] == pytest.approx(9999 / 12499)
+    assert by_class.loc["HDPE", "value_usd"] == pytest.approx(1_800_000)
+    assert by_class.loc["HDPE", "value_usd_without_qty"] == pytest.approx(600_000)
+    assert by_class.loc["HDPE", "parent"] == "Polyethylene"
+    assert by_class["value_share"].sum() == pytest.approx(1.0)

@@ -171,3 +171,76 @@ models:
               arguments:
                 min_value: 0
                 max_value: 1
+
+  - name: mart_trade_by_class
+    description: >
+      World trade (all transport modes) per year and commodity class (spec 008): value,
+      tonnes and shares in the year's total. Leaf classes only; `parent` links to the
+      hierarchy in the seed commodity_class_tree.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, class]
+    columns:
+      - name: year
+      - name: class
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('commodity_class_tree')
+                field: class
+      - name: parent
+        description: Parent class, e.g. "Polyethylene" for HDPE, "All goods" for top classes.
+      - name: sort_order
+        description: Display order within the parent.
+      - name: value_usd
+        description: Trade value, FOB, current USD.
+        data_tests: [non_negative]
+      - name: qty_t
+        description: Tonnes (flows without a quantity count 0).
+        data_tests: [non_negative]
+      - name: value_usd_without_qty
+        description: Part of value_usd from flows without a quantity in BACI.
+      - name: value_share
+        description: Share in the year's world trade value (0-1).
+        data_tests:
+          - value_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: qty_share
+        description: Share in the year's world trade tonnes (0-1).
+        data_tests:
+          - value_between:
+              arguments:
+                min_value: 0
+                max_value: 1
+
+  - name: mart_import_sources_by_product
+    description: >
+      Imports per year, importer region, exporter country and HS6 grade (spec 008); the
+      Sourcing and Landed cost tabs filter it by grade.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, importer_region, exporter_iso3, hs6]
+    columns:
+      - name: year
+      - name: importer_region
+        data_tests: [not_null]
+      - name: exporter_iso3
+        data_tests: [not_null]
+      - name: exporter_name
+      - name: exporter_region
+        data_tests: [not_null]
+      - name: hs6
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: hs6
+      - name: is_intra_regional
+      - name: qty_t
+        data_tests: [non_negative]
+      - name: value_usd

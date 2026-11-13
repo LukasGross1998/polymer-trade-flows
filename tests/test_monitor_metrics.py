@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 from helpers import REPO_ROOT
 
+from ptf.shipping import metrics
 from ptf.shipping.config import MonitorConfig, load_monitor_config
 from ptf.shipping.metrics import (
     add_rolling_mean,
@@ -162,3 +163,43 @@ def test_low_traffic_chokepoints_are_not_flagged() -> None:
 
     assert table["deviation_pct"].iloc[0] == pytest.approx(-100)  # still shown
     assert not table["is_disrupted"].iloc[0]  # but not flagged
+
+
+def test_vessel_and_capacity_mix_of_one_chokepoint() -> None:
+    days = pd.date_range("2025-01-01", periods=2, freq="D")
+    frame = pd.DataFrame(
+        {
+            "date": days,
+            "chokepoint_id": "hormuz",
+            "n_container": [2, 4],
+            "n_tanker": [10, 14],
+            "n_dry_bulk": [3, 3],
+            "n_general_cargo": [1, 1],
+            "n_roro": [0, 2],
+            "capacity": [1000.0, 1000.0],
+            "capacity_container": [150.0, 150.0],
+            "capacity_tanker": [700.0, 700.0],
+        }
+    )
+    start, end = days[0], days[-1]
+
+    mix = metrics.vessel_mix(frame, "hormuz", start, end).set_index("vessel_type")
+    capacity = metrics.capacity_mix(frame, "hormuz", start, end).set_index("vessel_type")
+
+    # Means per day: container 3, tanker 12, dry bulk 3, general cargo 1, RoRo 1 -> 20.
+    assert mix.loc["tanker", "share"] == pytest.approx(12 / 20)
+    assert mix["share"].sum() == pytest.approx(1.0)
+    assert capacity.loc["tanker", "share"] == pytest.approx(0.70)
+    assert capacity.loc["other", "capacity_t"] == pytest.approx(300.0)  # 2,000 - 300 - 1,400
+
+
+def test_class_status_compares_each_class_with_its_normal() -> None:
+    # 2019 baseline 10 tankers per day; the same week in 2026 only 4 -> -60 %, disrupted.
+    baseline = transits("hormuz", "2019-03-04", [10] * 7, "n_tanker")
+    now = transits("hormuz", "2026-03-02", [4] * 7, "n_tanker")
+
+    status = metrics.class_status(pd.concat([baseline, now]), "hormuz", CONFIG)
+    tanker = status.set_index("vessel_type").loc["tanker"]
+
+    assert tanker["deviation_pct"] == pytest.approx(-60.0)
+    assert bool(tanker["is_disrupted"])

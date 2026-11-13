@@ -37,6 +37,7 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 |---|---|---|---|
 | raw BACI | `data/raw/baci/BACI_HS17_V202601.zip` | one CSV per year inside the zip | `ptf.trade.baci` |
 | BACI landing | `data/raw/baci/landing_*.parquet` | HS 3901 flows and code lists, unpacked | `ptf.trade.baci.write_landing` |
+| BACI all-trade summary | `data/raw/baci/landing_all_trade.parquet` | one year × code (HS4 heading; HS6 for 3901): value (thousand USD), tonnes, value without quantity, number of flows | `ptf.trade.baci.write_landing` |
 | reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.trade.reference.write_reference_tables` |
 | PortWatch raw | `data/raw/portwatch/<dataset>/*.parquet` | one file per download, never overwritten | `ptf.shipping.portwatch` |
 | FRED / GSCPI raw | `data/raw/fred/<id>/*.csv`, `data/raw/gscpi/*.xls` (+ `landing_gscpi.parquet`) | one file per download | `ptf.markets.fred`, `ptf.markets.gscpi` |
@@ -95,6 +96,8 @@ Folders carry dbt tags, so each pipeline step builds only its domain.
 | `marts.mart_bilateral_trade` | year × exporter × importer | products summed, with regions |
 | `marts.mart_region_trade` | year × exporter region × importer region | input of the transport LP |
 | `marts.mart_import_sources` | year × importer region × exporter country | share in extra-regional imports; input of the Sourcing tab |
+| `marts.mart_import_sources_by_product` | year × importer region × exporter country × HS6 | grade filter of Sourcing and Landed cost |
+| `marts.mart_trade_by_class` | year × commodity class | world trade by class: value, tonnes, shares |
 | `marts.dim_date` | calendar day (2019 → today) | ISO year and week for seasonal baselines |
 | `marts.dim_chokepoint`, `marts.dim_port` | chokepoint / monitored port | names, coordinates, port role |
 | `marts.fct_chokepoint_transits` | day × chokepoint | vessel counts by type, capacity; latest download wins |

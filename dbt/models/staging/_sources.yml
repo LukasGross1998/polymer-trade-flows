@@ -14,6 +14,10 @@ sources:
         description: BACI's country list (numeric code, name, ISO2, ISO3).
       - name: landing_product_codes
         description: HS6 codes of the product group with BACI's descriptions.
+      - name: landing_all_trade
+        description: >
+          World trade of all products per year and code (HS4 heading; HS6 for the product
+          group 3901), summed while unpacking (spec 008). value_kusd in thousand USD.
 
   - name: reference
     description: Reference tables generated from config/regions.yaml.

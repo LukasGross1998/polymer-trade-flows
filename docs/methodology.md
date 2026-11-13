@@ -512,3 +512,47 @@ about 32 EUR/t for Middle East supplies (volume-weighted) at normal freight rate
   where EU duties do not apply; most of Iran's volume goes to Turkey. GSP preferences (e.g.
   Uzbekistan) and anti-dumping or safeguard duties are not modelled.
 - One port per region (section 6.1); no inland freight, insurance or port fees.
+
+
+## 7. Breakdown by class (spec 008)
+
+### 7.1 Commodity classes in world trade
+
+`ptf clean` reads the whole BACI file (about 11 million flows per year) once and stores a
+summary per year and HS4 heading (polyethylene per HS6 grade) in `landing_all_trade`
+(about 250 KB). The dbt seed `commodity_classes` maps HS prefixes to classes (longest prefix
+wins, everything else "Other goods"); `commodity_class_tree` holds the hierarchy all goods →
+plastics in primary forms → polyethylene → grades. `marts.mart_trade_by_class` gives value,
+tonnes and shares per year and leaf class.
+
+| Class | HS | 2024: share of tonnes | share of value |
+|---|---|---|---|
+| Mineral fuels | 27 | 42.6 % | 13.2 % |
+| Ores | 26 | 14.6 % | 1.6 % |
+| Cereals and oilseeds | 10, 12 | 5.0 % | 1.3 % |
+| Organic chemicals | 29 | 1.6 % | 2.1 % |
+| Plastics in primary forms | 3901–3914 | 1.4 % | 1.5 % |
+| of which polyethylene | 3901 | 0.5 % (70 Mt) | 0.4 % (86 bn USD) |
+| Other goods | rest | 34.8 % | 80.4 % |
+
+World trade 2024: 14.8 bn t, 22.9 trillion USD. **Limits:** BACI covers all transport modes
+(sea, pipeline, road, rail, air), so these are shares of world trade, not of seaborne trade;
+UNCTAD reports about 12 bn t loaded at sea. Flows without a quantity (about 1 % of value)
+count with 0 t. The 2023 jump of "Other goods" tonnes comes from a few products with large
+reported quantities and is not checked further.
+
+### 7.2 Vessel classes at chokepoints
+
+PortWatch counts transits per day in five classes (container, tanker, dry bulk, general
+cargo, RoRo) and gives carrying capacity for container ships and tankers. The Chokepoints
+tab shows the traffic mix in the baseline years vs. the last 90 days, the change per class
+(7-day mean vs. the same calendar week in 2019–2023, the method of section 4.2 per class)
+and the capacity mix of the last 12 months (container, tanker, other). Example Strait of
+Hormuz 2025: tankers 70 % of capacity (822 of 1,175 million t).
+
+### 7.3 Polyethylene grades
+
+`marts.mart_import_sources_by_product` keeps the five HS6 grades. Sourcing and Landed cost
+filter by grade; unit prices of one grade are comparable across countries, which removes
+the product-mix effect of section 6.4 (the grades themselves are still broad: HS 390110
+mixes LDPE and LLDPE).

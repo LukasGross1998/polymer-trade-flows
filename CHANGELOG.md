@@ -6,6 +6,15 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Breakdown by class (spec 008): tab "World trade by class" (tonnes vs. value per commodity
+  class, plastics drill-down to the PE grades, development since 2019) from the whole BACI
+  file; vessel classes at chokepoints (traffic mix, change per class, capacity mix); PE grade
+  filter in Sourcing and Landed cost.
+- dbt seeds `commodity_classes`, `commodity_class_tree`; marts `mart_trade_by_class`,
+  `mart_import_sources_by_product`; BACI landing `landing_all_trade`.
+
+### Changed
+- Navigation in two sections: "Buying" and "Markets & logistics".
 - Landed-cost tab (spec 007): price (BACI unit value, optionally indexed to today), sea
   freight and EU duty per supplier country in EUR/t, with Red Sea open/closed and a freight
   factor; duty rates in `config/sourcing.yaml`.

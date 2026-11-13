@@ -153,3 +153,50 @@ def test_what_changed_lists() -> None:
     assert signals.newly_disrupted(history, 7)["location_id"].tolist() == ["a"]
     assert len(signals.new_events(events, pd.Timestamp("2026-11-08"), 7)) == 1
     assert signals.largest_moves(market)["series_id"].tolist() == ["Y", "X"]  # -30 % before +10 %
+
+
+def test_sources_for_one_grade() -> None:
+    from ptf.insights.view import sources_for_grade
+
+    base = {"year": 2024, "importer_region": "EUR", "is_intra_regional": False}
+    by_product = pd.DataFrame(
+        [
+            {
+                **base,
+                "exporter_iso3": "SAU",
+                "exporter_name": "Saudi Arabia",
+                "exporter_region": "MDE",
+                "hs6": "390120",
+                "qty_t": 30.0,
+                "value_usd": 30_000.0,
+            },
+            {
+                **base,
+                "exporter_iso3": "SAU",
+                "exporter_name": "Saudi Arabia",
+                "exporter_region": "MDE",
+                "hs6": "390110",
+                "qty_t": 10.0,
+                "value_usd": 13_000.0,
+            },
+            {
+                **base,
+                "exporter_iso3": "USA",
+                "exporter_name": "USA",
+                "exporter_region": "NAM",
+                "hs6": "390110",
+                "qty_t": 60.0,
+                "value_usd": 72_000.0,
+            },
+        ]
+    )
+
+    hdpe = sources_for_grade(by_product, "390120")
+    everything = sources_for_grade(by_product).set_index("exporter_iso3")
+
+    assert hdpe["exporter_iso3"].tolist() == ["SAU"]  # the USA ship no HDPE here
+    assert hdpe["value_usd"].iloc[0] / hdpe["qty_t"].iloc[0] == 1000.0  # HDPE price only
+    assert everything.loc["SAU", "qty_t"] == 40.0
+    table = exposure.route_chokepoints(DISTANCES, CONFIG.passage_chokepoints, CHOKEPOINTS, "EUR")
+    routes_hdpe = exposure.import_routes(hdpe, table, "EUR", 2024)
+    assert exposure.exposure_share(routes_hdpe, {"chokepoint4"}) == 100.0
