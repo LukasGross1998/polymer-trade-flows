@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     # Folder for generated documentation such as the data-quality report.
     docs_dir: Path = Path("docs")
 
+    # The dbt project. Default: `dbt/` in this repository (src/ptf/core/settings.py -> root).
+    # The Docker image sets it explicitly, because there the package is installed elsewhere.
+    dbt_project_dir: Path = Path(__file__).resolve().parents[3] / "dbt"
+
+    # Where the Dash app listens. 127.0.0.1 = reachable from this machine only; a container
+    # needs 0.0.0.0 so that the published port reaches the app (ADR-013).
+    app_host: str = "127.0.0.1"
+    app_port: int = 8050
+
     @property
     def raw_dir(self) -> Path:
         return self.data_dir / "raw"

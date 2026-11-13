@@ -32,3 +32,15 @@ jobs:
 
       - name: Run tests with coverage (pytest, at least 85 %)
         run: uv run pytest --cov=ptf --cov-report=term-missing:skip-covered --cov-fail-under=85
+
+  docker:
+    # Builds the image and runs the smoke test (spec 005, ADR-013); no push to a registry.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build image
+        run: docker build -t ptf:ci .
+
+      - name: Smoke test (no data baked in, non-root, CLI, app healthy)
+        run: docker/smoke_test.sh ptf:ci

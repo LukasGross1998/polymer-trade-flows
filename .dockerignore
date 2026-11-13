@@ -1,0 +1,24 @@
+# Keep the build context small and free of private or bulky files (ADR-013).
+# Data (~800 MB) come in via a volume, secrets via env_file at run time.
+data/
+.env
+.venv/
+.git/
+.github/
+tests/
+notebooks/
+docs/
+specs/
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dbt/target/
+dbt/logs/
+dbt/.user.yml
+.DS_Store
+.idea/
+.vscode/

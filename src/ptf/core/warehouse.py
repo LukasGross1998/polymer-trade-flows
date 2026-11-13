@@ -18,9 +18,6 @@ from ptf.core.settings import Settings
 
 logger = logging.getLogger(__name__)
 
-# src/ptf/core/warehouse.py -> repository root -> dbt/
-DBT_PROJECT_DIR = Path(__file__).resolve().parents[3] / "dbt"
-
 
 def reference_dir(raw_dir: Path) -> Path:
     return raw_dir / "reference"
@@ -49,9 +46,9 @@ def run_dbt(settings: Settings, args: list[str]) -> None:
         str(dbt),
         *args,
         "--project-dir",
-        str(DBT_PROJECT_DIR),
+        str(settings.dbt_project_dir),
         "--profiles-dir",
-        str(DBT_PROJECT_DIR),
+        str(settings.dbt_project_dir),
     ]
     result = subprocess.run(command, env=env, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -79,6 +76,21 @@ def read_tables(settings: Settings, tables: dict[str, str]) -> dict[str, pd.Data
                 connection.execute(f"SELECT * FROM {table}").df() if table in existing else None
             )
     return result
+
+
+def table_exists(settings: Settings, table: str) -> bool:
+    """Whether the warehouse file exists and holds `table` (e.g. "marts.dim_port")."""
+    path = warehouse_path(settings)
+    if not path.exists():
+        return False
+    schema, name = table.split(".")
+    with duckdb.connect(str(path), read_only=True) as connection:
+        found = connection.execute(
+            "SELECT count(*) FROM information_schema.tables"
+            " WHERE table_schema = ? AND table_name = ?",
+            [schema, name],
+        ).fetchone()
+    return found is not None and found[0] > 0
 
 
 def read_table(settings: Settings, table: str) -> pd.DataFrame:

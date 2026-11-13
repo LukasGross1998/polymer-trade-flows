@@ -394,3 +394,47 @@ central pipeline longer.
 - *Negative:* one large move (many paths changed, `git log --follow` needed for history);
   `regions.yaml` is shared reference data in `core`, a deliberate exception to "core has no
   domain content".
+
+## ADR-013: Docker image with uv in two stages, data on volumes
+
+- **Date:** 2026-11-13
+- **Status:** accepted (spec 005)
+
+**Context.** The project ran only where Python 3.12, uv and the locked packages were set up
+by hand. Airflow (step 5) and any server need the same environment again. The code also
+held assumptions about the machine: the app listened on `127.0.0.1` only, the dbt project
+was found relative to the source file, and dbt wrote `target/` and `logs/` into the project.
+
+**Decision.**
+- **One image, two stages.** *builder* (`python:3.12-slim` + the uv binary, same version as
+  locally) runs `uv sync --locked --no-dev`, first without the project (a layer that changes
+  only with `uv.lock`), then with it, non-editable. *runtime* (`python:3.12-slim`) receives
+  only `.venv`, `config/` and `dbt/`: no uv, no compilers, no tests.
+- **Data and secrets stay outside.** `.dockerignore` keeps out `data/`, `.env`, `.git`,
+  tests and docs; `compose.yaml` mounts `./data` (and `./docs` for the pipeline's reports)
+  and passes `.env` optionally via `env_file`.
+- **Settings instead of machine assumptions:** `APP_HOST`/`APP_PORT` (container:
+  `0.0.0.0:8050`), `DBT_PROJECT_DIR` (container: `/app/dbt`); dbt output to `/tmp` via
+  `DBT_TARGET_PATH`/`DBT_LOG_PATH`, so the dbt folder can stay read-only.
+- **Non-root user** `ptf`; port published on `127.0.0.1` of the host only.
+- **gunicorn** serves the app in the container (`ptf.app.wsgi:server`) instead of Flask's
+  development server: one worker (the app holds its data in memory, `AppState`), four
+  threads. Locally `python -m ptf.app` is unchanged.
+- **Without a warehouse** the app shows a start page with the commands to run instead of
+  failing; this lets CI check the image without data and helps a fresh clone.
+- **CI** builds the image and runs `docker/smoke_test.sh`: no data/`.env`/uv in the image,
+  user `ptf`, `ptf --help`, app healthy. No registry push yet.
+
+**Consequences.**
+- *Positive:* the same environment locally, in CI and later in Airflow; pipeline steps run
+  as `docker compose run --rm pipeline <step>` with identical results (LP 2023: 42 %).
+- *Negative / to know:*
+  - The image is **1.06 GB**, ~930 MB of it Python packages (pyarrow 155 MB, pandas,
+    plotly, duckdb, pyomo, dash). Fine for now; slimming would mean splitting the image
+    (app without Pyomo/dbt), which is not worth it yet.
+  - Charts rendered in the container use Linux fonts, so the PNGs in `docs/figures` differ
+    in bytes from those rendered on the Mac; the numbers are the same.
+  - Files written to `./data` belong to the host user on macOS (Docker Desktop maps them);
+    on Linux the container user's id (system user) would own them; set `user:` in compose
+    there if needed.
+  - The Mac builds `linux/arm64`, CI `linux/amd64`; all dependencies ship wheels for both.

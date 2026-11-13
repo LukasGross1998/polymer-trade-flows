@@ -1,0 +1,31 @@
+# Local containers (ADR-013): one image, two services, the same data volume.
+#
+#   docker compose up -d app                   # dashboard on http://localhost:8050
+#   docker compose run --rm pipeline portwatch # any `ptf` step, then the container ends
+#   docker compose down                        # stop and remove the containers (data stay)
+
+services:
+  app:
+    build: .
+    image: ptf:local
+    ports:
+      - "127.0.0.1:8050:8050"   # reachable from this machine only
+    volumes:
+      - ./data:/app/data
+    env_file:
+      - path: .env
+        required: false         # no key is needed for any source
+    restart: unless-stopped
+
+  pipeline:
+    image: ptf:local
+    build: .
+    entrypoint: ["ptf"]
+    command: ["--help"]
+    volumes:
+      - ./data:/app/data
+      - ./docs:/app/docs        # data-quality and model reports
+    env_file:
+      - path: .env
+        required: false
+    profiles: ["pipeline"]      # not started by `docker compose up`, only by `run`

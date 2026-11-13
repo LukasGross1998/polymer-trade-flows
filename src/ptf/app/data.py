@@ -11,7 +11,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from ptf.core.settings import Settings
-from ptf.core.warehouse import read_tables
+from ptf.core.warehouse import read_tables, table_exists
 from ptf.markets import steps as markets_steps
 from ptf.markets.config import MarketConfig, load_market_config
 from ptf.shipping import steps as shipping_steps
@@ -64,6 +64,11 @@ APP_TABLES = {
     "country_trade": "marts.mart_country_trade",
     "port_links": "marts.fct_port_links",
 }
+
+
+def monitor_data_available(settings: Settings) -> bool:
+    """Whether the warehouse holds the chokepoint mart the app cannot do without."""
+    return table_exists(settings, APP_TABLES["transits"])
 
 
 def load_app_data(settings: Settings) -> AppData:

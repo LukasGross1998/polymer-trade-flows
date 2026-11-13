@@ -1,15 +1,20 @@
 """The Dash app without a browser: load the warehouse and call the tab update functions."""
 
 import dataclasses
+import importlib
+import sys
+from pathlib import Path
 
 import pandas as pd
 import pytest
-from helpers import PipelineSetup
+from flask import Flask
+from helpers import REPO_ROOT, PipelineSetup
 
 from ptf.app.__main__ import create_app
 from ptf.app.data import AppData, load_app_data
 from ptf.app.tabs import chokepoints, flows, markets, overview, ports
 from ptf.core import warehouse
+from ptf.core.settings import Settings, get_settings
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 
@@ -93,3 +98,24 @@ def test_app_without_market_data_shows_hints(shipping_only: PipelineSetup) -> No
 
     assert {"cp-select", "cp-map", "port-map", "ov-kpis"} <= ids
     assert "mkt-oil" not in ids  # no market marts yet: the tab shows a hint
+
+
+def test_app_without_warehouse_shows_start_page(tmp_path: Path) -> None:
+    settings = Settings(_env_file=None, data_dir=tmp_path / "data", config_dir=REPO_ROOT / "config")
+    assert not warehouse.table_exists(settings, "marts.mart_chokepoint_transits")
+
+    app = create_app(settings)
+    assert app.layout.id == "no-data"  # a hint instead of the tabs, no crash
+
+
+def test_wsgi_module_exposes_the_flask_server(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    get_settings.cache_clear()
+    sys.modules.pop("ptf.app.wsgi", None)
+
+    wsgi = importlib.import_module("ptf.app.wsgi")
+
+    assert isinstance(wsgi.server, Flask)
+    get_settings.cache_clear()
