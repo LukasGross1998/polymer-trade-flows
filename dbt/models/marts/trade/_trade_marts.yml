@@ -126,3 +126,48 @@ models:
       - name: qty_t
         data_tests: [non_negative]
       - name: imputed_qty_t
+
+  - name: mart_import_sources
+    description: >
+      Imports per year, importer region and exporter country, with the share in the
+      importer region's extra-regional imports (spec 006). Input of the Sourcing tab.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [year, importer_region, exporter_iso3]
+    columns:
+      - name: year
+      - name: importer_region
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: region
+      - name: exporter_iso3
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: iso3
+      - name: exporter_name
+        description: Country name (dim_country).
+      - name: exporter_region
+        data_tests: [not_null]
+      - name: is_intra_regional
+        description: True if exporter and importer are in the same model region.
+      - name: qty_t
+        description: Tonnes, summed over the polyethylene products.
+        data_tests: [non_negative]
+      - name: value_usd
+        description: Trade value, FOB, current USD.
+      - name: share_extra
+        description: >
+          Share of qty_t in the importer region's imports from outside the region (0-1);
+          empty for trade within the region.
+        data_tests:
+          - value_between:
+              arguments:
+                min_value: 0
+                max_value: 1

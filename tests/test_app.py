@@ -8,11 +8,11 @@ from pathlib import Path
 import pandas as pd
 import pytest
 from flask import Flask
-from helpers import REPO_ROOT, PipelineSetup
+from helpers import REPO_ROOT, PipelineSetup, write_synthetic_distances
 
 from ptf.app.__main__ import create_app
 from ptf.app.data import AppData, load_app_data
-from ptf.app.tabs import chokepoints, flows, markets, overview, ports
+from ptf.app.tabs import chokepoints, flows, ports, prices, situation, sourcing
 from ptf.core import warehouse
 from ptf.core.settings import Settings, get_settings
 from ptf.shipping.config import load_monitor_config
@@ -57,15 +57,34 @@ def test_chokepoint_tab_returns_all_outputs(data: AppData) -> None:
     assert len(diversion_fig.data) == 3
 
 
-def test_market_port_and_overview_tabs(data: AppData) -> None:
-    kpis, oil, *_ = markets.update(data, "5y")
+def test_prices_port_and_situation_tabs(data: AppData) -> None:
+    kpis, drivers, oil, *_ = prices.update(data, "5y", "USD")
     assert kpis[0].children[1].children == "78.0"  # latest Brent in the FRED fixture
     assert len(oil.data) == 1  # WTI missing in the fixtures: only Brent is drawn
+    assert drivers.layout.title.text.startswith("Feedstock vs. resin prices in USD")
 
     assert len(ports.update(data, "port24", "export", "90d")) == 4
 
-    ov_kpis, *_ = overview.update(data)
-    assert ov_kpis[0].children[1].children.endswith("of 3")  # disrupted chokepoints
+    lights, *_ = situation.update(data)
+    assert [card.children[0].children[0].children for card in lights] == [
+        "Price",
+        "Supply",
+        "Logistics",
+    ]
+
+
+def test_sourcing_tab_with_routes(warehouse_setup: PipelineSetup) -> None:
+    write_synthetic_distances(warehouse_setup.settings.raw_dir, warehouse_setup.regions)
+    data = load_app_data(warehouse_setup.settings)
+
+    assert data.sourcing is not None
+    kpis, sankey, treemap = sourcing.update(data)
+    # The BACI fixture: Germany imports 2,000 t from the USA in 2023, nothing from Europe.
+    assert kpis[0].children[1].children == "0.0 Mt"
+    assert data.sourcing.extra_t == pytest.approx(2000)
+    assert data.sourcing.exposure_pct == 0.0  # North America -> Europe passes no chokepoint
+    assert "Europe" in sankey.data[0].node.label
+    assert "United States" in " ".join(treemap.data[0].labels) or "USA" in treemap.data[0].ids
 
 
 def test_flows_tab_network_and_injected_country_trade(data: AppData) -> None:
@@ -89,14 +108,14 @@ def test_flows_tab_network_and_injected_country_trade(data: AppData) -> None:
 def test_full_app_layout(warehouse_setup: PipelineSetup) -> None:
     ids = layout_ids(warehouse_setup)
 
-    assert {"cp-map", "port-map", "flow-map", "mkt-oil", "ov-kpis"} <= ids
+    assert {"cp-map", "port-map", "flow-map", "mkt-oil", "mkt-drivers", "sit-lights"} <= ids
     assert "flow-mix" not in ids  # country trade switched off: hint instead of charts
 
 
 def test_app_without_market_data_shows_hints(shipping_only: PipelineSetup) -> None:
     ids = layout_ids(shipping_only)
 
-    assert {"cp-select", "cp-map", "port-map", "ov-kpis"} <= ids
+    assert {"cp-select", "cp-map", "port-map", "sit-lights"} <= ids
     assert "mkt-oil" not in ids  # no market marts yet: the tab shows a hint
 
 

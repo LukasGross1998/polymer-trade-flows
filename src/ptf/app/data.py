@@ -7,13 +7,17 @@ a hint instead of failing.
 """
 
 from dataclasses import dataclass
+from functools import cached_property
 
 import pandas as pd
 
 from ptf.core.settings import Settings
 from ptf.core.warehouse import read_tables, table_exists
+from ptf.insights import view
+from ptf.insights.config import SourcingConfig, load_sourcing_config
 from ptf.markets import steps as markets_steps
 from ptf.markets.config import MarketConfig, load_market_config
+from ptf.model.distances import read_distance_table
 from ptf.shipping import steps as shipping_steps
 from ptf.shipping.config import MonitorConfig, load_monitor_config
 
@@ -22,6 +26,7 @@ from ptf.shipping.config import MonitorConfig, load_monitor_config
 class AppData:
     monitor_config: MonitorConfig
     market_config: MarketConfig
+    sourcing_config: SourcingConfig
     transits: pd.DataFrame
     chokepoints: pd.DataFrame
     port_activity: pd.DataFrame | None = None
@@ -30,10 +35,30 @@ class AppData:
     market: pd.DataFrame | None = None
     country_trade: pd.DataFrame | None = None
     port_links: pd.DataFrame | None = None
+    import_sources: pd.DataFrame | None = None
+    distances: pd.DataFrame | None = None  # sea routes with passages (raw layer, model)
 
     @property
     def latest_date(self) -> pd.Timestamp:
         return self.transits["date"].max()
+
+    @cached_property
+    def chokepoint_history(self) -> pd.DataFrame:
+        """Daily monitor table of all chokepoints (computed once per loaded data)."""
+        return view.chokepoint_history(self.transits, self.monitor_config)
+
+    @cached_property
+    def sourcing(self) -> view.SourcingView | None:
+        """The buyer's import sources and chokepoint exposure; None without trade or routes."""
+        if self.import_sources is None or self.distances is None:
+            return None
+        return view.sourcing_view(
+            self.import_sources,
+            self.distances,
+            self.chokepoints,
+            self.chokepoint_history,
+            self.sourcing_config,
+        )
 
     def chokepoint_coordinates(self) -> pd.DataFrame:
         return self.chokepoints.rename(columns={"chokepoint_id": "location_id"})
@@ -63,6 +88,7 @@ APP_TABLES = {
     "market": "marts.mart_market_series",
     "country_trade": "marts.mart_country_trade",
     "port_links": "marts.fct_port_links",
+    "import_sources": "marts.mart_import_sources",
 }
 
 
@@ -76,6 +102,7 @@ def load_app_data(settings: Settings) -> AppData:
     return AppData(
         monitor_config=load_monitor_config(settings.config_dir / "shipping.yaml"),
         market_config=load_market_config(settings.config_dir / "markets.yaml"),
+        sourcing_config=load_sourcing_config(settings.config_dir / "sourcing.yaml"),
         transits=require(tables["transits"], "mart_chokepoint_transits"),
         chokepoints=require(tables["chokepoints"], "dim_chokepoint"),
         port_activity=tables["port_activity"],
@@ -84,6 +111,8 @@ def load_app_data(settings: Settings) -> AppData:
         market=tables["market"],
         country_trade=tables["country_trade"],
         port_links=tables["port_links"],
+        import_sources=tables["import_sources"],
+        distances=read_distance_table(settings.raw_dir),
     )
 
 

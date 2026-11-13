@@ -194,7 +194,10 @@ def build_warehouse(setup: "PipelineSetup") -> None:
 
 
 def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:
-    """5,000 nm between all regions: keeps model tests fast and independent of searoute."""
+    """5,000 nm between all regions: keeps model tests fast and independent of searoute.
+
+    Routes from the Middle East pass Hormuz and Suez, all others no passage.
+    """
     rows = [
         {
             "origin_region": o,
@@ -202,6 +205,7 @@ def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:
             "origin_port": regions.regions[o].port.name,
             "dest_port": regions.regions[d].port.name,
             "distance_nm": 0.0 if o == d else 5000.0,
+            "passages": ["ormuz", "suez"] if o == "MDE" and d != "MDE" else [],
         }
         for o in regions.regions
         for d in regions.regions

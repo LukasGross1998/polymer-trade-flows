@@ -10,14 +10,20 @@ regional prices, and disruption scenarios (Suez/Red Sea closure, Panama Canal dr
 plant outages, oil shocks) show how flows, costs and prices shift. Results will be explorable in an
 interactive Dash app.
 
-## Shipping & market monitor
+## Polyethylene supply chain monitor
 
-![Overview](docs/figures/dashboard_overview.jpg)
+![Situation](docs/figures/dashboard_situation.jpg)
 
-A Dash app with five tabs on what moves polyethylene trade right now:
+A Dash app for a polyethylene buyer in Europe (spec 006):
 
-- **Overview:** disrupted chokepoints, oil price, gas spread Europe–US, supply-chain stress,
-  ports furthest below normal and active disruption events.
+- **Situation:** three traffic lights – price (Brent in EUR, 90-day change), supply (share
+  of imports through disrupted chokepoints), logistics (supply-chain pressure) – plus what
+  changed in the last 7 days and active disruption events.
+- **Prices & drivers:** feedstock (oil, gas) vs. resin price indices since 2019, in EUR or
+  USD; oil, gas, freight, currencies and the NY Fed Global Supply Chain Pressure Index.
+- **Sourcing:** where Europe's imports from outside the region come from (BACI) and which
+  share passes a chokepoint that is disrupted today: currently about half, mainly Middle
+  East and Asian supplies through Hormuz, Bab el-Mandeb and Suez.
 - **Chokepoints:** daily transits through 28 maritime chokepoints (IMF PortWatch) against
   their 2019–2023 normal, with the Red Sea diversion (share of container ships taking the
   Cape route: ~25 % before the crisis, ~77 % since 2024).
@@ -25,10 +31,9 @@ A Dash app with five tabs on what moves polyethylene trade right now:
   (Houston, Jubail, Yanbu, Jebel Ali, Antwerp, Rotterdam, Shanghai, ...).
 - **Trade flows:** the port-to-port shipping network (long-haul links, line width = vessel
   capacity per day) and, optionally, countries' imports and exports by cargo type.
-- **Energy & freight:** Brent/WTI, natural gas in the US, Europe and Japan, freight and resin
-  price indices, exchange rates and the NY Fed Global Supply Chain Pressure Index.
 
-![Energy and freight](docs/figures/dashboard_markets.jpg)
+![Sourcing](docs/figures/dashboard_sourcing.jpg)
+![Prices and drivers](docs/figures/dashboard_prices.jpg)
 ![Ports](docs/figures/dashboard_ports.jpg)
 ![Trade flows](docs/figures/dashboard_flows.jpg)
 
@@ -131,6 +136,6 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | 0 | Repo scaffold, tooling, CI | done |
 | 1 | Ingest, cleaning, data-quality report | done (BACI, ADR-009) |
 | 2 | Transport LP, model vs. reality, shadow prices | first version done (base year 2023) |
-| 3 | Scenarios, cost curves, Dash app (MVP) | dashboard with 5 tabs done; scenarios next |
+| 3 | Scenarios, cost curves, Dash app (MVP) | buyer dashboard with 6 tabs done; landed cost and scenarios next |
 | 4 | Import forecasting (optional) | planned |
 | 5 | Docker, Airflow, final polish | planned |

@@ -11,15 +11,17 @@ from dash import Dash, Input, Output, State, dcc, html
 
 from ptf.app import style
 from ptf.app.data import AppState, monitor_data_available
-from ptf.app.tabs import chokepoints, flows, markets, overview, ports
+from ptf.app.tabs import chokepoints, flows, ports, prices, situation, sourcing
 from ptf.core.settings import Settings, get_settings
 
+# Buyer questions first (spec 006), logistics detail after.
 TABS = [
-    ("overview", "Overview", overview),
+    ("situation", "Situation", situation),
+    ("prices", "Prices & drivers", prices),
+    ("sourcing", "Sourcing", sourcing),
     ("chokepoints", "Chokepoints", chokepoints),
     ("ports", "Ports", ports),
     ("flows", "Trade flows", flows),
-    ("markets", "Energy & freight", markets),
 ]
 
 
@@ -28,9 +30,12 @@ def build_layout(state: AppState) -> html.Div:
         [
             html.Div(
                 [
-                    html.H1("Shipping & market monitor", style={"fontSize": "22px", "margin": "0"}),
+                    html.H1(
+                        "Polyethylene supply chain monitor",
+                        style={"fontSize": "22px", "margin": "0"},
+                    ),
                     html.Div(
-                        "Chokepoints, ports, energy and freight: what moves polyethylene trade",
+                        "For buyers in Europe: prices, sourcing risk, chokepoints and ports",
                         style={"fontSize": "13px", "color": style.INK_SECONDARY},
                     ),
                 ]
@@ -59,7 +64,7 @@ def build_layout(state: AppState) -> html.Div:
             )
             for value, label, module in TABS
         ],
-        value="overview",
+        value="situation",
     )
     return html.Div([header, tabs, dcc.Store(id="data-version", data=0)], style=style.PAGE)
 
@@ -68,7 +73,7 @@ def no_data_layout() -> html.Div:
     """Shown instead of the tabs while the warehouse has no shipping data (e.g. fresh clone)."""
     return html.Div(
         [
-            html.H1("Shipping & market monitor", style={"fontSize": "22px"}),
+            html.H1("Polyethylene supply chain monitor", style={"fontSize": "22px"}),
             html.P("No data yet. Build the warehouse, then restart the app:"),
             html.Pre(
                 "uv run ptf portwatch   # chokepoints, ports, events\n"
@@ -95,7 +100,7 @@ def register_refresh(app: Dash, state: AppState) -> None:
 
 def create_app(settings: Settings | None = None) -> Dash:
     settings = settings or get_settings()
-    app = Dash(__name__, title="Shipping & market monitor")
+    app = Dash(__name__, title="Polyethylene supply chain monitor")
     if not monitor_data_available(settings):
         app.layout = no_data_layout()
         return app

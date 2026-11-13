@@ -12,3 +12,4 @@ increments.
 | 003 | [dbt warehouse: shipping and market data](003-dbt-shipping-markets.md) | done |
 | 004 | [Package structure by domain](004-package-by-domain.md) | done |
 | 005 | [Docker image and compose](005-docker.md) | done |
+| 006 | [Buyer dashboard: situation, prices, sourcing exposure](006-buyer-dashboard.md) | done |

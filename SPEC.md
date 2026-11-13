@@ -206,7 +206,7 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 ### Stand
 - **Phase 1 (Daten):** fertig. Handelsdaten aus **CEPII BACI** (ADR-009): 68–70 Mt Welthandel pro Jahr, alle Länder, Aufteilung nach PE-Typen. Eigener Comtrade-Abgleich bleibt als Gegenprobe (`ptf comtrade`); er liegt bei etwa der Hälfte der Relationen innerhalb ±10 % von BACI.
 - **Phase 2 (LP):** gerechnet mit BACI für 2023 (`docs/model_results.md`): erklärt 42 % des interregionalen Handels (44 Mt), Korrelation 0,57; Randlösung (Europa produziert 0 t). Kostenannahmen sind die schwächste Stelle.
-- **Dashboard (Teil von Phase 3):** fünf Tabs – Overview, Chokepoints, Ports, Trade flows, Energy & freight (7a, 7b). Start: `uv run ptf portwatch`, `... market`, dann `uv run python -m ptf.app`.
+- **Dashboard (Teil von Phase 3):** sechs Tabs – Situation, Prices & drivers, Sourcing (Einkäufer-Sicht, Spec 006), Chokepoints, Ports, Trade flows. Start: `uv run ptf portwatch`, `... market`, dann `uv run python -m ptf.app`.
 - **Länderhandel nach Ladungsart** (PortWatch, ~560.000 Zeilen) ist abgeschaltet (`download_country_trade: false` in `config/shipping.yaml`); erster Abruf 20–25 min.
 
 ### Nächste Schritte (Vorschlag, in dieser Reihenfolge)
@@ -215,8 +215,10 @@ Architektur zuerst (ADR-010), jeder Schritt als eigene Spec in `specs/` und eige
 2. ~~**Datenmodell und Transformationen**~~ (ADR-011: dbt auf DuckDB): Handelsdaten (Spec 002), PortWatch und Marktdaten, App liest aus den Marts (Spec 003) – erledigt.
 3. ~~**Paketstruktur nach Fachgebiet**~~ (ADR-012, Spec 004): `core`, `trade`, `shipping`, `markets`, `model`, `legacy`, `app`; CLI `uv run ptf <schritt>`; Regeln per import-linter – erledigt.
 4. ~~**Docker**~~ (ADR-013, Spec 005): Image mehrstufig mit uv, compose mit `app` und `pipeline`, Rauchprobe in der CI – erledigt.
-5. **Airflow:** DAGs (Schifffahrt/Märkte täglich, Handel jährlich, Modell danach); App nur noch lesend.
+5. **Airflow:** zurückgestellt (2026-11-13), eventuell später gehostet statt lokal. Minimalentwurf: `airflow standalone` mit SQLite, Tasks starten das `ptf`-Image (DockerOperator), DAG Schifffahrt/Märkte täglich, Handel/Modell manuell.
 6. **Betrieb:** Laufprotokoll, Frischeprüfungen, Prüfsummen.
+
+Aktueller Fokus: **Einkäufer-Dashboard** (Spec 006: Lagebild, Preise & Treiber, Bezugsquellen mit Meerengen-Abhängigkeit – erledigt; als Nächstes Spec 007 Landed-Cost-Rechner, Spec 008 Eurostat-Monatsimporte).
 
 Danach fachlich:
 7. **Kalibrierung:** Mindestauslastung je Region im LP; Kapazitäts- und Kostenannahmen gegen die BACI-Bilanz prüfen (z. B. Nachfrage Nahost nur 4,2 Mt, Nordostasien 3,5 Mt).

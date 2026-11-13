@@ -93,6 +93,7 @@ Folders carry dbt tags, so each pipeline step builds only its domain.
 | `marts.fct_trade` | year × exporter × importer × HS6 | value (USD, FOB), quantity (t), imputation flag |
 | `marts.mart_bilateral_trade` | year × exporter × importer | products summed, with regions |
 | `marts.mart_region_trade` | year × exporter region × importer region | input of the transport LP |
+| `marts.mart_import_sources` | year × importer region × exporter country | share in extra-regional imports; input of the Sourcing tab |
 | `marts.dim_date` | calendar day (2019 → today) | ISO year and week for seasonal baselines |
 | `marts.dim_chokepoint`, `marts.dim_port` | chokepoint / monitored port | names, coordinates, port role |
 | `marts.fct_chokepoint_transits` | day × chokepoint | vessel counts by type, capacity; latest download wins |
@@ -122,6 +123,7 @@ further passages blocked (e.g. Suez).
 | `origin_port` | representative port of the origin region (`config/regions.yaml`) | str | Jebel Ali |
 | `dest_port` | representative port of the destination region | str | Rotterdam |
 | `distance_nm` | shortest sea route according to `searoute`; 0 within a region | nautical miles | 6,262 |
+| `passages` | passages the route traverses (searoute names, sorted); empty within a region; mapped to PortWatch chokepoints in `config/sourcing.yaml` | list of str | [babalmandab, gibraltar, ormuz, suez] |
 
 ---
 

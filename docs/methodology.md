@@ -332,8 +332,9 @@ markup for Gulf producers.
 
 ## 5. Dashboard data: ports, events, energy and freight
 
-The app (`uv run python -m ptf.app`) has four tabs: Overview, Chokepoints (section 4),
-Ports and Energy & freight. All data are free and need no key; `ptf portwatch` and
+The app (`uv run python -m ptf.app`) started with the tabs Overview, Chokepoints
+(section 4), Ports and Energy & freight; since spec 006 the buyer tabs Situation, Prices &
+drivers and Sourcing (section 6) replace Overview and Energy & freight. All data are free and need no key; `ptf portwatch` and
 `ptf market` (or the "Update data" button) refresh them.
 
 ### 5.1 Ports and disruption events (IMF PortWatch)
@@ -413,3 +414,64 @@ is parsed by Python into a landing file first.
   takes 20–25 minutes, so it is **switched off by default** (`download_country_trade`).
 - Not freely available: port-to-port flows by cargo (e.g. crude oil tanker flows), which are
   the business of commercial providers such as Kpler or Vortexa.
+
+## 6. Buyer view: situation, prices and sourcing exposure (spec 006)
+
+The app is organised around the questions of a polyethylene buyer in Europe. The logic sits
+in `src/ptf/insights/` (ADR-014); assumptions in `config/sourcing.yaml`.
+
+### 6.1 Chokepoint exposure of imports
+
+*Which share of Europe's imports from outside the region passes a chokepoint that is
+disrupted right now?*
+
+1. **Import sources:** `marts.mart_import_sources` (dbt) sums the BACI flows per year,
+   importer region and exporter country; `share_extra` is the share in the importer region's
+   imports from outside the region. Latest year: 2024.
+2. **Routes:** the shortest sea route from each region's representative port to Rotterdam
+   (`searoute`, `return_passages=True`), stored as `passages` in `sea_distances`. The mapping
+   from searoute passages to PortWatch chokepoints is in `config/sourcing.yaml`.
+3. **Disrupted today:** chokepoints whose 7-day mean of all vessels is below 70 % of the
+   seasonal normal (section 4.2).
+4. **Exposure** = tonnes from exporter countries whose route passes at least one disrupted
+   chokepoint / all extra-regional tonnes.
+
+**Result (BACI 2024, PortWatch to 8 Nov 2026):** Europe imported 6.9 Mt from outside the
+region (63 % of European countries' imports come from within Europe). **52 %** of the
+extra-European tonnes pass a disrupted chokepoint: the Middle East (Hormuz, Bab el-Mandeb,
+Suez) and Asia (Bab el-Mandeb, Suez). The USA (37 %) ships across the open Atlantic.
+
+**Limits:**
+- One port per region: all Middle East exports are routed from Jebel Ali through Hormuz,
+  although Saudi exports from Yanbu (Red Sea) and Israeli exports (Mediterranean) do not
+  pass it; Egypt is routed from Durban. The exposure is an approximation.
+- Trade data end in 2024; the routes are the normal routes, not today's diversions (ships
+  going around the Cape are still counted as exposed – the point is the dependency).
+- "Disrupted" is a traffic signal, not a closure: cargo may still arrive, but later and at
+  higher freight cost.
+
+### 6.2 Prices in EUR and feedstock vs. resin
+
+USD prices and the US producer price indices are converted to EUR with FRED `DEXUSEU`
+(US dollars per euro): daily prices with the rate of the same day (or the last earlier one),
+monthly series with the monthly average rate. Example: Brent 80 USD at 1.10 USD/EUR =
+72.73 EUR.
+
+The chart "feedstock vs. resin" puts Brent, Henry Hub, European gas and two US resin price
+indices on one axis (monthly averages, January 2019 = 100, log scale). If resin indices
+rise more than feedstock, producer margins widen; a buyer can tell "the market went up"
+from "the margin went up". There is no free polyethylene price series; the US PPIs for
+thermoplastic resins and for plastics material and resin manufacturing are the proxies.
+
+### 6.3 Traffic lights (`source: assumption`)
+
+| Light | Measure | Amber from | Red from |
+|---|---|---|---|
+| Price | Brent in EUR, change over 90 days | +5 % | +10 % |
+| Supply | chokepoint exposure (6.1) | 10 % | 25 % |
+| Logistics | latest GSCPI (std. dev. from average) | 0.5 | 1.0 |
+
+Higher is worse in all three cases. The thresholds are a starting point to be tuned; they
+are not taken from a published benchmark. "What changed" lists chokepoints newly below
+normal and new orange/red events within 7 days, and the three largest 30-day moves of the
+market series.
