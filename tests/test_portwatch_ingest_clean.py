@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 import pandas as pd
-from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
+from helpers import FakeSession, no_sleep
+from helpers import arcgis_page as page
 
 from ptf.clean.portwatch import (
     COUNTRY_TRADE_COLUMNS,
@@ -25,13 +26,6 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def sample_features() -> list[dict]:
     """18 real rows: Suez, Bab el-Mandeb and Cape of Good Hope, 2026-11-03 to 2026-11-08."""
     return json.loads((FIXTURES / "portwatch_daily_sample.json").read_text())["features"]
-
-
-def page(features: list[dict], more: bool) -> FakeResponse:
-    payload = {"features": features}
-    if more:
-        payload["exceededTransferLimit"] = True
-    return FakeResponse(200, payload)
 
 
 def test_query_all_follows_pages_until_limit_not_exceeded() -> None:

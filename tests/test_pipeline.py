@@ -9,7 +9,7 @@ The BACI fixture (tests/conftest.py) holds four polyethylene flows and one crude
 
 import pandas as pd
 import pytest
-from conftest import PipelineSetup
+from helpers import PipelineSetup
 
 from ptf.pipeline import clean_comtrade, run_clean, run_report
 

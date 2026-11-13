@@ -6,8 +6,14 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
-from conftest import REPO_ROOT, PipelineSetup, write_synthetic_distances
-from test_ingest_comtrade import FakeResponse, FakeSession, no_sleep
+from helpers import (
+    REPO_ROOT,
+    FakeResponse,
+    FakeSession,
+    PipelineSetup,
+    no_sleep,
+    write_synthetic_distances,
+)
 
 from ptf.clean.market import MARKET_COLUMNS
 from ptf.clean.portwatch import (
