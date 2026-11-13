@@ -1,0 +1,12 @@
+version: 2
+
+models:
+  - name: stg_baci__countries
+    columns:
+      - name: country_code
+        data_tests: [unique, not_null]
+  - name: stg_reference__country_region
+    description: One region per country (config/regions.yaml validates this too).
+    columns:
+      - name: iso3
+        data_tests: [unique, not_null]

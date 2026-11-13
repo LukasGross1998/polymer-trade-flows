@@ -1,0 +1,8 @@
+version: 2
+seeds:
+  - name: product_short_names
+    description: Short product names for charts and tables (own wording, HS 2017).
+    config:
+      column_types:
+        hs6: varchar
+        short_name: varchar

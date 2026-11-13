@@ -1,0 +1,29 @@
+# dbt project: SQL transformations from the raw layer into the DuckDB warehouse (ADR-011).
+# Run through the pipeline (`uv run python -m ptf.pipeline clean`) or by hand from this
+# folder: `uv run dbt build --profiles-dir .`
+name: ptf
+version: "0.4.0"
+config-version: 2
+profile: ptf
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target"]
+
+models:
+  ptf:
+    staging:
+      # One view per source table: renamed and typed, no business logic.
+      +schema: staging
+      +materialized: view
+    marts:
+      # Star schema and consumer tables, materialised for fast reads by the LP and the app.
+      +schema: marts
+      +materialized: table
+
+seeds:
+  ptf:
+    +schema: reference
