@@ -281,3 +281,74 @@ modules imported each other. That is fast, but nothing stops a plausible-looking
 **Consequences.** Every change leaves a reviewable trail (spec, PR, CI run). Next
 architecture steps, each as its own spec and PR: data model in DuckDB/dbt (ADR to follow),
 package structure by domain, Docker, Airflow, run metadata.
+
+---
+
+## ADR-011: Data model and transformations in SQL with dbt on DuckDB
+
+- **Date:** 2026-11-13
+- **Status:** proposed
+
+**Context.** Since v0.3.0 the clean layer consists of 13 loose Parquet files written by
+pandas functions (`ptf.clean.*`). Their schema lives in Python constants and in a hand-written
+data dictionary that a test keeps in sync. This works, but:
+
+- the **data model is implicit**: countries, regions, products, ports and chokepoints appear
+  as repeated text columns in many tables; there are no dimension tables, no keys and no
+  checked relationships between tables;
+- **transformations are hidden in Python** (filters, joins, aggregations, imputation), although
+  most of them are set operations that SQL expresses more directly and that analysts can read;
+- **data checks are limited** to column names; types, uniqueness, missing values and valid
+  references are not checked;
+- SQL is used in only two places (DuckDB in the data-quality report).
+
+**Options.**
+
+| | A. dbt + DuckDB | B. SQLMesh + DuckDB | C. own SQL runner + pandera | D. pandas + pandera (status quo) |
+|---|---|---|---|---|
+| Transformations | SQL models (+ Jinja), dependency graph from `ref()` | SQL/Python models, column-level lineage | SQL files run in order by our code | Python functions |
+| Data tests | built in (unique, not_null, relationships, accepted_values, custom) | built in (audits) | pandera schemas | pandera schemas |
+| Documentation / lineage | `dbt docs`: model graph and column descriptions from YAML | built-in UI | own | own (data dictionary) |
+| Spread in industry | standard for analytics engineering | growing, smaller | – | standard for pandas |
+| Risk | dbt v2 (Rust engine) in transition; Python dbt-core 1.x and dbt-duckdb remain maintained and Apache-2.0 | owned by Fivetran since 2025 (merged with dbt Labs); open source today, direction unclear | we maintain a mini-dbt | data model stays implicit |
+| Extra tooling | dbt project, `profiles.yml`, Jinja | SQLMesh project, state | little | little |
+
+**Decision (proposed): A – dbt-core 1.x with the dbt-duckdb adapter, one DuckDB file as
+warehouse.**
+
+- **Division of labour:**
+  - *Python* does what needs Python: downloads (APIs, zip), unpacking the BACI zip to a
+    Parquet landing file, the LP (Pyomo), the app (Dash).
+  - *dbt/SQL* does every transformation from raw files to analysis tables.
+- **Layers in `data/warehouse.duckdb`:**
+  - `raw` stays files on disk (sources in dbt, immutable as before);
+  - `staging` (`stg_*`): one model per source, renamed, typed, deduplicated – no business
+    logic;
+  - `marts`: a **star schema** – dimensions `dim_country`, `dim_region`, `dim_product`,
+    `dim_port`, `dim_chokepoint`, `dim_date`; facts `fct_trade` (year × exporter × importer ×
+    HS6), `fct_chokepoint_transits` (day × chokepoint), `fct_port_activity` (day × port),
+    `fct_market_prices` (date × series); derived marts for consumers, e.g.
+    `mart_region_trade` for the LP and `mart_monitor_*` for the app.
+- **Configuration stays in YAML:** a small Python step writes `config/regions.yaml` as a
+  reference table that dbt reads; assumptions do not move into SQL.
+- **Tests:** dbt tests on every mart (keys unique and not null, relationships to dimensions,
+  accepted values, quantities ≥ 0) run in CI with `dbt build` on the fixture data.
+- **Documentation:** column descriptions in dbt YAML replace the hand-written data
+  dictionary for the warehouse tables; `dbt docs` shows the lineage.
+- **Pin versions** (`dbt-core`, `dbt-duckdb`, `duckdb`) and keep to plain SQL with little
+  Jinja, so that a later move to dbt v2 stays simple.
+- **Migration in small PRs**, each with a parity test (new mart equals the old pandas table
+  within tolerance) before the pandas function is removed: trade (BACI) first, then
+  PortWatch and markets, then the app reads marts instead of Parquet files.
+- The **monitor metrics** (rolling means, seasonal baseline) stay in Python for now; moving
+  them to SQL window functions is a separate later decision. The Comtrade check stays in
+  Python as legacy.
+
+**Consequences.**
+- *Positive:* explicit, tested data model; transformations readable as SQL; lineage and docs
+  generated; a clear seam for Airflow (`dbt build` as one task); the LP and the app read
+  from one database instead of many files.
+- *Negative:* a second toolchain (dbt, Jinja, profiles); the move takes several PRs; during
+  the migration both paths exist side by side.
+- *To check during the first PR:* compatibility of dbt-duckdb with DuckDB 2.0 and dbt-core
+  1.12; reading Parquet sources from DuckDB without extra extensions.

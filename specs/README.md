@@ -8,3 +8,4 @@ increments.
 | No. | Spec | Status |
 |---|---|---|
 | 001 | [Quality gates and working agreement](001-quality-gates.md) | done |
+| 002 | [dbt warehouse: trade data](002-dbt-trade-model.md) | draft (needs ADR-011) |
