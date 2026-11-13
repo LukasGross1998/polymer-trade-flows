@@ -6,6 +6,7 @@ import pytest
 from helpers import REPO_ROOT, PipelineSetup, write_raw_layer
 
 from ptf.config import Settings
+from ptf.pipeline import run_clean
 from ptf.pipeline_config import load_pipeline_config
 from ptf.regions import load_regions
 
@@ -25,3 +26,28 @@ def pipeline_setup(tmp_path: Path) -> PipelineSetup:
         regions=load_regions(REPO_ROOT / "config" / "regions.yaml"),
         config=load_pipeline_config(REPO_ROOT / "config" / "pipeline.yaml"),
     )
+
+
+@pytest.fixture(scope="session")
+def warehouse_setup(tmp_path_factory: pytest.TempPathFactory) -> PipelineSetup:
+    """The fixture raw layer with the warehouse already built by dbt (once per test run).
+
+    `dbt build` takes a few seconds, so tests that read the marts share this one. Tests may
+    add deterministic outputs (model layer, synthetic distances) but must not change the raw
+    or warehouse data; tests that need their own warehouse use `pipeline_setup`.
+    """
+    root = tmp_path_factory.mktemp("warehouse")
+    settings = Settings(
+        _env_file=None,
+        data_dir=root / "data",
+        docs_dir=root / "docs",
+        config_dir=REPO_ROOT / "config",
+    )
+    write_raw_layer(settings.raw_dir)
+    setup = PipelineSetup(
+        settings=settings,
+        regions=load_regions(REPO_ROOT / "config" / "regions.yaml"),
+        config=load_pipeline_config(REPO_ROOT / "config" / "pipeline.yaml"),
+    )
+    run_clean(setup.settings, setup.regions, setup.config)
+    return setup
