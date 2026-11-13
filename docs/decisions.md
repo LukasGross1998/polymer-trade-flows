@@ -252,3 +252,32 @@ reconciliation worked but is exactly what CEPII publishes in BACI, for all ~200 
 **Consequences.** Complete, consistent trade data without API limits, plus the split by
 polyethylene type (HS6). BACI is published once a year (latest data: 2024); the most recent
 months are not covered, which is what the PortWatch-based dashboard is for.
+
+---
+
+## ADR-010: Working agreement and quality gates for AI-assisted development
+
+- **Date:** 2026-11-13
+- **Status:** accepted
+
+**Context.** Most of the code is generated with an AI assistant. Until v0.3.0 all 51 commits
+went straight to `main`, type hints were written but never checked (63 mypy errors), and test
+modules imported each other. That is fast, but nothing stops a plausible-looking mistake.
+
+**Decision.**
+- **Spec → branch → PR → review → merge.** Every change gets a short feature spec in
+  `specs/` with acceptance criteria that become tests; `SPEC.md` stays the overall
+  specification. No direct commits to `main`; versions are tagged after each phase and
+  recorded in `CHANGELOG.md`.
+- **Automatic gates in CI and pre-commit:** ruff (lint and format), mypy in strict mode, tests
+  with at least 85 % coverage. The Definition of Done in `CLAUDE.md` and the PR template
+  list the same checks.
+- **mypy strict except `warn_return_any`:** many pandas methods return `Any` in the stubs;
+  flagging each return adds noise without finding bugs. Libraries without type information
+  (Pyomo, searoute, Plotly, HiGHS) are imported as `Any`.
+- Rows of DataFrames are read with `to_dict("records")` where values are passed on; optional
+  tables in the app are narrowed with `require()`.
+
+**Consequences.** Every change leaves a reviewable trail (spec, PR, CI run). Next
+architecture steps, each as its own spec and PR: data model in DuckDB/dbt (ADR to follow),
+package structure by domain, Docker, Airflow, run metadata.
