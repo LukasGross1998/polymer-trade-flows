@@ -223,3 +223,32 @@ country trade by vessel type (no partner).
 
 **Consequences.** Commodity flows between countries by product (crude oil, LNG, iron ore,
 polyethylene) would need CEPII BACI, a later step.
+
+---
+
+## ADR-009: CEPII BACI replaces our own Comtrade download as trade source
+
+- **Date:** 2026-11-13
+- **Status:** accepted; supersedes the Comtrade parts of ADR-003 and ADR-004
+
+**Context.** The public Comtrade endpoint allows about 100 requests a day (ADR-003). After
+two days, 17 of 30 reporters were loaded and Asia and Africa were missing, so the model
+underestimated demand in Asia (China 5.5 instead of ~13–14 Mt of imports). Our own mirror
+reconciliation worked but is exactly what CEPII publishes in BACI, for all ~200 countries.
+
+**Decision.**
+- Trade data come from **CEPII BACI**, version 202601, HS 2017 revision (years 2017–2024),
+  one ~800 MB zip downloaded once to `data/raw/baci/` (licence Etalab 2.0, no registration).
+  The zip is kept: other products (crude oil, LNG, iron ore) can be extracted later.
+- The clean step reads the yearly CSVs in chunks directly from the zip, keeps HS 3901xx and
+  writes `trade_hs6` (one row per product flow) and `bilateral_flows` (summed per
+  relation, the input of the model). Missing quantities are imputed as value / median unit
+  value of the same HS6 product and year and flagged.
+- BACI values are FOB (CEPII removes estimated freight and insurance from import values).
+- Our Comtrade pipeline stays in the code as a **check**, not part of `pipeline all`:
+  `pipeline comtrade` writes `trade_reports`, `mirror` and `comtrade_flows`, and the
+  data-quality report then compares our reconciliation with BACI.
+
+**Consequences.** Complete, consistent trade data without API limits, plus the split by
+polyethylene type (HS6). BACI is published once a year (latest data: 2024); the most recent
+months are not covered, which is what the PortWatch-based dashboard is for.

@@ -6,6 +6,18 @@ import yaml
 from pydantic import BaseModel
 
 
+class BaciConfig(BaseModel):
+    version: str
+    hs_revision: str
+    url: str
+    hs_prefix: str
+    years: list[int]
+
+    @property
+    def download_url(self) -> str:
+        return self.url.format(hs_revision=self.hs_revision, version=self.version)
+
+
 class ComtradeConfig(BaseModel):
     hs_code: str
     years: list[int]
@@ -22,6 +34,7 @@ class CleaningConfig(BaseModel):
 
 
 class PipelineConfig(BaseModel):
+    baci: BaciConfig
     comtrade: ComtradeConfig
     brent: BrentConfig
     cleaning: CleaningConfig

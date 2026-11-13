@@ -21,7 +21,7 @@ from ptf.clean.portwatch import (
 )
 from ptf.ingest import portwatch
 from ptf.ingest.distances import build_distance_table
-from ptf.pipeline import run_clean, run_model
+from ptf.pipeline import clean_comtrade, run_clean, run_model
 
 DICTIONARY = REPO_ROOT / "docs" / "data_dictionary.md"
 
@@ -33,10 +33,20 @@ def documented_columns(table: str) -> list[str]:
     return re.findall(r"^\| `([a-z0-9_]+)` \|", section, flags=re.MULTILINE)
 
 
-@pytest.mark.parametrize("table", ["trade_reports", "mirror", "bilateral_flows", "brent_annual"])
+@pytest.mark.parametrize("table", ["trade_hs6", "bilateral_flows", "brent_annual"])
 def test_clean_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str) -> None:
     settings = pipeline_setup.settings
     run_clean(settings, pipeline_setup.regions, pipeline_setup.config)
+
+    written = pd.read_parquet(settings.clean_dir / f"{table}.parquet")
+
+    assert documented_columns(table) == list(written.columns)
+
+
+@pytest.mark.parametrize("table", ["trade_reports", "mirror", "comtrade_flows"])
+def test_comtrade_check_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str) -> None:
+    settings = pipeline_setup.settings
+    clean_comtrade(settings, pipeline_setup.regions, pipeline_setup.config)
 
     written = pd.read_parquet(settings.clean_dir / f"{table}.parquet")
 

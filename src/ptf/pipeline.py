@@ -1,11 +1,12 @@
 """Command-line entry point for the pipeline: raw -> clean -> report -> model.
 
-    uv run python -m ptf.pipeline ingest   # download/compute raw data (cached)
-    uv run python -m ptf.pipeline clean    # build the clean layer
+    uv run python -m ptf.pipeline ingest   # distances, Brent, BACI trade data (cached)
+    uv run python -m ptf.pipeline clean    # BACI -> trade_hs6, bilateral_flows
     uv run python -m ptf.pipeline report   # write docs/data_quality.md and charts
     uv run python -m ptf.pipeline model    # model layer, transport LP, docs/model_results.md
     uv run python -m ptf.pipeline portwatch  # chokepoint transits (incremental) -> clean layer
     uv run python -m ptf.pipeline market   # FRED prices and NY Fed GSCPI -> clean layer
+    uv run python -m ptf.pipeline comtrade # superseded own Comtrade download, for comparison
     uv run python -m ptf.pipeline all      # all steps
 
 Each step is a plain function, so Airflow (phase 5) can call the same steps as tasks.
@@ -16,6 +17,7 @@ import logging
 
 import pandas as pd
 
+from ptf.clean import baci as clean_baci
 from ptf.clean import brent as clean_brent
 from ptf.clean.comtrade import build_country_lookup, load_raw_comtrade, to_trade_reports
 from ptf.clean.dq_report import build_report
@@ -33,7 +35,7 @@ from ptf.clean.portwatch import (
 from ptf.clean.quality import add_unit_values, flag_unit_value_outliers
 from ptf.clean.reconcile import reconcile_flows, regional_unit_values
 from ptf.config import Settings, get_settings
-from ptf.ingest import comtrade, distances, fred, gscpi, portwatch
+from ptf.ingest import baci, comtrade, distances, fred, gscpi, portwatch
 from ptf.market_config import load_market_config
 from ptf.model import inputs as model_inputs
 from ptf.model.compare import comparison_metrics, comparison_table
@@ -48,15 +50,45 @@ logger = logging.getLogger("ptf.pipeline")
 
 
 def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
+    """Sea distances, Brent and the BACI trade data (one ~800 MB zip, downloaded once)."""
     raw = settings.raw_dir
-    # Cheap, unlimited sources first, so a Comtrade quota stop does not block them.
     distances.ingest_distances(regions, raw)
     fred.ingest_fred(raw, [config.brent.fred_series])
+    baci_config = config.baci
+    baci.ingest_baci(raw, baci_config.download_url, baci_config.hs_revision, baci_config.version)
 
+
+def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
+    """BACI -> trade_hs6 and bilateral_flows; Brent -> annual averages."""
+    raw, clean = settings.raw_dir, settings.clean_dir
+    clean.mkdir(parents=True, exist_ok=True)
+
+    baci_config = config.baci
+    zip_path = baci.baci_zip_path(raw, baci_config.hs_revision, baci_config.version)
+    trade_hs6 = clean_baci.extract_trade_hs6(
+        zip_path, baci_config.years, baci_config.hs_prefix, regions.comtrade_aliases
+    )
+    trade_hs6 = clean_baci.impute_quantities(trade_hs6)
+    trade_hs6.to_parquet(clean / "trade_hs6.parquet", index=False)
+    flows = clean_baci.to_bilateral_flows(trade_hs6, regions)
+    flows.to_parquet(clean / "bilateral_flows.parquet", index=False)
+
+    daily = parse_fred_csv(fred.latest_raw(raw, config.brent.fred_series))
+    daily = daily.rename(columns={"value": "usd_per_bbl"})
+    clean_brent.annual_brent(daily).to_parquet(clean / "brent_annual.parquet", index=False)
+    logger.info("clean layer: %s HS6 flows, %s bilateral flows", len(trade_hs6), len(flows))
+
+
+def run_comtrade(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
+    """Superseded by BACI (ADR-009): own Comtrade download and reconciliation, kept as a check.
+
+    Writes trade_reports, mirror and comtrade_flows; the data-quality report compares
+    comtrade_flows with BACI where both exist.
+    """
+    raw = settings.raw_dir
     comtrade.ingest_reference("partnerAreas", raw)
     reporters_path = comtrade.ingest_reference("Reporters", raw)
     reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.reporters())
-
     comtrade.ingest_comtrade(
         reporters,
         config.comtrade.years,
@@ -66,11 +98,13 @@ def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig
         max_retries=config.comtrade.max_retries,
     )
 
+    clean_comtrade(settings, regions, config)
 
-def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
+
+def clean_comtrade(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
+    """Comtrade raw files -> trade_reports, mirror, comtrade_flows (no download)."""
     raw, clean = settings.raw_dir, settings.clean_dir
     clean.mkdir(parents=True, exist_ok=True)
-
     partner_areas = pd.read_parquet(raw / "comtrade_reference" / "partnerAreas.parquet")
     lookup = build_country_lookup(partner_areas, regions.comtrade_aliases)
     reports = to_trade_reports(load_raw_comtrade(raw), lookup)
@@ -79,29 +113,15 @@ def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig)
         add_unit_values(reports), config.cleaning.outlier_mad_threshold
     )
     reports.to_parquet(clean / "trade_reports.parquet", index=False)
-
     mirror = build_mirror_table(reports)
     mirror.to_parquet(clean / "mirror.parquet", index=False)
-
     flows = reconcile_flows(mirror, regional_unit_values(reports, regions), regions)
-    flows.to_parquet(clean / "bilateral_flows.parquet", index=False)
-
-    daily = parse_fred_csv(fred.latest_raw(raw, config.brent.fred_series))
-    daily = daily.rename(columns={"value": "usd_per_bbl"})
-    clean_brent.annual_brent(daily).to_parquet(clean / "brent_annual.parquet", index=False)
-    logger.info("clean layer: %s reports, %s bilateral flows", len(reports), len(flows))
+    flows.to_parquet(clean / "comtrade_flows.parquet", index=False)
+    logger.info("Comtrade check: %s reports, %s flows", len(reports), len(flows))
 
 
-def run_report(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
-    reporters_path = settings.raw_dir / "comtrade_reference" / "Reporters.parquet"
-    reporters = comtrade.reporter_codes(pd.read_parquet(reporters_path), regions.reporters())
-    path = build_report(
-        settings.clean_dir,
-        settings.docs_dir,
-        settings.raw_dir,
-        list(reporters),
-        config.comtrade.years,
-    )
+def run_report(settings: Settings) -> None:
+    path = build_report(settings.clean_dir, settings.docs_dir)
     logger.info("report written to %s", path)
 
 
@@ -171,7 +191,8 @@ def run_market(settings: Settings) -> None:
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(prog="python -m ptf.pipeline", description=__doc__)
     parser.add_argument(
-        "step", choices=["ingest", "clean", "report", "model", "portwatch", "market", "all"]
+        "step",
+        choices=["ingest", "clean", "report", "model", "portwatch", "market", "comtrade", "all"],
     )
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -185,13 +206,15 @@ def main(argv: list[str] | None = None) -> None:
     if args.step in ("clean", "all"):
         run_clean(settings, regions, config)
     if args.step in ("report", "all"):
-        run_report(settings, regions, config)
+        run_report(settings)
     if args.step in ("model", "all"):
         run_model(settings)
     if args.step in ("portwatch", "all"):
         run_portwatch(settings)
     if args.step in ("market", "all"):
         run_market(settings)
+    if args.step == "comtrade":  # superseded by BACI, not part of "all" (ADR-009)
+        run_comtrade(settings, regions, config)
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@
 
 import json
 import shutil
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -40,6 +41,8 @@ def write_raw_layer(raw_dir: Path) -> None:
     reporters = json.loads((FIXTURES / "reporters.json").read_text())["results"]
     pd.DataFrame(reporters).to_parquet(raw_dir / "comtrade_reference" / "Reporters.parquet")
 
+    write_baci_zip(raw_dir / "baci" / "BACI_HS17_V202601.zip")
+
     brent_dir = raw_dir / "fred" / "DCOILBRENTEU"
     brent_dir.mkdir(parents=True)
     shutil.copy(FIXTURES / "brent_sample.csv", brent_dir / "20260101T000000000000.csv")
@@ -60,6 +63,32 @@ def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:
     ]
     (raw_dir / "distances").mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).to_parquet(raw_dir / "distances" / "sea_distances_base.parquet")
+
+
+BACI_COUNTRIES = (
+    "country_code,country_name,country_iso2,country_iso3\n"
+    "276,Germany,DE,DEU\n"
+    "842,USA,US,USA\n"
+    "156,China,CN,CHN\n"
+    "490,Other Asia nes,,S19\n"
+)
+# 2023: USA exports HDPE and LDPE to Germany, one flow without quantity, and crude oil (not PE).
+BACI_2023 = (
+    "t,i,j,k,v,q\n"
+    "2023,842,276,390120,1200.0,1000.0\n"
+    "2023,842,276,390110,1300.0,1000.0\n"
+    "2023,842,156,390120,600.0,           NA\n"
+    "2023,490,156,390110,650.0,500.0\n"
+    "2023,842,276,270900,9999.0,9999.0\n"
+)
+
+
+def write_baci_zip(path: Path) -> None:
+    """A tiny BACI-like zip: country codes and one year of flows (values in thousand USD)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("country_codes_V202601.csv", BACI_COUNTRIES)
+        archive.writestr("BACI_HS17_Y2023_V202601.csv", BACI_2023)
 
 
 @pytest.fixture
