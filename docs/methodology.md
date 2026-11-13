@@ -293,6 +293,10 @@ AIS-based counts drop when ships switch off their transponders or when GPS jammi
 positions. A collapse in counts therefore means "fewer ships visible", which is usually but
 not always "fewer ships".
 
+Since spec 003 the cleaning runs in dbt (`dbt/models/*/shipping`): the raw downloads are
+read folder by folder and the most recently fetched value per day and location is kept with
+a window function (`qualify row_number() ... = 1`); the app reads the marts.
+
 ### 4.2 Metrics (`src/ptf/monitor/metrics.py`, parameters in `config/monitor.yaml`)
 
 - **7-day average** per chokepoint and vessel type: daily counts are noisy (weekdays,
@@ -347,6 +351,10 @@ Ports and Energy & freight. All data are free and need no key; `pipeline portwat
   earthquakes, floods, droughts, wildfires and "other" events such as conflicts, with alert
   level and affected ports. The app shows open events and events ended in the last 30 days,
   orange and red alerts only.
+
+FRED series are read from the newest CSV per series and joined with their metadata from
+`config/market_data.yaml` in dbt (`dbt/models/*/markets`); the GSCPI spreadsheet (old .xls)
+is parsed by Python into a landing file first.
 
 ### 5.2 Energy, freight and supply-chain indicators
 

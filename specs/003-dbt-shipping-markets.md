@@ -1,6 +1,6 @@
 # 003 – dbt warehouse, second increment: shipping (PortWatch) and market data
 
-- **Status:** accepted
+- **Status:** done
 - **Branch / PR:** `feat/dbt-shipping-markets`
 - **SPEC.md sections:** 7a, 7b (dashboard data), 3 (data pipeline)
 - **ADR:** ADR-011 (dbt on DuckDB)
@@ -61,3 +61,14 @@ download is switched off).
 - `dim_date` from the earliest to the latest date in the facts (DuckDB `range()`).
 - Risk: a folder without any file makes `read_parquet` fail; the pipeline only builds marts
   whose raw folders exist (or the source is guarded by a variable).
+
+## Result
+
+- `dbt build`: all models and tests of trade, shipping and markets pass (110 nodes).
+- Parity with the removed pandas cleaning on the real data: transits (80,332 rows), port
+  activity (31,537), events (132), port links (8,084), market series (43,310) and Brent annual
+  values identical; monitor KPIs unchanged (Bab el-Mandeb container −67 % vs. normal, 6 of 28
+  chokepoints disrupted).
+- Lessons: dbt-duckdb fills `{name}` in `external_location` via `str.format`, so curly braces
+  in a source definition break it (FRED types are cast in staging instead); `group` is an SQL
+  keyword and needs `quote: true` for generated tests.

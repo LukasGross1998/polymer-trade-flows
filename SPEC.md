@@ -212,7 +212,7 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 ### Nächste Schritte (Vorschlag, in dieser Reihenfolge)
 Architektur zuerst (ADR-010), jeder Schritt als eigene Spec in `specs/` und eigener PR:
 1. ~~Arbeitsweise und Qualitätsschranken~~ (Spec 001, erledigt).
-2. **Datenmodell und Transformationen** (ADR-011: dbt auf DuckDB): ~~Handelsdaten~~ (Spec 002, erledigt); als Nächstes PortWatch und Marktdaten, dann liest die App aus den Marts.
+2. ~~**Datenmodell und Transformationen**~~ (ADR-011: dbt auf DuckDB): Handelsdaten (Spec 002), PortWatch und Marktdaten, App liest aus den Marts (Spec 003) – erledigt.
 3. **Paketstruktur nach Fachgebiet** (`trade`, `shipping`, `markets`, `model`, `app`), schlanke CLI, Comtrade nach `legacy`.
 4. **Docker:** Image (mehrstufig, uv), compose für die App.
 5. **Airflow:** DAGs (Schifffahrt/Märkte täglich, Handel jährlich, Modell danach); App nur noch lesend.

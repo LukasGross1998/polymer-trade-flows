@@ -38,21 +38,14 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | raw BACI | `data/raw/baci/BACI_HS17_V202601.zip` | one CSV per year inside the zip | `ptf.ingest.baci` |
 | BACI landing | `data/raw/baci/landing_*.parquet` | HS 3901 flows and code lists, unpacked | `ptf.ingest.baci.write_landing` |
 | reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.warehouse.write_reference_tables` |
+| PortWatch raw | `data/raw/portwatch/<dataset>/*.parquet` | one file per download, never overwritten | `ptf.ingest.portwatch` |
+| FRED / GSCPI raw | `data/raw/fred/<id>/*.csv`, `data/raw/gscpi/*.xls` (+ `landing_gscpi.parquet`) | one file per download | `ptf.ingest.fred`, `ptf.ingest.gscpi` |
 | warehouse marts | `data/warehouse.duckdb`, schema `marts` | see section "Warehouse" | dbt (`dbt/models`) |
 | raw Comtrade (check) | `data/raw/comtrade/{ISO3}_{year}.parquet` | one Comtrade record | `ptf.ingest.comtrade` |
 | `trade_reports` (check) | `data/clean/trade_reports.parquet` | one report: reporter, partner, flow, year | `ptf.clean.comtrade` + `ptf.clean.quality` |
 | `mirror` (check) | `data/clean/mirror.parquet` | one trade relation: year, exporter, importer | `ptf.clean.mirror` |
 | `comtrade_flows` (check) | `data/clean/comtrade_flows.parquet` | one trade relation: year, exporter, importer | `ptf.clean.reconcile` |
-| `brent_annual` | `data/clean/brent_annual.parquet` | one year | `ptf.clean.brent` |
 | `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.ingest.distances` |
-| `chokepoint_transits` | `data/clean/chokepoint_transits.parquet` | one chokepoint and day | `ptf.clean.portwatch` |
-| `chokepoints` | `data/clean/chokepoints.parquet` | one chokepoint | `ptf.clean.portwatch` |
-| `port_activity` | `data/clean/port_activity.parquet` | one port and day | `ptf.clean.portwatch` |
-| `ports` | `data/clean/ports.parquet` | one configured port | `ptf.clean.portwatch` |
-| `events` | `data/clean/events.parquet` | one disruption event | `ptf.clean.portwatch` |
-| `market_series` | `data/clean/market_series.parquet` | one series and date | `ptf.clean.market` |
-| `port_links` | `data/clean/port_links.parquet` | one directed port-to-port link | `ptf.clean.portwatch` |
-| `country_trade` | `data/clean/country_trade.parquet` (optional) | one country and day | `ptf.clean.portwatch` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
@@ -85,8 +78,9 @@ The running example throughout is Saudi Arabia → Belgium, 2024.
 
 ## Warehouse (dbt, ADR-011)
 
-Tables in `data/warehouse.duckdb`; column definitions, descriptions and tests are in
-`dbt/models/staging/_staging.yml` and `dbt/models/marts/_marts.yml`.
+Tables in `data/warehouse.duckdb`; column definitions, descriptions and tests are in the
+`_*.yml` files next to the SQL in `dbt/models/{staging,marts}/{trade,shipping,markets,common}/`.
+Folders carry dbt tags, so each pipeline step builds only its domain.
 
 | Table | Grain (one row = …) | Purpose |
 |---|---|---|
@@ -99,20 +93,20 @@ Tables in `data/warehouse.duckdb`; column definitions, descriptions and tests ar
 | `marts.fct_trade` | year × exporter × importer × HS6 | value (USD, FOB), quantity (t), imputation flag |
 | `marts.mart_bilateral_trade` | year × exporter × importer | products summed, with regions |
 | `marts.mart_region_trade` | year × exporter region × importer region | input of the transport LP |
+| `marts.dim_date` | calendar day (2019 → today) | ISO year and week for seasonal baselines |
+| `marts.dim_chokepoint`, `marts.dim_port` | chokepoint / monitored port | names, coordinates, port role |
+| `marts.fct_chokepoint_transits` | day × chokepoint | vessel counts by type, capacity; latest download wins |
+| `marts.fct_port_activity` | day × monitored port | port calls, estimated imports and exports |
+| `marts.fct_disruption_events` | event | PortWatch events, dates from epoch ms |
+| `marts.fct_port_links` | directed port pair | network snapshot: capacity per day, transit days |
+| `marts.dim_market_series`, `marts.fct_market_prices` | series / date × series | FRED series and GSCPI |
+| `marts.mart_chokepoint_transits`, `mart_port_activity`, `mart_market_series` | as their facts | facts with names: what the app and the monitor read |
+| `marts.mart_brent_annual` | year | annual average Brent |
+| `marts.mart_country_trade` | day × country | optional (`download_country_trade`) |
 
 Example (Saudi Arabia → Belgium, 2024): `fct_trade` holds five rows, one per PE product,
 e.g. HDPE 129,751 t for 220.3 m USD; `mart_bilateral_trade` sums them to 233,458 t for
 348.6 m USD (Comtrade had 480 kt as Saudi export report and 171 kt as Belgian import report).
-
----
-
-## `brent_annual`
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `year` | calendar year | int | 2024 |
-| `brent_usd_per_bbl` | mean of daily Brent spot prices (FRED `DCOILBRENTEU`) | USD/barrel | 80.5 |
-| `quoted_days` | number of trading days with a price; check this for the current, incomplete year | days | 254 |
 
 ---
 
@@ -130,147 +124,6 @@ further passages blocked (e.g. Suez).
 | `distance_nm` | shortest sea route according to `searoute`; 0 within a region | nautical miles | 6,262 |
 
 ---
-
-## `chokepoint_transits`
-
-Daily vessel transits from IMF PortWatch (raw downloads in
-`data/raw/portwatch/chokepoints_daily/`, one file per download). Example: Suez Canal,
-2026-11-03.
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `date` | day of the transits | date | 2026-11-03 |
-| `chokepoint_id` | PortWatch id | str | chokepoint1 |
-| `chokepoint` | name | str | Suez Canal |
-| `n_total` | all vessels | vessels/day | 39 |
-| `n_container` | container ships | vessels/day | 12 |
-| `n_tanker` | tankers | vessels/day | 16 |
-| `n_dry_bulk` | dry bulk carriers | vessels/day | 8 |
-| `n_general_cargo` | general cargo ships | vessels/day | 2 |
-| `n_roro` | roll-on/roll-off ships | vessels/day | 1 |
-| `n_cargo` | all cargo ships except tankers | vessels/day | 23 |
-| `capacity` | deadweight tonnage of all transits | t/day | 1,918,291 |
-| `capacity_container` | deadweight tonnage of container ships | t/day | 716,075 |
-| `capacity_tanker` | deadweight tonnage of tankers | t/day | 924,628 |
-| `fetched_at` | when this value was downloaded; the latest download per day is kept | UTC timestamp | 2026-11-12 20:18 |
-
-## `chokepoints`
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `chokepoint_id` | PortWatch id | str | chokepoint1 |
-| `chokepoint` | name | str | Suez Canal |
-| `lat` | latitude | degrees | 30.59 |
-| `lon` | longitude | degrees | 32.44 |
-
-## `port_activity`
-
-Daily activity of the ports configured in `config/monitor.yaml` (IMF PortWatch
-`Daily_Ports_Data`; raw downloads in `data/raw/portwatch/ports_daily/`). Example: Jubail,
-2026-11-06.
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `date` | day | date | 2026-11-06 |
-| `port_id` | PortWatch id | str | port24 |
-| `port` | short name from the config | str | Jubail |
-| `portcalls` | port calls, all vessels | vessels/day | 1 |
-| `portcalls_tanker` | port calls of tankers | vessels/day | 1 |
-| `portcalls_container` | port calls of container ships | vessels/day | 0 |
-| `import` | estimated import volume (PortWatch estimate from draught and capacity) | t/day | 536 |
-| `export` | estimated export volume | t/day | 62,716 |
-| `fetched_at` | when this value was downloaded; the latest download per day is kept | UTC timestamp | 2026-11-12 20:34 |
-
-## `ports`
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `port_id` | PortWatch id | str | port24 |
-| `port` | short name from the config | str | Jubail |
-| `country` | country | str | Saudi Arabia |
-| `lat` | latitude | degrees | 27.06 |
-| `lon` | longitude | degrees | 49.66 |
-
-## `events`
-
-PortWatch disruption events (`portwatch_disruptions_database`, newest download).
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `event_id` | PortWatch id | int | (id) |
-| `event_type` | DR drought, EQ earthquake, FL flood, OT other (e.g. conflict), TC tropical cyclone, VO volcano, WF wildfire | str | OT |
-| `event` | name | str | HORMUZ-26 |
-| `alert_level` | GREEN, ORANGE or RED | str | RED |
-| `country` | affected country, if any | str | – |
-| `from_date` | start | date | 2026-03-01 |
-| `to_date` | end; empty while ongoing | date | – |
-| `lat` | latitude | degrees | 26.30 |
-| `lon` | longitude | degrees | 56.86 |
-| `affected_ports` | PortWatch ids of affected ports or chokepoints | str | chokepoint6 |
-| `n_affected_ports` | number of affected ports | int | 1 |
-| `description` | short text | str | Trade Disruptions in the Strait of Hormuz from: 01 Mar 2026 |
-
-## `market_series`
-
-All market series in one long table: FRED series from `config/market_data.yaml` and the NY
-Fed GSCPI (raw downloads in `data/raw/fred/{id}/` and `data/raw/gscpi/`).
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `date` | observation date (monthly series: first day of the month; GSCPI: last day) | date | 2026-11-03 |
-| `series_id` | FRED id, or `GSCPI` | str | DCOILBRENTEU |
-| `name` | readable name | str | Brent crude oil |
-| `unit` | unit of `value` | str | USD/bbl |
-| `frequency` | daily or monthly | str | daily |
-| `group` | energy, gas, freight_polymers, fx, supply_chain | str | energy |
-| `value` | observation | see `unit` | 107.03 |
-
-## `port_links`
-
-Port-to-port shipping network (PortWatch `spillovers_port_level_impact`, a static snapshot
-last updated May 2025). Only links with at least `min_link_capacity` (1,000 t) of daily
-capacity: 8,084 of ~227,000 links, ~71 % of the total capacity. All vessel types together.
-Example: Port Hedland → Tianjin, the largest long-haul link (iron ore).
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `from_port_id` | PortWatch id of the origin port | str | port955 |
-| `from_port` | origin port | str | Port Hedland |
-| `from_country` | origin country | str | Australia |
-| `from_lat` | latitude of the origin | degrees | −20.33 |
-| `from_lon` | longitude of the origin | degrees | 118.56 |
-| `to_port_id` | PortWatch id of the destination port | str | port1297 |
-| `to_port` | destination port | str | Tianjin Xin Gang |
-| `to_country` | destination country | str | China |
-| `to_lat` | latitude of the destination | degrees | 38.94 |
-| `to_lon` | longitude of the destination | degrees | 117.73 |
-| `transit_days` | average voyage time | days | 18.5 |
-| `daily_capacity` | vessel capacity (deadweight tonnes) travelling on the link per day; PortWatch's "daily capacity at risk"; not the cargo carried | t/day | 125,444 |
-
-## `country_trade`
-
-Optional (`download_country_trade` in `config/monitor.yaml`, off by default: the first
-download takes 20–25 minutes). Daily estimated imports and exports per country by vessel
-type (PortWatch `Daily_Trade_Data_REG`, from vessel draught and capacity).
-
-| Column | Meaning | Unit / type | Example |
-|---|---|---|---|
-| `date` | day | date | 2026-11-06 |
-| `iso3` | country code | ISO3 | SAU |
-| `country` | country name | str | Saudi Arabia |
-| `import` | estimated imports, all vessel types | t/day | 38,716 |
-| `export` | estimated exports, all vessel types | t/day | 64,036 |
-| `import_tanker` | imports by tankers (oil, products, chemicals, LNG/LPG) | t/day | – |
-| `import_dry_bulk` | imports by dry bulk carriers (ore, coal, grain) | t/day | – |
-| `import_container` | imports by container ships | t/day | – |
-| `import_general_cargo` | imports by general cargo ships | t/day | – |
-| `import_roro` | imports by RoRo ships (vehicles) | t/day | – |
-| `export_tanker` | exports by tankers | t/day | 62,716 |
-| `export_dry_bulk` | exports by dry bulk carriers | t/day | 0 |
-| `export_container` | exports by container ships | t/day | 273 |
-| `export_general_cargo` | exports by general cargo ships | t/day | – |
-| `export_roro` | exports by RoRo ships | t/day | – |
-| `fetched_at` | when this value was downloaded; the latest download per day is kept | UTC timestamp | – |
 
 ---
 
