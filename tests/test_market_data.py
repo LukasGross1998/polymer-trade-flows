@@ -6,9 +6,9 @@ from pathlib import Path
 import pandas as pd
 from helpers import REPO_ROOT
 
-from ptf.ingest import fred
-from ptf.ingest.gscpi import tidy_gscpi
-from ptf.market_config import load_market_config
+from ptf.markets import fred
+from ptf.markets.config import load_market_config
+from ptf.markets.gscpi import tidy_gscpi
 
 FIXTURES = Path(__file__).parent / "fixtures"
 CSV = b"observation_date,DCOILBRENTEU\n2024-01-02,76.00\n2024-01-03,.\n2024-01-04,78.00\n"
@@ -29,7 +29,7 @@ class FakeSession:
 
 
 def test_project_market_config_is_valid() -> None:
-    config = load_market_config(REPO_ROOT / "config" / "market_data.yaml")
+    config = load_market_config(REPO_ROOT / "config" / "markets.yaml")
 
     assert "DCOILBRENTEU" in {s.id for s in config.fred_series}
     assert config.key_events[0].label.startswith("Red Sea")

@@ -9,7 +9,7 @@ from dash import dcc, html
 from dash.development.base_component import Component
 
 from ptf.app import style
-from ptf.market_config import KeyEvent
+from ptf.markets.config import KeyEvent
 
 # Return type of tab update functions: one value per Dash Output of the callback.
 Outputs = tuple[Any, ...]

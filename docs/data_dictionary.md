@@ -26,7 +26,7 @@ fred/{id}/*.csv, gscpi/*.xls     ──►  market_series, brent_annual
 portwatch/...                    ──►  chokepoint_transits, port_activity, port_links, events, ...
 distances/sea_distances_base.parquet  (used directly from raw, computed not downloaded)
 
-check only (`pipeline comtrade`, ADR-009):
+check only (`ptf comtrade`, ADR-009):
 comtrade/{ISO3}_{year}.parquet   ──►  trade_reports ──► mirror ──► comtrade_flows
 
 model (data/model/{year}/): region-level inputs and results of the transport LP
@@ -35,17 +35,17 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 
 | Table | Path | Grain (one row = …) | Written by |
 |---|---|---|---|
-| raw BACI | `data/raw/baci/BACI_HS17_V202601.zip` | one CSV per year inside the zip | `ptf.ingest.baci` |
-| BACI landing | `data/raw/baci/landing_*.parquet` | HS 3901 flows and code lists, unpacked | `ptf.ingest.baci.write_landing` |
-| reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.warehouse.write_reference_tables` |
-| PortWatch raw | `data/raw/portwatch/<dataset>/*.parquet` | one file per download, never overwritten | `ptf.ingest.portwatch` |
-| FRED / GSCPI raw | `data/raw/fred/<id>/*.csv`, `data/raw/gscpi/*.xls` (+ `landing_gscpi.parquet`) | one file per download | `ptf.ingest.fred`, `ptf.ingest.gscpi` |
+| raw BACI | `data/raw/baci/BACI_HS17_V202601.zip` | one CSV per year inside the zip | `ptf.trade.baci` |
+| BACI landing | `data/raw/baci/landing_*.parquet` | HS 3901 flows and code lists, unpacked | `ptf.trade.baci.write_landing` |
+| reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.trade.reference.write_reference_tables` |
+| PortWatch raw | `data/raw/portwatch/<dataset>/*.parquet` | one file per download, never overwritten | `ptf.shipping.portwatch` |
+| FRED / GSCPI raw | `data/raw/fred/<id>/*.csv`, `data/raw/gscpi/*.xls` (+ `landing_gscpi.parquet`) | one file per download | `ptf.markets.fred`, `ptf.markets.gscpi` |
 | warehouse marts | `data/warehouse.duckdb`, schema `marts` | see section "Warehouse" | dbt (`dbt/models`) |
-| raw Comtrade (check) | `data/raw/comtrade/{ISO3}_{year}.parquet` | one Comtrade record | `ptf.ingest.comtrade` |
-| `trade_reports` (check) | `data/clean/trade_reports.parquet` | one report: reporter, partner, flow, year | `ptf.clean.comtrade` + `ptf.clean.quality` |
-| `mirror` (check) | `data/clean/mirror.parquet` | one trade relation: year, exporter, importer | `ptf.clean.mirror` |
-| `comtrade_flows` (check) | `data/clean/comtrade_flows.parquet` | one trade relation: year, exporter, importer | `ptf.clean.reconcile` |
-| `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.ingest.distances` |
+| raw Comtrade (check) | `data/raw/comtrade/{ISO3}_{year}.parquet` | one Comtrade record | `ptf.legacy.comtrade.ingest` |
+| `trade_reports` (check) | `data/clean/trade_reports.parquet` | one report: reporter, partner, flow, year | `ptf.legacy.comtrade.clean` + `ptf.legacy.comtrade.quality` |
+| `mirror` (check) | `data/clean/mirror.parquet` | one trade relation: year, exporter, importer | `ptf.legacy.comtrade.mirror` |
+| `comtrade_flows` (check) | `data/clean/comtrade_flows.parquet` | one trade relation: year, exporter, importer | `ptf.legacy.comtrade.reconcile` |
+| `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.model.distances` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
@@ -130,7 +130,7 @@ further passages blocked (e.g. Suez).
 # Comtrade check (superseded by BACI, ADR-009)
 
 Our own Comtrade download and mirror reconciliation from phase 1. Built only by
-`pipeline comtrade`; the data-quality report compares `comtrade_flows` with BACI.
+`ptf comtrade`; the data-quality report compares `comtrade_flows` with BACI.
 
 ## Raw: Comtrade records
 
@@ -177,7 +177,7 @@ once as the importer's import report.
 | `imputation_method` | method if imputed; always empty at this stage | str / None | – | None |
 | `unit_value_usd_t` | price per tonne; NaN without quantity or value | USD/t | `value_usd / qty_t` | 1,112.7 |
 | `uv_robust_z` | distance of the log unit value from the median of its year and flow, in robust standard deviations | – | quality rule 1 | −0.79 |
-| `is_uv_outlier` | `abs(uv_robust_z)` above the threshold in `config/pipeline.yaml` (3.0) | bool | quality rule 1 | False |
+| `is_uv_outlier` | `abs(uv_robust_z)` above the threshold in `config/comtrade.yaml` (3.0) | bool | quality rule 1 | False |
 
 ---
 

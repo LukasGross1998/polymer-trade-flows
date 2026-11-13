@@ -3,9 +3,9 @@
 import pandas as pd
 import pytest
 
-from ptf.monitor.config import MonitorConfig
-from ptf.monitor.flows import cargo_mix, country_ranking, port_options, top_links
-from ptf.monitor.vocabulary import CARGO_TYPES
+from ptf.shipping.config import MonitorConfig
+from ptf.shipping.flows import cargo_mix, country_ranking, port_options, top_links
+from ptf.shipping.vocabulary import CARGO_TYPES
 
 CONFIG = MonitorConfig.model_validate(
     {

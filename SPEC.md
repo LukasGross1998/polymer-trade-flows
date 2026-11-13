@@ -72,7 +72,7 @@ API-Details (Endpunkte, Limits, Parameter) vor der Implementierung in der aktuel
 - Ausgefiltert werden: Re-Exporte/Re-Importe sowie Aggregat-Partner wie „World“ (Comtrade-Code 0).
 
 ### Qualitätsregeln
-1. Einheitswerte (USD/t) berechnen; Ausreißer markieren: |log(Einheitswert) − Median| > 3 × MAD·1,4826, je Jahr und Flussrichtung (Schwelle in `config/pipeline.yaml`).
+1. Einheitswerte (USD/t) berechnen; Ausreißer markieren: |log(Einheitswert) − Median| > 3 × MAD·1,4826, je Jahr und Flussrichtung (Schwelle in `config/comtrade.yaml`).
 2. **Spiegelstatistik:** Export A→B vs. Import B←A vergleichen. Abweichung messen und dokumentieren. Primär über **Mengen** (t), da Importwerte CIF und Exportwerte FOB sind und sich systematisch um Fracht/Versicherung unterscheiden.
 3. **Abgleich-Regel (MVP):** Importmeldungen bevorzugen (CIF, meist zuverlässiger), Export als Fallback; eine plausible Exportmeldung schlägt eine Importmeldung mit Ausreißer-Einheitswert. Mengen ohne Gewicht über Wert ÷ regionalen Median-Einheitswert (Region des Melders, Jahr, Flussrichtung; Fallback global) imputieren.
 4. Jede Imputation setzt `is_imputed=True` und nennt die Methode.
@@ -156,7 +156,7 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 
 **Daten:** IMF PortWatch, ArcGIS-API ohne Key. `Daily_Chokepoints_Data`: Durchfahrten je Tag, Meerenge und Schiffstyp (Container, Massengut, Stückgut, RoRo, Tanker) plus Tragfähigkeit, ab 2019-01-01, 28 Meerengen. `PortWatch_chokepoints_database`: Stammdaten (Name, Lage). Max. 1.000 Zeilen pro Abfrage → seitenweise; inkrementell nur Tage nach dem letzten Stand. **Keine Echtzeit:** Tageswerte mit einigen Tagen Verzug, etwa wöchentlich aktualisiert.
 
-**Kennzahlen** (Logik in `src/ptf/monitor/`, Parameter in `config/monitor.yaml`):
+**Kennzahlen** (Logik in `src/ptf/shipping/`, Parameter in `config/shipping.yaml`):
 - 7-Tage-Durchschnitt der Durchfahrten je Meerenge und Schiffstyp
 - Normalniveau: Mittel derselben Kalenderwoche im Basiszeitraum 2019–2023 (vor der Rotes-Meer-Krise)
 - Abweichung vom Normalniveau in % und Störungs-Flag unterhalb einer Schwelle (Start: 70 % des Normalniveaus)
@@ -173,9 +173,9 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 **Trade flows:** Hafen-zu-Hafen-Netz von PortWatch (fester Stand Mai 2025, alle Schiffstypen, Kapazität statt Ladung; Standard: Langstrecken ab 5 Tagen zwischen Ländern) und – optional, weil der erste Abruf 20–25 min dauert – Importe/Exporte je Land nach Schiffstyp als Stellvertreter für die Ladungsart. Ströme nach Ware zwischen Ländern (BACI) folgen später.
 
 **Daten** (alle frei, ohne Key; Details `docs/methodology.md` Abschnitt 5):
-- PortWatch `Daily_Ports_Data` für die Häfen in `config/monitor.yaml` (Anläufe, geschätzte Import-/Exportmengen), gleiche Kennzahlen wie bei den Meerengen
+- PortWatch `Daily_Ports_Data` für die Häfen in `config/shipping.yaml` (Anläufe, geschätzte Import-/Exportmengen), gleiche Kennzahlen wie bei den Meerengen
 - PortWatch `portwatch_disruptions_database` (Ereignisse mit Alarmstufe)
-- FRED-Reihen in `config/market_data.yaml` (Öl, Gas, Frachtindex als Näherung, Harzpreisindex, Wechselkurse) und NY Fed GSCPI
+- FRED-Reihen in `config/markets.yaml` (Öl, Gas, Frachtindex als Näherung, Harzpreisindex, Wechselkurse) und NY Fed GSCPI
 - Containerraten (WCI, FBX, SCFI): nicht frei verfügbar, daher nicht enthalten
 
 **Darstellung:** Reihen mit unterschiedlichen Einheiten indexiert (Start = 100) statt zweiter y-Achse; Schlüsselereignisse als Markierung in allen Zeitreihen; Statusfarben nur mit Symbol und Text.
@@ -201,19 +201,19 @@ Pro Szenario eine globale Angebotskurve (Regionen nach Kosten sortiert, Breite =
 | 4 | Prognose (optional) | Baseline vs. ML |
 | 5 | Docker, Airflow, Feinschliff README | produktionsnahes Portfolio |
 
-## 10. Stand & nächste Schritte (Stand 2026-11-12)
+## 10. Stand & nächste Schritte (Stand 2026-11-13)
 
 ### Stand
-- **Phase 1 (Daten):** fertig. Handelsdaten aus **CEPII BACI** (ADR-009): 68–70 Mt Welthandel pro Jahr, alle Länder, Aufteilung nach PE-Typen. Eigener Comtrade-Abgleich bleibt als Gegenprobe (`pipeline comtrade`); er liegt bei etwa der Hälfte der Relationen innerhalb ±10 % von BACI.
+- **Phase 1 (Daten):** fertig. Handelsdaten aus **CEPII BACI** (ADR-009): 68–70 Mt Welthandel pro Jahr, alle Länder, Aufteilung nach PE-Typen. Eigener Comtrade-Abgleich bleibt als Gegenprobe (`ptf comtrade`); er liegt bei etwa der Hälfte der Relationen innerhalb ±10 % von BACI.
 - **Phase 2 (LP):** gerechnet mit BACI für 2023 (`docs/model_results.md`): erklärt 42 % des interregionalen Handels (44 Mt), Korrelation 0,57; Randlösung (Europa produziert 0 t). Kostenannahmen sind die schwächste Stelle.
-- **Dashboard (Teil von Phase 3):** fünf Tabs – Overview, Chokepoints, Ports, Trade flows, Energy & freight (7a, 7b). Start: `uv run python -m ptf.pipeline portwatch`, `... market`, dann `uv run python -m ptf.app`.
-- **Länderhandel nach Ladungsart** (PortWatch, ~560.000 Zeilen) ist abgeschaltet (`download_country_trade: false` in `config/monitor.yaml`); erster Abruf 20–25 min.
+- **Dashboard (Teil von Phase 3):** fünf Tabs – Overview, Chokepoints, Ports, Trade flows, Energy & freight (7a, 7b). Start: `uv run ptf portwatch`, `... market`, dann `uv run python -m ptf.app`.
+- **Länderhandel nach Ladungsart** (PortWatch, ~560.000 Zeilen) ist abgeschaltet (`download_country_trade: false` in `config/shipping.yaml`); erster Abruf 20–25 min.
 
 ### Nächste Schritte (Vorschlag, in dieser Reihenfolge)
 Architektur zuerst (ADR-010), jeder Schritt als eigene Spec in `specs/` und eigener PR:
 1. ~~Arbeitsweise und Qualitätsschranken~~ (Spec 001, erledigt).
 2. ~~**Datenmodell und Transformationen**~~ (ADR-011: dbt auf DuckDB): Handelsdaten (Spec 002), PortWatch und Marktdaten, App liest aus den Marts (Spec 003) – erledigt.
-3. **Paketstruktur nach Fachgebiet** (`trade`, `shipping`, `markets`, `model`, `app`), schlanke CLI, Comtrade nach `legacy`.
+3. ~~**Paketstruktur nach Fachgebiet**~~ (ADR-012, Spec 004): `core`, `trade`, `shipping`, `markets`, `model`, `legacy`, `app`; CLI `uv run ptf <schritt>`; Regeln per import-linter – erledigt.
 4. **Docker:** Image (mehrstufig, uv), compose für die App.
 5. **Airflow:** DAGs (Schifffahrt/Märkte täglich, Handel jährlich, Modell danach); App nur noch lesend.
 6. **Betrieb:** Laufprotokoll, Frischeprüfungen, Prüfsummen.

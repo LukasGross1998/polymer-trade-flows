@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from ptf.clean.comtrade import TRADE_REPORT_COLUMNS, build_country_lookup, to_trade_reports
+from ptf.legacy.comtrade.clean import TRADE_REPORT_COLUMNS, build_country_lookup, to_trade_reports
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

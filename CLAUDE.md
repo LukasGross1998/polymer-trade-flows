@@ -40,6 +40,7 @@ Die fachliche Spezifikation steht in `SPEC.md`. **Lies sie vor jeder neuen Phase
 
 - `uv run ruff check .` und `uv run ruff format --check .` sauber
 - `uv run mypy` ohne Fehler (strict, ADR-010)
+- `uv run lint-imports` hält die Paketregeln ein (ADR-012)
 - `uv run pytest --cov=ptf --cov-fail-under=85` grün; neue Logik hat eigene Tests mit nachrechenbaren Werten
 - neue oder geänderte Tabellen stehen in `docs/data_dictionary.md` (Dateien) bzw. in den dbt-YAML-Dateien (Warehouse); der Datenkatalog-Test prüft beides
 - Warehouse-Modelle haben dbt-Tests (Schlüssel, Beziehungen, Wertebereiche)
@@ -68,9 +69,11 @@ polymer-trade-flows/
 ├── .env.example
 ├── .gitignore
 ├── .pre-commit-config.yaml
-├── config/
-│   ├── regions.yaml          # Länder → Modellregionen
-│   └── scenarios.yaml        # Szenario-Definitionen
+├── config/                   # eine Datei je Fachgebiet (ADR-012)
+│   ├── regions.yaml          # Länder → Modellregionen (geteilt, core)
+│   ├── trade.yaml, shipping.yaml, markets.yaml, model.yaml
+│   ├── comtrade.yaml         # legacy
+│   └── scenarios.yaml        # Szenario-Definitionen (geplant)
 ├── data/                     # NICHT in Git (außer kleine Seed-/Fixture-Dateien)
 │   ├── raw/
 │   ├── clean/
@@ -79,14 +82,18 @@ polymer-trade-flows/
 │   ├── decisions.md          # Architecture Decision Records, kurz
 │   └── methodology.md        # Modellannahmen und Grenzen
 ├── notebooks/                # nur Exploration, keine Logik
-├── src/ptf/
-│   ├── config.py
-│   ├── ingest/               # Comtrade, Eurostat, Distanzen, Ölpreis
-│   ├── clean/                # Bereinigung, Spiegelstatistik, Imputation
-│   ├── model/                # LP, Kalibrierung, Kostenkurven
-│   ├── scenarios/
+├── dbt/                      # SQL-Modelle, nach Fachgebiet (ADR-011)
+├── src/ptf/                  # nach Fachgebiet geschnitten (ADR-012)
+│   ├── core/                 # Settings, HTTP, Warehouse, Regionen – kennt kein Fachgebiet
+│   ├── trade/                # BACI, Referenztabellen, Datenqualitäts-Report
+│   ├── shipping/             # PortWatch, Monitor-Kennzahlen, Hafennetz
+│   ├── markets/              # FRED, GSCPI, Indikatoren
+│   ├── model/                # Distanzen, LP, später Kalibrierung, Kostenkurven
+│   ├── scenarios/            # geplant
 │   ├── forecast/             # optional, Phase 4
-│   └── app/                  # Dash
+│   ├── legacy/comtrade/      # abgelöste Comtrade-Gegenprobe
+│   ├── app/                  # Dash
+│   └── cli.py                # `uv run ptf <schritt>`
 ├── tests/
 │   └── fixtures/
 ├── dags/                     # Airflow, Phase 5
@@ -97,6 +104,7 @@ polymer-trade-flows/
 
 - Code, Bezeichner, Docstrings und Commit-Messages auf **Englisch**. Erklärungen an mich auf **Deutsch**.
 - Geschäftslogik gehört in `src/ptf/`, nicht in Notebooks oder die Dash-App.
+- Fachgebiete importieren nur `core`, nie einander; Daten eines anderen Fachgebiets kommen aus dem Warehouse (`uv run lint-imports` prüft das, ADR-012). Jedes Fachgebiet hat `config.py` und `steps.py`.
 - Jede Modellannahme (Frachtkostensatz, Kapazitäten, Regionenzuordnung) steht in Config oder Datei, nicht hart im Code, und ist in `docs/methodology.md` dokumentiert.
 - Wenn Daten fehlen oder nur als Annahme vorliegen: klar kennzeichnen (`source: assumption`), nicht stillschweigend erfinden.
 - Rohdaten werden nie überschrieben; Transformationen sind reproduzierbar.
@@ -113,6 +121,7 @@ uv run mypy                  # Typprüfung (strict)
 uv run pytest -m "not slow"  # schnelle Tests ohne echte Seerouten
 uv run pytest --cov=ptf      # Tests mit Abdeckung (CI verlangt 85 %)
 uv run python -m ptf.app     # Dash-App starten (ab Phase 3)
-uv run python -m ptf.pipeline clean           # BACI entpacken + dbt build (Warehouse)
+uv run ptf clean             # BACI entpacken + dbt build (Warehouse)
+uv run lint-imports          # Abhängigkeitsregeln der Pakete (ADR-012)
 cd dbt && uv run dbt build --profiles-dir .   # nur dbt, aus dem Ordner dbt/
 ```

@@ -10,8 +10,8 @@ lives in `config/` and is explained here. Generated figures and tables: [data_qu
 
 | Item | Choice | Where |
 |---|---|---|
-| Product | HS 3901, polyethylene in primary forms, split into five HS6 products (LDPE/LLDPE 390110, HDPE 390120, EVA 390130, ethylene-alpha-olefin copolymers 390140, other 390190) | `config/pipeline.yaml` |
-| Years | 2019–2024, annual | `config/pipeline.yaml` |
+| Product | HS 3901, polyethylene in primary forms, split into five HS6 products (LDPE/LLDPE 390110, HDPE 390120, EVA 390130, ethylene-alpha-olefin copolymers 390140, other 390190) | `config/trade.yaml` |
+| Years | 2019–2024, annual | `config/trade.yaml` |
 | Countries | all ~200 countries in BACI, mapped to 10 regions (section 2) | `config/regions.yaml` |
 
 ### 1.2 Sources
@@ -56,7 +56,7 @@ Since ADR-011 the transformations are SQL models in dbt (`dbt/models`), built in
 
 Phase 1 downloaded Comtrade reports directly and reconciled them ourselves. The public
 endpoint's daily quota stopped the download at 17 of 30 reporters (ADR-003, ADR-009). The
-rules below are kept in the code (`pipeline comtrade`) and the result is compared with BACI
+rules below are kept in the code (`ptf comtrade`) and the result is compared with BACI
 in the data-quality report.
 
 #### Comtrade raw -> clean
@@ -116,7 +116,7 @@ reporting country's region in that year and flow, with the global median as fall
 **Rule 4 – flagging.** Imputed rows have `is_imputed=True` and
 `imputation_method="value_div_regional_unit_value"`; `basis` says which rule was used.
 
-**Rule 5 – report.** `uv run python -m ptf.pipeline report` writes
+**Rule 5 – report.** `uv run ptf report` writes
 [data_quality.md](data_quality.md) and `docs/figures/dq_*.png`: coverage per reporter and
 year, mirror gaps, source of the agreed quantity, outliers and an inter-regional trade matrix.
 
@@ -297,7 +297,7 @@ Since spec 003 the cleaning runs in dbt (`dbt/models/*/shipping`): the raw downl
 read folder by folder and the most recently fetched value per day and location is kept with
 a window function (`qualify row_number() ... = 1`); the app reads the marts.
 
-### 4.2 Metrics (`src/ptf/monitor/metrics.py`, parameters in `config/monitor.yaml`)
+### 4.2 Metrics (`src/ptf/shipping/metrics.py`, parameters in `config/shipping.yaml`)
 
 - **7-day average** per chokepoint and vessel type: daily counts are noisy (weekdays,
   convoys).
@@ -333,19 +333,19 @@ markup for Gulf producers.
 ## 5. Dashboard data: ports, events, energy and freight
 
 The app (`uv run python -m ptf.app`) has four tabs: Overview, Chokepoints (section 4),
-Ports and Energy & freight. All data are free and need no key; `pipeline portwatch` and
-`pipeline market` (or the "Update data" button) refresh them.
+Ports and Energy & freight. All data are free and need no key; `ptf portwatch` and
+`ptf market` (or the "Update data" button) refresh them.
 
 ### 5.1 Ports and disruption events (IMF PortWatch)
 
 - **Port activity** (`Daily_Ports_Data`): port calls by vessel type and *estimated* import
   and export volumes (t/day) per port, derived by PortWatch from vessel draught and capacity
-  (not customs statistics). Only the eleven ports in `config/monitor.yaml` are downloaded
+  (not customs statistics). Only the eleven ports in `config/shipping.yaml` are downloaded
   (Houston, Santos, Antwerp, Rotterdam, Jubail, Yanbu, Jebel Ali, Shanghai, Ningbo,
   Singapore, Busan): export hubs of the low-cost producers, the European polymer hubs and the
   large Asian import ports. Ports added later get their full history on the next update.
 - The ports use **the same metrics as the chokepoints** (7-day average, normal = same
-  calendar week 2019–2023, flag below 70 %); `ptf.monitor.metrics` works on generic
+  calendar week 2019–2023, flag below 70 %); `ptf.shipping.metrics` works on generic
   "locations".
 - **Disruption events** (`portwatch_disruptions_database`, ~130 events): cyclones,
   earthquakes, floods, droughts, wildfires and "other" events such as conflicts, with alert
@@ -353,7 +353,7 @@ Ports and Energy & freight. All data are free and need no key; `pipeline portwat
   orange and red alerts only.
 
 FRED series are read from the newest CSV per series and joined with their metadata from
-`config/market_data.yaml` in dbt (`dbt/models/*/markets`); the GSCPI spreadsheet (old .xls)
+`config/markets.yaml` in dbt (`dbt/models/*/markets`); the GSCPI spreadsheet (old .xls)
 is parsed by Python into a landing file first.
 
 ### 5.2 Energy, freight and supply-chain indicators
@@ -374,7 +374,7 @@ is parsed by Python into a landing file first.
   series with a long history and is labelled as a proxy.
 - Series with different units are compared **indexed to 100 at the start of the selected
   period**, never on a second y-axis.
-- Two **key events** from `config/market_data.yaml` (Red Sea attacks from 19 Nov 2023,
+- Two **key events** from `config/markets.yaml` (Red Sea attacks from 19 Nov 2023,
   Hormuz disruption from 1 Mar 2026) are drawn as dotted lines in all time series.
 
 ### 5.3 What the data show (as of early November 2026)

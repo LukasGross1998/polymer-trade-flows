@@ -2,7 +2,7 @@
 
 The app only reads the DuckDB warehouse (ADR-011) and calls pipeline functions; it computes
 nothing itself. Tables that do not exist yet (e.g. market data before the first
-`pipeline market` run, or the optional country trade) are None, and the affected tab shows
+`ptf market` run, or the optional country trade) are None, and the affected tab shows
 a hint instead of failing.
 """
 
@@ -10,10 +10,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from ptf.config import Settings
-from ptf.market_config import MarketConfig, load_market_config
-from ptf.monitor.config import MonitorConfig, load_monitor_config
-from ptf.warehouse import read_tables
+from ptf.core.settings import Settings
+from ptf.core.warehouse import read_tables
+from ptf.markets import steps as markets_steps
+from ptf.markets.config import MarketConfig, load_market_config
+from ptf.shipping import steps as shipping_steps
+from ptf.shipping.config import MonitorConfig, load_monitor_config
 
 
 @dataclass
@@ -67,8 +69,8 @@ APP_TABLES = {
 def load_app_data(settings: Settings) -> AppData:
     tables = read_tables(settings, APP_TABLES)
     return AppData(
-        monitor_config=load_monitor_config(settings.config_dir / "monitor.yaml"),
-        market_config=load_market_config(settings.config_dir / "market_data.yaml"),
+        monitor_config=load_monitor_config(settings.config_dir / "shipping.yaml"),
+        market_config=load_market_config(settings.config_dir / "markets.yaml"),
         transits=require(tables["transits"], "mart_chokepoint_transits"),
         chokepoints=require(tables["chokepoints"], "dim_chokepoint"),
         port_activity=tables["port_activity"],
@@ -92,10 +94,8 @@ class AppState:
 
     def refresh(self) -> int:
         """Update PortWatch and market data; returns the number of new chokepoint days."""
-        from ptf.pipeline import run_market, run_portwatch  # avoid an import cycle
-
         before = self.data.latest_date
-        run_portwatch(self.settings)
-        run_market(self.settings)
+        shipping_steps.refresh(self.settings)
+        markets_steps.refresh(self.settings)
         self.data = load_app_data(self.settings)
         return int((self.data.latest_date - before).days)

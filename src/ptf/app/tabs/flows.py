@@ -9,8 +9,8 @@ from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState, require
-from ptf.monitor.flows import cargo_mix, country_ranking, port_options, top_links
-from ptf.monitor.vocabulary import CARGO_TYPES
+from ptf.shipping.flows import cargo_mix, country_ranking, port_options, top_links
+from ptf.shipping.vocabulary import CARGO_TYPES
 
 ALL_PORTS = "__all__"
 DEFAULT_COUNTRY = "SAU"  # Saudi Arabia: the Hormuz disruption is visible in its tanker exports
@@ -26,13 +26,13 @@ CARGO_SHORT = {
 COUNTRY_TRADE_HINT = (
     "Trade by cargo type: no data yet. The country trade dataset (~560,000 rows) takes 20-25 "
     "minutes to download the first time. To enable it, set `download_country_trade: true` in "
-    "config/monitor.yaml and run `uv run python -m ptf.pipeline portwatch`."
+    "config/shipping.yaml and run `uv run ptf portwatch`."
 )
 
 
 def layout(data: AppData) -> html.Div:
     if data.port_links is None:
-        return charts.no_data("No flow data yet: run `uv run python -m ptf.pipeline portwatch`.")
+        return charts.no_data("No flow data yet: run `uv run ptf portwatch`.")
     trade = charts.no_data(COUNTRY_TRADE_HINT)
     if data.country_trade is not None:
         trade = _trade_section(data)

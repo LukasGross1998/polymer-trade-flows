@@ -15,9 +15,10 @@ from helpers import (
     write_synthetic_distances,
 )
 
-from ptf.ingest.distances import build_distance_table
-from ptf.pipeline import clean_comtrade, run_model
-from ptf.warehouse import read_table
+from ptf.core.warehouse import read_table
+from ptf.legacy.comtrade import steps as comtrade_steps
+from ptf.model import steps as model_steps
+from ptf.model.distances import build_distance_table
 
 DICTIONARY = REPO_ROOT / "docs" / "data_dictionary.md"
 DBT_MARTS_DIR = REPO_ROOT / "dbt" / "models" / "marts"
@@ -51,7 +52,7 @@ def test_warehouse_marts_match_dbt_docs(warehouse_setup: PipelineSetup, model: s
 @pytest.mark.parametrize("table", ["trade_reports", "mirror", "comtrade_flows"])
 def test_comtrade_check_tables_match_dictionary(pipeline_setup: PipelineSetup, table: str) -> None:
     settings = pipeline_setup.settings
-    clean_comtrade(settings, pipeline_setup.regions, pipeline_setup.config)
+    comtrade_steps.clean(settings)
 
     written = pd.read_parquet(settings.clean_dir / f"{table}.parquet")
 
@@ -74,7 +75,7 @@ def test_sea_distances_match_dictionary(pipeline_setup: PipelineSetup) -> None:
 def test_model_tables_match_dictionary(warehouse_setup: PipelineSetup, table: str) -> None:
     settings = warehouse_setup.settings
     write_synthetic_distances(settings.raw_dir, warehouse_setup.regions)
-    run_model(settings)
+    model_steps.run(settings)
 
     written = pd.read_parquet(settings.model_dir / "2023" / f"{table}.parquet")
 

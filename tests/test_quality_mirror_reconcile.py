@@ -5,10 +5,10 @@ import math
 import pandas as pd
 import pytest
 
-from ptf.clean.mirror import build_mirror_table, qty_gap_pct
-from ptf.clean.quality import add_unit_values, flag_unit_value_outliers
-from ptf.clean.reconcile import IMPUTATION_METHOD, reconcile_flows, regional_unit_values
-from ptf.regions import RegionConfig
+from ptf.core.regions import RegionConfig
+from ptf.legacy.comtrade.mirror import build_mirror_table, qty_gap_pct
+from ptf.legacy.comtrade.quality import add_unit_values, flag_unit_value_outliers
+from ptf.legacy.comtrade.reconcile import IMPUTATION_METHOD, reconcile_flows, regional_unit_values
 
 REGIONS = RegionConfig.model_validate(
     {

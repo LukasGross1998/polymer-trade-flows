@@ -14,13 +14,16 @@ from typing import Any
 import pandas as pd
 import requests
 
-from ptf import warehouse
-from ptf.config import Settings
-from ptf.ingest.baci import baci_zip_path, write_landing
-from ptf.market_config import load_market_config
-from ptf.monitor.config import load_monitor_config
-from ptf.pipeline_config import PipelineConfig
-from ptf.regions import RegionConfig
+from ptf.core import warehouse
+from ptf.core.regions import RegionConfig
+from ptf.core.settings import Settings
+from ptf.markets.config import load_market_config
+from ptf.markets.reference import write_market_reference
+from ptf.shipping.config import load_monitor_config
+from ptf.shipping.reference import write_port_reference
+from ptf.trade.baci import baci_zip_path, write_landing
+from ptf.trade.config import load_trade_config
+from ptf.trade.reference import write_reference_tables
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -30,7 +33,6 @@ FIXTURES = Path(__file__).parent / "fixtures"
 class PipelineSetup:
     settings: Settings
     regions: RegionConfig
-    config: PipelineConfig
 
 
 def write_raw_layer(raw_dir: Path) -> None:
@@ -70,7 +72,7 @@ def write_fred_csv(raw_dir: Path, series_id: str, rows: list[tuple[str, float]])
 
 
 def write_portwatch_raw(raw_dir: Path) -> None:
-    """PortWatch downloads as written by ptf.ingest.portwatch (one Parquet per download).
+    """PortWatch downloads as written by ptf.shipping.portwatch (one Parquet per download).
 
     Chokepoints: the real 18-row sample (Suez, Bab el-Mandeb, Cape, 2026-11-03..08) plus a
     later download that revises Suez on 2026-11-08 to 99 transits. Ports: the configured
@@ -173,18 +175,16 @@ def write_portwatch_raw(raw_dir: Path) -> None:
 def build_warehouse(setup: "PipelineSetup") -> None:
     """Landing files, reference tables and a full `dbt build`, offline (no downloads)."""
     settings, raw = setup.settings, setup.settings.raw_dir
-    baci_config = setup.config.baci
+    baci_config = load_trade_config(settings.config_dir / "trade.yaml").baci
     write_landing(
         baci_zip_path(raw, baci_config.hs_revision, baci_config.version),
         baci_config.years,
         baci_config.hs_prefix,
         raw,
     )
-    warehouse.write_reference_tables(setup.regions, raw)
-    warehouse.write_port_reference(load_monitor_config(settings.config_dir / "monitor.yaml"), raw)
-    warehouse.write_market_reference(
-        load_market_config(settings.config_dir / "market_data.yaml"), raw
-    )
+    write_reference_tables(setup.regions, raw)
+    write_port_reference(load_monitor_config(settings.config_dir / "shipping.yaml"), raw)
+    write_market_reference(load_market_config(settings.config_dir / "markets.yaml"), raw)
     gscpi = raw / "gscpi"
     gscpi.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(

@@ -8,7 +8,7 @@ import pytest
 import requests
 from helpers import FakeResponse, FakeSession, no_sleep
 
-from ptf.ingest import comtrade
+from ptf.legacy.comtrade import ingest as comtrade
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

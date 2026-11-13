@@ -7,9 +7,9 @@ from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState, require
-from ptf.monitor.metrics import latest_status, port_table
-from ptf.monitor.overview import active_events
-from ptf.monitor.vocabulary import PORT_METRICS
+from ptf.shipping.metrics import latest_status, port_table
+from ptf.shipping.overview import active_events
+from ptf.shipping.vocabulary import PORT_METRICS
 
 # Volumes are tonnes per day; counts are vessels per day.
 UNITS = {"import": "t per day", "export": "t per day"}
@@ -22,7 +22,7 @@ def _unit(metric: str) -> str:
 
 def layout(data: AppData) -> html.Div:
     if data.port_activity is None or data.ports is None:
-        return charts.no_data("No port data yet: run `uv run python -m ptf.pipeline portwatch`.")
+        return charts.no_data("No port data yet: run `uv run ptf portwatch`.")
     options = [{"label": f"{p.name} ({p.role})", "value": p.id} for p in data.monitor_config.ports]
     controls = html.Div(
         [

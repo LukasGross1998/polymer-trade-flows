@@ -1,39 +1,45 @@
-"""The pipeline command line dispatches to the right step functions."""
+"""The command line maps step names to the domains' step functions."""
 
 import pytest
 
-from ptf import pipeline
+from ptf import cli
+from ptf.legacy.comtrade import steps as comtrade_steps
+from ptf.markets import steps as markets_steps
+from ptf.model import steps as model_steps
+from ptf.shipping import steps as shipping_steps
+from ptf.trade import steps as trade_steps
 
-STEPS = ["run_ingest", "run_clean", "run_report", "run_model", "run_portwatch", "run_market"]
+ALL_IN_ORDER = [
+    trade_steps.ingest,
+    model_steps.ingest,
+    trade_steps.build,
+    trade_steps.report,
+    model_steps.run,
+    shipping_steps.refresh,
+    markets_steps.refresh,
+]
 
 
-@pytest.fixture
-def calls(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """Replace every step function by a stub that records its name."""
+def test_all_runs_every_step_in_order_but_not_the_comtrade_check() -> None:
+    assert cli.steps_for("all") == ALL_IN_ORDER
+    assert comtrade_steps.run not in cli.steps_for("all")
+
+
+def test_single_steps() -> None:
+    assert cli.steps_for("model") == [model_steps.run]
+    assert cli.steps_for("ingest") == [trade_steps.ingest, model_steps.ingest]
+    assert cli.steps_for("comtrade") == [comtrade_steps.run]
+
+
+def test_main_runs_the_selected_steps_with_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     called: list[str] = []
-    for name in [*STEPS, "run_comtrade"]:
-        monkeypatch.setattr(pipeline, name, lambda *args, _n=name, **kwargs: called.append(_n))
-    return called
+    monkeypatch.setitem(cli.STEPS, "model", [lambda settings: called.append("model")])
 
+    cli.main(["model"])
 
-def test_single_step(calls: list[str]) -> None:
-    pipeline.main(["model"])
-
-    assert calls == ["run_model"]
-
-
-def test_all_runs_every_step_in_order_but_not_the_comtrade_check(calls: list[str]) -> None:
-    pipeline.main(["all"])
-
-    assert calls == STEPS
-
-
-def test_comtrade_check_only_on_request(calls: list[str]) -> None:
-    pipeline.main(["comtrade"])
-
-    assert calls == ["run_comtrade"]
+    assert called == ["model"]
 
 
 def test_unknown_step_is_rejected() -> None:
     with pytest.raises(SystemExit):
-        pipeline.main(["deploy"])
+        cli.main(["deploy"])

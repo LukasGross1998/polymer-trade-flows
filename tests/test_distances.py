@@ -1,7 +1,7 @@
 import pytest
 
-from ptf.ingest.distances import build_distance_table, port_distance_nm
-from ptf.regions import Port, RegionConfig
+from ptf.core.regions import Port, RegionConfig
+from ptf.model.distances import build_distance_table, port_distance_nm
 
 ROTTERDAM = Port(name="Rotterdam", lon=4.05, lat=51.95)
 SHANGHAI = Port(name="Shanghai", lon=121.8, lat=31.2)
