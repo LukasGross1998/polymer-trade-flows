@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 from helpers import PipelineSetup
 
-from ptf.warehouse import read_table
+from ptf.core.warehouse import read_table
 
 
 def table(setup: PipelineSetup, name: str) -> pd.DataFrame:

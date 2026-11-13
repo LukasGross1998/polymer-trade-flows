@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ptf.regions import RegionConfig, load_regions
+from ptf.core.regions import RegionConfig, load_regions
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 

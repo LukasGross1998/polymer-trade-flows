@@ -1,8 +1,8 @@
 import pytest
 from helpers import REPO_ROOT
 
+from ptf.core.regions import load_regions
 from ptf.model.config import FreightAssumption, load_model_config
-from ptf.regions import load_regions
 
 
 def test_project_model_config_covers_every_region() -> None:

@@ -6,7 +6,8 @@ import pytest
 import requests
 from helpers import FakeResponse, FakeSession
 
-from ptf.ingest import baci, gscpi
+from ptf.markets import gscpi
+from ptf.trade import baci
 
 
 class TruncatedResponse(FakeResponse):

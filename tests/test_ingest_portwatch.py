@@ -7,7 +7,7 @@ import pandas as pd
 from helpers import FakeSession, no_sleep
 from helpers import arcgis_page as page
 
-from ptf.ingest import portwatch
+from ptf.shipping import portwatch
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

@@ -5,9 +5,8 @@ from pathlib import Path
 import pytest
 from helpers import REPO_ROOT, PipelineSetup, build_warehouse, write_raw_layer
 
-from ptf.config import Settings
-from ptf.pipeline_config import load_pipeline_config
-from ptf.regions import load_regions
+from ptf.core.regions import load_regions
+from ptf.core.settings import Settings
 
 
 @pytest.fixture
@@ -23,7 +22,6 @@ def pipeline_setup(tmp_path: Path) -> PipelineSetup:
     return PipelineSetup(
         settings=settings,
         regions=load_regions(REPO_ROOT / "config" / "regions.yaml"),
-        config=load_pipeline_config(REPO_ROOT / "config" / "pipeline.yaml"),
     )
 
 
@@ -46,7 +44,6 @@ def warehouse_setup(tmp_path_factory: pytest.TempPathFactory) -> PipelineSetup:
     setup = PipelineSetup(
         settings=settings,
         regions=load_regions(REPO_ROOT / "config" / "regions.yaml"),
-        config=load_pipeline_config(REPO_ROOT / "config" / "pipeline.yaml"),
     )
     build_warehouse(setup)
     return setup

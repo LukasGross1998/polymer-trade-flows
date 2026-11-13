@@ -3,8 +3,8 @@
 import pandas as pd
 import pytest
 
-from ptf.market import indicators
-from ptf.monitor.overview import active_events, disrupted_count, furthest_below_normal
+from ptf.markets import indicators
+from ptf.shipping.overview import active_events, disrupted_count, furthest_below_normal
 
 
 def market(*rows: tuple[str, str, float]) -> pd.DataFrame:

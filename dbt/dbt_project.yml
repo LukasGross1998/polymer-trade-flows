@@ -1,5 +1,5 @@
 # dbt project: SQL transformations from the raw layer into the DuckDB warehouse (ADR-011).
-# Run through the pipeline (`uv run python -m ptf.pipeline clean`) or by hand from this
+# Run through the pipeline (`uv run ptf clean`) or by hand from this
 # folder: `uv run dbt build --profiles-dir .`
 name: ptf
 version: "0.4.0"
@@ -39,7 +39,7 @@ seeds:
     +tags: [trade]
 
 vars:
-  # Mirrors download_country_trade in config/monitor.yaml; the pipeline passes it.
+  # Mirrors download_country_trade in config/shipping.yaml; the pipeline passes it.
   country_trade_enabled: false
   # First day of the calendar dimension (the PortWatch data start on 2019-01-01).
   calendar_start: "2019-01-01"

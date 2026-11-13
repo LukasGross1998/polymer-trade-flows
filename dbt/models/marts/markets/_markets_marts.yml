@@ -2,7 +2,7 @@ version: 2
 
 models:
   - name: dim_market_series
-    description: Market series from config/market_data.yaml plus the NY Fed GSCPI.
+    description: Market series from config/markets.yaml plus the NY Fed GSCPI.
     columns:
       - name: series_id
         description: FRED id (e.g. DCOILBRENTEU) or GSCPI.

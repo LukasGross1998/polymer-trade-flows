@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 import ptf
-from ptf.config import Settings
+from ptf.core.settings import Settings
 
 
 def test_package_has_version() -> None:

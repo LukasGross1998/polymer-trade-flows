@@ -27,3 +27,11 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      # Package dependency rules (ADR-012): domains independent, core at the bottom.
+      - id: import-linter
+        name: import-linter
+        entry: uv run lint-imports
+        language: system
+        types: [python]
+        pass_filenames: false

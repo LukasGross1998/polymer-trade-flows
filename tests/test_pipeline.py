@@ -11,8 +11,9 @@ import pandas as pd
 import pytest
 from helpers import PipelineSetup
 
-from ptf.pipeline import clean_comtrade, run_clean, run_report
-from ptf.warehouse import read_table
+from ptf.core.warehouse import read_table
+from ptf.legacy.comtrade import steps as comtrade_steps
+from ptf.trade import steps as trade_steps
 
 
 def flow(flows: pd.DataFrame, exporter: str, importer: str) -> pd.Series:
@@ -57,16 +58,15 @@ def test_region_mart_feeds_the_model(warehouse_setup: PipelineSetup) -> None:
 
 def test_report_without_and_with_comtrade_check(pipeline_setup: PipelineSetup) -> None:
     settings = pipeline_setup.settings
-    regions, config = pipeline_setup.regions, pipeline_setup.config
-    run_clean(settings, regions, config)
+    trade_steps.build(settings)
 
-    run_report(settings)
+    trade_steps.report(settings)
     report = (settings.docs_dir / "data_quality.md").read_text()
     assert "Traded tonnes by product" in report
     assert "BACI vs. our own Comtrade" not in report  # no Comtrade data yet
 
-    clean_comtrade(settings, regions, config)
-    run_report(settings)
+    comtrade_steps.clean(settings)
+    trade_steps.report(settings)
     report = (settings.docs_dir / "data_quality.md").read_text()
     assert "BACI vs. our own Comtrade" in report
     assert (settings.docs_dir / "figures" / "dq_baci_vs_comtrade.png").exists()

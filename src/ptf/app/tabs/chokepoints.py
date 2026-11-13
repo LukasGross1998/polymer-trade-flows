@@ -9,9 +9,9 @@ from plotly.subplots import make_subplots
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
-from ptf.market_config import KeyEvent
-from ptf.monitor.metrics import diversion_ratio, latest_status, monitor_table
-from ptf.monitor.overview import active_events
+from ptf.markets.config import KeyEvent
+from ptf.shipping.metrics import diversion_ratio, latest_status, monitor_table
+from ptf.shipping.overview import active_events
 
 VESSEL_LABELS = {
     "total": "all vessels",

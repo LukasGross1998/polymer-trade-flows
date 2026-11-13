@@ -1,0 +1,15 @@
+# Own UN Comtrade download (ptf.legacy.comtrade), superseded by BACI (ADR-009). Kept for the
+# comparison in the data-quality report; run only on request with `ptf comtrade`.
+# Rationale: docs/methodology.md.
+
+comtrade:
+  hs_code: "3901"          # polyethylene in primary forms (incl. EVA 390130, see SPEC 1)
+  years: [2019, 2020, 2021, 2022, 2023, 2024]
+  # The public endpoint throttles to roughly one request per second (HTTP 429 otherwise).
+  request_pause_seconds: 1.5
+  max_retries: 5
+
+cleaning:
+  # Unit-value outliers: |log(unit value) - median| > threshold * robust standard deviation
+  # (MAD scaled by 1.4826), computed per year and flow.
+  outlier_mad_threshold: 3.0

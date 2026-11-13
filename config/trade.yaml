@@ -1,0 +1,9 @@
+# Trade domain (ptf.trade). Rationale: docs/methodology.md.
+
+# Trade data source (ADR-009): CEPII BACI, reconciled bilateral trade for ~200 countries.
+baci:
+  version: "202601"        # released January 2026, data up to 2024
+  hs_revision: HS17        # HS 2017 nomenclature, years 2017-2024 in this version
+  url: https://www.cepii.fr/DATA_DOWNLOAD/baci/data/BACI_{hs_revision}_V{version}.zip
+  hs_prefix: "3901"        # polyethylene in primary forms: 390110, 390120, 390130, 390140, 390190
+  years: [2019, 2020, 2021, 2022, 2023, 2024]

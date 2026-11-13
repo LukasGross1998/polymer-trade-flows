@@ -33,9 +33,9 @@ A Dash app with five tabs on what moves polyethylene trade right now:
 ![Trade flows](docs/figures/dashboard_flows.jpg)
 
 ```bash
-uv run python -m ptf.pipeline portwatch   # chokepoints, ports, events (incremental)
-uv run python -m ptf.pipeline market      # FRED series and GSCPI
-uv run python -m ptf.app                  # open http://127.0.0.1:8050
+uv run ptf portwatch        # chokepoints, ports, events (incremental)
+uv run ptf market           # FRED series and GSCPI
+uv run python -m ptf.app    # open http://127.0.0.1:8050
 ```
 
 ## Approach
@@ -47,6 +47,27 @@ uv run python -m ptf.app                  # open http://127.0.0.1:8050
 
 The full specification is in [SPEC.md](SPEC.md); design decisions are in
 [docs/decisions.md](docs/decisions.md).
+
+## Code structure
+
+The package is organised by domain (ADR-012); each domain brings its downloads, its
+configuration (`config/<domain>.yaml`), its logic and its pipeline steps (`steps.py`). The dbt
+project uses the same domains (`dbt/models/*/{trade,shipping,markets}`).
+
+```
+src/ptf/
+├── core/       settings, HTTP retries, DuckDB warehouse (dbt runs, reading marts), regions
+├── trade/      CEPII BACI download and landing, region reference tables, data-quality report
+├── shipping/   IMF PortWatch download, monitor metrics, port network, overview
+├── markets/    FRED and GSCPI downloads, market indicators
+├── model/      sea distances, transport LP, comparison with observed trade, report
+├── legacy/     superseded own Comtrade download and reconciliation (check only)
+├── app/        Dash app: reads the warehouse marts, calls domain functions
+└── cli.py      `uv run ptf <step>`: step names -> the domains' step functions
+```
+
+Domains do not import each other: they share data through the warehouse. `uv run
+lint-imports` checks these rules in CI and pre-commit.
 
 ## Tech stack
 
@@ -71,17 +92,17 @@ uv run ruff format .             # format
 ### Data pipeline
 
 ```bash
-uv run python -m ptf.pipeline ingest   # distances, Brent, BACI zip (~800 MB, downloaded once)
-uv run python -m ptf.pipeline clean    # BACI landing + dbt build -> data/warehouse.duckdb
-uv run python -m ptf.pipeline report   # docs/data_quality.md + docs/figures
-uv run python -m ptf.pipeline model    # transport LP -> docs/model_results.md
-uv run python -m ptf.pipeline portwatch  # chokepoints, ports and events for the app
-uv run python -m ptf.pipeline market   # energy, freight and supply-chain series for the app
-uv run python -m ptf.pipeline all      # all three steps
+uv run ptf ingest      # BACI zip (~800 MB, downloaded once) and sea distances
+uv run ptf clean       # BACI landing + dbt build -> data/warehouse.duckdb
+uv run ptf report      # docs/data_quality.md + docs/figures
+uv run ptf model       # transport LP -> docs/model_results.md
+uv run ptf portwatch   # chokepoints, ports and events for the app
+uv run ptf market      # energy, freight and supply-chain series for the app
+uv run ptf all         # all of the above, in this order
 ```
 
 Trade data come from CEPII BACI (ADR-009). The own Comtrade download of phase 1 is kept as a
-check (`pipeline comtrade`, limited by the public API's daily quota); the data-quality report
+check (`ptf comtrade`, limited by the public API's daily quota); the data-quality report
 compares it with BACI.
 
 Results so far: [data-quality report](docs/data_quality.md) ·

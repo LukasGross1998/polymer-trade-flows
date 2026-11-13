@@ -6,8 +6,8 @@ from dash import Dash, Input, Output, html
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState, require
-from ptf.market import indicators
-from ptf.market_config import KeyEvent
+from ptf.markets import indicators
+from ptf.markets.config import KeyEvent
 
 INDEXED_GROUPS = {
     "freight_polymers": "Freight and polymer prices (US producer price indices)",
@@ -17,7 +17,7 @@ INDEXED_GROUPS = {
 
 def layout(data: AppData) -> html.Div:
     if data.market is None:
-        return charts.no_data("No market data yet: run `uv run python -m ptf.pipeline market`.")
+        return charts.no_data("No market data yet: run `uv run ptf market`.")
     card = {**style.CARD, "flex": "1", "minWidth": "420px"}
     return html.Div(
         [

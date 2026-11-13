@@ -12,7 +12,7 @@ models:
       - name: lon
 
   - name: dim_port
-    description: Ports monitored in the app (config/monitor.yaml) with PortWatch location data.
+    description: Ports monitored in the app (config/shipping.yaml) with PortWatch location data.
     columns:
       - name: port_id
         data_tests: [unique, not_null]

@@ -1,7 +1,7 @@
 version: 2
 
-# Raw layer files written by Python (ptf.ingest.baci.write_landing,
-# ptf.warehouse.write_reference_tables). PTF_RAW_DIR is set by ptf.warehouse.run_dbt.
+# Raw layer files written by Python (ptf.trade.baci.write_landing,
+# ptf.trade.reference.write_reference_tables). PTF_RAW_DIR is set by ptf.core.warehouse.run_dbt.
 sources:
   - name: baci
     description: CEPII BACI V202601 (HS 2017), polyethylene flows and code lists, unpacked from the zip.
@@ -24,14 +24,14 @@ sources:
       - name: country_region
       - name: country_aliases
       - name: market_series
-        description: Metadata of the market series (config/market_data.yaml, plus GSCPI).
+        description: Metadata of the market series (config/markets.yaml, plus GSCPI).
       - name: ports
-        description: Ports configured for the monitor (config/monitor.yaml).
+        description: Ports configured for the monitor (config/shipping.yaml).
 
   # IMF PortWatch: one Parquet file per download and folder; dbt reads all downloads of a
   # folder at once and keeps the most recent value in staging.
   - name: portwatch
-    description: IMF PortWatch downloads (ptf.ingest.portwatch), files never overwritten.
+    description: IMF PortWatch downloads (ptf.shipping.portwatch), files never overwritten.
     tables:
       - name: chokepoints_daily
         meta:
@@ -57,7 +57,7 @@ sources:
           external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/ports.parquet')"
 
   - name: fred
-    description: FRED series, one CSV per download in fred/{series_id}/ (ptf.ingest.fred).
+    description: FRED series, one CSV per download in fred/{series_id}/ (ptf.markets.fred).
     tables:
       - name: series_csv
         meta:
@@ -70,7 +70,7 @@ sources:
             nullstr = ['.', ''], all_varchar = true)
 
   - name: gscpi
-    description: NY Fed GSCPI, parsed from the .xls by ptf.ingest.gscpi.write_gscpi_landing.
+    description: NY Fed GSCPI, parsed from the .xls by ptf.markets.gscpi.write_gscpi_landing.
     tables:
       - name: landing_gscpi
         meta:

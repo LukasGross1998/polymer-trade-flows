@@ -5,5 +5,5 @@ select
     year(day)                    as year,
     month(day)                   as month,
     isoyear(day)                 as iso_year,
-    least(week(day), 52)         as iso_week  -- week 53 folded into 52, as in ptf.monitor
+    least(week(day), 52)         as iso_week  -- week 53 folded into 52, as in ptf.shipping.metrics
 from range(date '{{ var("calendar_start") }}', current_date + interval 1 day, interval 1 day) as t(day)

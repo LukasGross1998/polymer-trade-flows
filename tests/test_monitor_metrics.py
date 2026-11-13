@@ -4,8 +4,8 @@ import pandas as pd
 import pytest
 from helpers import REPO_ROOT
 
-from ptf.monitor.config import MonitorConfig, load_monitor_config
-from ptf.monitor.metrics import (
+from ptf.shipping.config import MonitorConfig, load_monitor_config
+from ptf.shipping.metrics import (
     add_rolling_mean,
     compare_to_baseline,
     diversion_ratio,
@@ -47,7 +47,7 @@ def transits(
 
 
 def test_project_monitor_config_is_valid() -> None:
-    config = load_monitor_config(REPO_ROOT / "config" / "monitor.yaml")
+    config = load_monitor_config(REPO_ROOT / "config" / "shipping.yaml")
 
     assert config.baseline_years == [2019, 2020, 2021, 2022, 2023]
     assert config.red_sea.red_sea_route == "chokepoint4"

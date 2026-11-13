@@ -2,8 +2,8 @@ import pandas as pd
 import pytest
 from helpers import PipelineSetup, write_synthetic_distances
 
+from ptf.model import steps as model_steps
 from ptf.model.compare import comparison_metrics, comparison_table
-from ptf.pipeline import run_model
 
 
 def test_comparison_keeps_only_routes_between_model_regions() -> None:
@@ -53,7 +53,7 @@ def test_model_step_reads_the_mart_and_writes_results(warehouse_setup: PipelineS
     write_synthetic_distances(settings.raw_dir, warehouse_setup.regions)
     codes = list(warehouse_setup.regions.regions)
 
-    run_model(settings)
+    model_steps.run(settings)
 
     regions = pd.read_parquet(settings.model_dir / "2023" / "lp_regions.parquet")
     assert set(regions["region"]) == set(codes)

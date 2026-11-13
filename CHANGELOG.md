@@ -6,6 +6,8 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Package dependency rules checked with import-linter in CI and pre-commit (ADR-012).
+- `uv run ptf <step>` as command (also `python -m ptf <step>`).
 - dbt project on DuckDB (`dbt/`, spec 002): staging models, star schema (`dim_country`,
   `dim_region`, `dim_product`, `fct_trade`) and marts for analysis and the LP, 34 dbt tests;
   `pipeline clean` now unpacks BACI and runs `dbt build`.
@@ -21,6 +23,12 @@ versioning (`0.x`: no stable interface yet).
   spec 002 for the first increment (trade data).
 
 ### Changed
+- Package organised by domain (spec 004, ADR-012): `core`, `trade`, `shipping`, `markets`,
+  `model`, `legacy`, `app`, with one `steps.py` per domain and a thin `ptf.cli` instead of
+  `ptf.pipeline`; the Comtrade check moved to `ptf.legacy.comtrade`.
+- One configuration file per domain: `config/pipeline.yaml` split into `trade.yaml` and
+  `comtrade.yaml`; `monitor.yaml` -> `shipping.yaml`, `market_data.yaml` -> `markets.yaml`.
+- `ptf ingest` no longer downloads Brent; `ptf market` already fetches the same FRED series.
 - The transport LP, the data-quality report and the Dash app read from the warehouse marts;
   `pipeline portwatch` / `market` run `dbt build --select tag:shipping` / `tag:markets`.
 - Shared test fakes moved to `tests/helpers.py`; optional app tables are checked with

@@ -23,6 +23,9 @@ dependencies = [
     "searoute>=1.6.0",
 ]
 
+[project.scripts]
+ptf = "ptf.cli:main"
+
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
@@ -32,6 +35,7 @@ module-name = "ptf"
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.16",
     "mypy>=2.4.1",
     "pandas-stubs>=3.1.0.261029",
     "pre-commit>=4.7.0",
@@ -71,3 +75,24 @@ warn_return_any = false
 [[tool.mypy.overrides]]
 module = ["pyomo.*", "searoute.*", "plotly.*", "highspy.*"]
 ignore_missing_imports = true
+
+# Dependency rules between the packages (ADR-012), checked with `uv run lint-imports`.
+[tool.importlinter]
+root_package = "ptf"
+
+[[tool.importlinter.contracts]]
+name = "Entry points on top, independent domains in the middle, core at the bottom"
+type = "layers"
+# A higher layer may import a lower one, never the other way round. Modules separated by
+# "|" are independent: they must not import each other (domains talk via the warehouse).
+layers = [
+    "ptf.cli | ptf.app",
+    "ptf.trade | ptf.shipping | ptf.markets | ptf.model | ptf.legacy",
+    "ptf.core",
+]
+
+[[tool.importlinter.contracts]]
+name = "Only the command line uses the superseded Comtrade code"
+type = "forbidden"
+source_modules = ["ptf.app"]
+forbidden_modules = ["ptf.legacy"]

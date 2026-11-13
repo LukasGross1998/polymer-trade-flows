@@ -27,5 +27,8 @@ jobs:
       - name: Type check (mypy, strict)
         run: uv run mypy
 
+      - name: Check package dependency rules (import-linter)
+        run: uv run lint-imports
+
       - name: Run tests with coverage (pytest, at least 85 %)
         run: uv run pytest --cov=ptf --cov-report=term-missing:skip-covered --cov-fail-under=85

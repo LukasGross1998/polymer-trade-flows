@@ -6,11 +6,12 @@ import pandas as pd
 import pytest
 from helpers import PipelineSetup
 
-from ptf import warehouse
 from ptf.app.__main__ import create_app
 from ptf.app.data import AppData, load_app_data
 from ptf.app.tabs import chokepoints, flows, markets, overview, ports
-from ptf.monitor.config import load_monitor_config
+from ptf.core import warehouse
+from ptf.shipping.config import load_monitor_config
+from ptf.shipping.reference import write_port_reference
 
 
 def layout_ids(setup: PipelineSetup) -> set[str]:
@@ -25,10 +26,10 @@ def data(warehouse_setup: PipelineSetup) -> AppData:
 
 @pytest.fixture
 def shipping_only(pipeline_setup: PipelineSetup) -> PipelineSetup:
-    """A warehouse with the shipping marts only (no `pipeline market` run yet)."""
+    """A warehouse with the shipping marts only (no `ptf market` run yet)."""
     settings = pipeline_setup.settings
-    config = load_monitor_config(settings.config_dir / "monitor.yaml")
-    warehouse.write_port_reference(config, settings.raw_dir)
+    config = load_monitor_config(settings.config_dir / "shipping.yaml")
+    write_port_reference(config, settings.raw_dir)
     warehouse.run_dbt(settings, ["build", "--select", "tag:shipping"])
     return pipeline_setup
 
