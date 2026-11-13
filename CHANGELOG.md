@@ -9,6 +9,9 @@ versioning (`0.x`: no stable interface yet).
 - dbt project on DuckDB (`dbt/`, spec 002): staging models, star schema (`dim_country`,
   `dim_region`, `dim_product`, `fct_trade`) and marts for analysis and the LP, 34 dbt tests;
   `pipeline clean` now unpacks BACI and runs `dbt build`.
+- PortWatch and market data in dbt (spec 003): `dim_chokepoint`, `dim_port`,
+  `dim_market_series`, `dim_date`, facts for transits, port activity, market prices, port
+  links and events, app marts; dbt project organised by domain with tags.
 - Strict type checking with mypy (CI and pre-commit), coverage threshold of 85 % in CI.
 - Working agreement: feature specs in `specs/`, branch/PR workflow, Definition of Done,
   PR template (ADR-010).
@@ -18,13 +21,16 @@ versioning (`0.x`: no stable interface yet).
   spec 002 for the first increment (trade data).
 
 ### Changed
-- The transport LP and the data-quality report read from the warehouse marts.
+- The transport LP, the data-quality report and the Dash app read from the warehouse marts;
+  `pipeline portwatch` / `market` run `dbt build --select tag:shipping` / `tag:markets`.
 - Shared test fakes moved to `tests/helpers.py`; optional app tables are checked with
   `require()` instead of being used unchecked.
 
 ### Removed
 - pandas implementation of the BACI cleaning (`ptf.clean.baci`) and the files
   `trade_hs6.parquet` / `bilateral_flows.parquet`, after a parity check (identical results).
+- pandas cleaning of PortWatch and market data (`ptf.clean.portwatch`, `ptf.clean.market`,
+  `ptf.clean.brent`) and their clean Parquet files, after a parity check (identical results).
 
 ## 0.3.0 – 2026-11-13
 

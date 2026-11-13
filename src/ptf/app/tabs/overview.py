@@ -7,9 +7,9 @@ from dash.development.base_component import Component
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs.markets import kpi_values
-from ptf.clean.portwatch import EVENT_TYPES
 from ptf.monitor.metrics import latest_status, monitor_table, port_table
 from ptf.monitor.overview import active_events, disrupted_count, furthest_below_normal
+from ptf.monitor.vocabulary import EVENT_TYPES
 
 
 def layout(data: AppData) -> html.Div:

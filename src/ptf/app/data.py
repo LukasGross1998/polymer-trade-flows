@@ -1,18 +1,19 @@
-"""Data access for the app: load the clean tables, refresh them on request.
+"""Data access for the app: load the warehouse marts, refresh them on request.
 
-The app only reads files and calls pipeline functions; it computes nothing itself. Tables
-that do not exist yet (e.g. market data before the first `pipeline market` run) are None,
-and the affected tab shows a hint instead of failing.
+The app only reads the DuckDB warehouse (ADR-011) and calls pipeline functions; it computes
+nothing itself. Tables that do not exist yet (e.g. market data before the first
+`pipeline market` run, or the optional country trade) are None, and the affected tab shows
+a hint instead of failing.
 """
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import pandas as pd
 
 from ptf.config import Settings
 from ptf.market_config import MarketConfig, load_market_config
 from ptf.monitor.config import MonitorConfig, load_monitor_config
+from ptf.warehouse import read_tables
 
 
 @dataclass
@@ -50,23 +51,32 @@ def require(table: pd.DataFrame | None, name: str) -> pd.DataFrame:
     return table
 
 
-def _optional(path: Path) -> pd.DataFrame | None:
-    return pd.read_parquet(path) if path.exists() else None
+# Key of AppData -> warehouse table.
+APP_TABLES = {
+    "transits": "marts.mart_chokepoint_transits",
+    "chokepoints": "marts.dim_chokepoint",
+    "port_activity": "marts.mart_port_activity",
+    "ports": "marts.dim_port",
+    "events": "marts.fct_disruption_events",
+    "market": "marts.mart_market_series",
+    "country_trade": "marts.mart_country_trade",
+    "port_links": "marts.fct_port_links",
+}
 
 
 def load_app_data(settings: Settings) -> AppData:
-    clean = settings.clean_dir
+    tables = read_tables(settings, APP_TABLES)
     return AppData(
         monitor_config=load_monitor_config(settings.config_dir / "monitor.yaml"),
         market_config=load_market_config(settings.config_dir / "market_data.yaml"),
-        transits=pd.read_parquet(clean / "chokepoint_transits.parquet"),
-        chokepoints=pd.read_parquet(clean / "chokepoints.parquet"),
-        port_activity=_optional(clean / "port_activity.parquet"),
-        ports=_optional(clean / "ports.parquet"),
-        events=_optional(clean / "events.parquet"),
-        market=_optional(clean / "market_series.parquet"),
-        country_trade=_optional(clean / "country_trade.parquet"),
-        port_links=_optional(clean / "port_links.parquet"),
+        transits=require(tables["transits"], "mart_chokepoint_transits"),
+        chokepoints=require(tables["chokepoints"], "dim_chokepoint"),
+        port_activity=tables["port_activity"],
+        ports=tables["ports"],
+        events=tables["events"],
+        market=tables["market"],
+        country_trade=tables["country_trade"],
+        port_links=tables["port_links"],
     )
 
 

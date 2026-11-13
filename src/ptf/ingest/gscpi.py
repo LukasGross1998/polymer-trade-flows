@@ -6,6 +6,7 @@ Raw layer: one file per download in `data/raw/gscpi/`, never overwritten.
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pandas as pd
 import requests
 
 from ptf.ingest.fred import is_fresh
@@ -36,4 +37,35 @@ def ingest_gscpi(
         raise FileExistsError(f"raw files are never overwritten: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(response.content)
+    return path
+
+
+def tidy_gscpi(sheet: pd.DataFrame) -> pd.DataFrame:
+    """The sheet has a header row ("Date", "GSCPI"), then a few empty rows, then the data."""
+    raw = sheet.iloc[1:, :2].dropna()
+    raw.columns = ["date", "value"]
+    return pd.DataFrame(
+        {
+            "date": pd.to_datetime(raw["date"], format="%d-%b-%Y"),
+            "value": pd.to_numeric(raw["value"]),
+        }
+    ).reset_index(drop=True)
+
+
+def write_gscpi_landing(raw_dir: Path) -> Path:
+    """Parse the newest spreadsheet into `gscpi/landing_gscpi.parquet` for dbt.
+
+    DuckDB cannot read the old .xls format, so this one source needs Python. Without any
+    download an empty landing file is written, so the dbt models still build.
+    """
+    path = gscpi_dir(raw_dir) / "landing_gscpi.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    source = latest_gscpi(raw_dir)
+    if source is None:
+        landing = pd.DataFrame(
+            {"date": pd.Series(dtype="datetime64[ns]"), "value": pd.Series(dtype=float)}
+        )
+    else:
+        landing = tidy_gscpi(pd.read_excel(source, engine="calamine", header=None))
+    landing.to_parquet(path, index=False)
     return path

@@ -14,7 +14,11 @@ from typing import Any
 import pandas as pd
 import requests
 
+from ptf import warehouse
 from ptf.config import Settings
+from ptf.ingest.baci import baci_zip_path, write_landing
+from ptf.market_config import load_market_config
+from ptf.monitor.config import load_monitor_config
 from ptf.pipeline_config import PipelineConfig
 from ptf.regions import RegionConfig
 
@@ -51,6 +55,142 @@ def write_raw_layer(raw_dir: Path) -> None:
     brent_dir = raw_dir / "fred" / "DCOILBRENTEU"
     brent_dir.mkdir(parents=True)
     shutil.copy(FIXTURES / "brent_sample.csv", brent_dir / "20260101T000000000000.csv")
+    write_fred_csv(raw_dir, "DHHNGSP", [("2026-09-01", 2.0), ("2026-09-15", 4.0)])
+    write_fred_csv(raw_dir, "PNGASEUUSDM", [("2026-09-01", 25.0)])
+
+    write_portwatch_raw(raw_dir)
+
+
+def write_fred_csv(raw_dir: Path, series_id: str, rows: list[tuple[str, float]]) -> None:
+    """A FRED download as served: header "observation_date,<id>", one row per day."""
+    folder = raw_dir / "fred" / series_id
+    folder.mkdir(parents=True, exist_ok=True)
+    lines = [f"observation_date,{series_id}", *[f"{d},{v}" for d, v in rows]]
+    (folder / "20260101T000000000000.csv").write_text("\n".join(lines) + "\n")
+
+
+def write_portwatch_raw(raw_dir: Path) -> None:
+    """PortWatch downloads as written by ptf.ingest.portwatch (one Parquet per download).
+
+    Chokepoints: the real 18-row sample (Suez, Bab el-Mandeb, Cape, 2026-11-03..08) plus a
+    later download that revises Suez on 2026-11-08 to 99 transits. Ports: the configured
+    port24 (Jubail) and port999, which is downloaded but not configured. Events: one open
+    and one closed event. Links: one real link and one self-link that must be dropped.
+    """
+    portwatch = raw_dir / "portwatch"
+    first = pd.DataFrame(
+        [
+            f["attributes"]
+            for f in json.loads((FIXTURES / "portwatch_daily_sample.json").read_text())["features"]
+        ]
+    ).assign(fetched_at=pd.Timestamp("2026-11-10", tz="UTC"))
+    revised = first[(first["portid"] == "chokepoint1") & (first["date"] == "2026-11-08")].assign(
+        n_total=99, fetched_at=pd.Timestamp("2026-11-12", tz="UTC")
+    )
+    (portwatch / "chokepoints_daily").mkdir(parents=True)
+    first.to_parquet(portwatch / "chokepoints_daily" / "20261110T000000000000.parquet")
+    revised.to_parquet(portwatch / "chokepoints_daily" / "20261112T000000000000.parquet")
+    pd.DataFrame(
+        {
+            "portid": ["chokepoint1", "chokepoint4", "chokepoint7"],
+            "portname": ["Suez Canal", "Bab el-Mandeb Strait", "Cape of Good Hope"],
+            "lat": [30.6, 12.6, -34.4],
+            "lon": [32.4, 43.3, 18.5],
+        }
+    ).to_parquet(portwatch / "chokepoints.parquet")
+
+    days = [f"2026-11-{d:02d}" for d in range(1, 7)]
+    ports_daily = pd.DataFrame(
+        [
+            {
+                "date": d,
+                "portid": p,
+                "portname": p,
+                "portcalls": 5,
+                "portcalls_tanker": 2,
+                "portcalls_container": 1,
+                "import": 100,
+                "export": 200,
+            }
+            for d in days
+            for p in ("port24", "port999")
+        ]
+    ).assign(fetched_at=pd.Timestamp("2026-11-10", tz="UTC"))
+    (portwatch / "ports_daily").mkdir()
+    ports_daily.to_parquet(portwatch / "ports_daily" / "20261110T000000000000.parquet")
+    pd.DataFrame(
+        {
+            "portid": ["port24", "port999"],
+            "portname": ["Jubail", "Elsewhere"],
+            "country": ["Saudi Arabia", "Nowhere"],
+            "lat": [27.06, 0.0],
+            "lon": [49.66, 0.0],
+        }
+    ).to_parquet(portwatch / "ports.parquet")
+
+    events = pd.DataFrame(
+        {
+            "eventid": [1, 2],
+            "eventtype": ["OT", "TC"],
+            "eventname": ["HORMUZ-26", "BAVI-26"],
+            "alertlevel": ["RED", "RED"],
+            "country": [None, "China"],
+            "fromdate": [1772323200000, 1782864000000],  # 2026-03-01, 2026-07-01
+            "todate": [float("nan"), 1783792800000.0],  # open, 2026-07-11
+            "lat": [26.3, 20.0],
+            "long": [56.9, 120.0],
+            "affectedports": ["chokepoint6", ""],
+            "n_affectedports": [1, 37],
+            "htmldescription": ["Trade Disruptions in the Strait of Hormuz", "Cyclone"],
+        }
+    ).assign(fetched_at=pd.Timestamp("2026-11-10", tz="UTC"))
+    (portwatch / "events").mkdir()
+    events.to_parquet(portwatch / "events" / "20261110T000000000000.parquet")
+
+    def link(src: str, dst: str, capacity: float) -> dict[str, Any]:
+        return {
+            "from_portid": src,
+            "from_portname": src,
+            "from_country": "Saudi Arabia",
+            "from_lat": 27.0,
+            "from_lon": 49.7,
+            "to_portid": dst,
+            "to_portname": dst,
+            "to_country": "Singapore",
+            "to_lat": 1.3,
+            "to_lon": 103.8,
+            "average_transit_days": 14.6,
+            "daily_capacity_at_risk": capacity,
+        }
+
+    links = pd.DataFrame([link("port24", "port1201", 14652.0), link("port24", "port24", 999.0)])
+    (portwatch / "port_links").mkdir()
+    links.assign(fetched_at=pd.Timestamp("2026-11-10", tz="UTC")).to_parquet(
+        portwatch / "port_links" / "20261110T000000000000.parquet"
+    )
+
+
+def build_warehouse(setup: "PipelineSetup") -> None:
+    """Landing files, reference tables and a full `dbt build`, offline (no downloads)."""
+    settings, raw = setup.settings, setup.settings.raw_dir
+    baci_config = setup.config.baci
+    write_landing(
+        baci_zip_path(raw, baci_config.hs_revision, baci_config.version),
+        baci_config.years,
+        baci_config.hs_prefix,
+        raw,
+    )
+    warehouse.write_reference_tables(setup.regions, raw)
+    warehouse.write_port_reference(load_monitor_config(settings.config_dir / "monitor.yaml"), raw)
+    warehouse.write_market_reference(
+        load_market_config(settings.config_dir / "market_data.yaml"), raw
+    )
+    gscpi = raw / "gscpi"
+    gscpi.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {"date": pd.to_datetime(["2026-09-30", "2026-10-31"]), "value": [1.36, 1.26]}
+    ).to_parquet(gscpi / "landing_gscpi.parquet")
+    warehouse.run_dbt(settings, ["build"])
 
 
 def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:

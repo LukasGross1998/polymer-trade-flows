@@ -9,8 +9,8 @@ from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState, require
-from ptf.clean.portwatch import CARGO_TYPES
 from ptf.monitor.flows import cargo_mix, country_ranking, port_options, top_links
+from ptf.monitor.vocabulary import CARGO_TYPES
 
 ALL_PORTS = "__all__"
 DEFAULT_COUNTRY = "SAU"  # Saudi Arabia: the Hormuz disruption is visible in its tanker exports

@@ -56,6 +56,8 @@ testpaths = ["tests"]
 # "-p no:dash": Dash ships a pytest plugin for browser tests that we do not use.
 addopts = "-ra -p no:dash"
 # Deselect with `-m "not slow"` for a quick local loop; CI runs everything.
+# DuckDB's own DataFrame conversion triggers this pandas 3.1 deprecation, not our code.
+filterwarnings = ["ignore:The inplace keyword in DataFrame.drop is deprecated"]
 markers = ["slow: computes real sea routes or other expensive work (seconds, not ms)"]
 
 [tool.mypy]

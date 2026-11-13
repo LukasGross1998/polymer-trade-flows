@@ -1,0 +1,59 @@
+version: 2
+
+models:
+  - name: dim_market_series
+    description: Market series from config/market_data.yaml plus the NY Fed GSCPI.
+    columns:
+      - name: series_id
+        description: FRED id (e.g. DCOILBRENTEU) or GSCPI.
+        data_tests: [unique, not_null]
+      - name: name
+      - name: unit
+      - name: frequency
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [daily, monthly]
+      - name: group
+        quote: true  # "group" is an SQL keyword
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [energy, gas, freight_polymers, fx, supply_chain]
+
+  - name: fct_market_prices
+    description: One observation per date and series (newest download of each FRED series).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [date, series_id]
+    columns:
+      - name: date
+        data_tests: [not_null]
+      - name: series_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_market_series')
+                field: series_id
+      - name: value
+        data_tests: [not_null]
+
+  - name: mart_market_series
+    description: fct_market_prices with the series metadata, as read by the app.
+    columns:
+      - name: date
+      - name: series_id
+      - name: name
+      - name: unit
+      - name: frequency
+      - name: group
+      - name: value
+
+  - name: mart_brent_annual
+    description: Annual average Brent price (USD/bbl) and the number of quoted days.
+    columns:
+      - name: year
+        data_tests: [unique, not_null]
+      - name: brent_usd_per_bbl
+      - name: quoted_days

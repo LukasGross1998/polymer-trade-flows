@@ -18,20 +18,9 @@ import logging
 import pandas as pd
 
 from ptf import warehouse
-from ptf.clean import brent as clean_brent
 from ptf.clean.comtrade import build_country_lookup, load_raw_comtrade, to_trade_reports
 from ptf.clean.dq_report import build_report
-from ptf.clean.market import clean_market_series, parse_fred_csv
 from ptf.clean.mirror import build_mirror_table
-from ptf.clean.portwatch import (
-    clean_chokepoints,
-    clean_country_trade,
-    clean_events,
-    clean_port_activity,
-    clean_port_links,
-    clean_ports,
-    clean_transits,
-)
 from ptf.clean.quality import add_unit_values, flag_unit_value_outliers
 from ptf.clean.reconcile import reconcile_flows, regional_unit_values
 from ptf.config import Settings, get_settings
@@ -59,27 +48,18 @@ def run_ingest(settings: Settings, regions: RegionConfig, config: PipelineConfig
 
 
 def run_clean(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
-    """Landing files and reference tables, then `dbt build` (ADR-011); Brent annual averages.
+    """Trade data: BACI landing files and region reference, then `dbt build -s tag:trade`.
 
     Python only unpacks BACI and writes the configuration as reference tables; all trade
     transformations and their tests run in dbt (dbt/models) into data/warehouse.duckdb.
     """
-    raw, clean = settings.raw_dir, settings.clean_dir
-    clean.mkdir(parents=True, exist_ok=True)
-
+    raw = settings.raw_dir
     baci_config = config.baci
     zip_path = baci.baci_zip_path(raw, baci_config.hs_revision, baci_config.version)
     baci.write_landing(zip_path, baci_config.years, baci_config.hs_prefix, raw)
     warehouse.write_reference_tables(regions, raw)
-    warehouse.run_dbt(settings, ["build"])
-
-    brent_csv = fred.latest_raw(raw, config.brent.fred_series)
-    if brent_csv is None:
-        raise FileNotFoundError("no Brent data: run `pipeline ingest` first")
-    daily = parse_fred_csv(brent_csv)
-    daily = daily.rename(columns={"value": "usd_per_bbl"})
-    clean_brent.annual_brent(daily).to_parquet(clean / "brent_annual.parquet", index=False)
-    logger.info("warehouse built: %s", warehouse.warehouse_path(settings))
+    warehouse.run_dbt(settings, ["build", "--select", "tag:trade"])
+    logger.info("trade marts built in %s", warehouse.warehouse_path(settings))
 
 
 def run_comtrade(settings: Settings, regions: RegionConfig, config: PipelineConfig) -> None:
@@ -153,9 +133,9 @@ def run_model(settings: Settings) -> None:
 
 
 def run_portwatch(settings: Settings) -> None:
-    """Download new PortWatch days (incremental) and events, rebuild the clean tables."""
+    """Download new PortWatch days (incremental) and events, then `dbt build -s tag:shipping`."""
     config = load_monitor_config(settings.config_dir / "monitor.yaml")
-    raw, clean = settings.raw_dir, settings.clean_dir
+    raw = settings.raw_dir
     port_names = {p.id: p.name for p in config.ports}
 
     portwatch.ingest_chokepoints(raw)
@@ -167,28 +147,25 @@ def run_portwatch(settings: Settings) -> None:
         portwatch.ingest_country_trade(raw, revision_days=config.revision_days)
     portwatch.ingest_port_links(raw, config.min_link_capacity)
 
-    clean.mkdir(parents=True, exist_ok=True)
-    clean_transits(raw).to_parquet(clean / "chokepoint_transits.parquet", index=False)
-    clean_chokepoints(raw).to_parquet(clean / "chokepoints.parquet", index=False)
-    clean_port_activity(raw, port_names).to_parquet(clean / "port_activity.parquet", index=False)
-    clean_ports(raw, port_names).to_parquet(clean / "ports.parquet", index=False)
-    clean_events(raw).to_parquet(clean / "events.parquet", index=False)
-    if any(portwatch.daily_dir(raw, "country_trade_daily").glob("*.parquet")):
-        clean_country_trade(raw).to_parquet(clean / "country_trade.parquet", index=False)
-    clean_port_links(raw).to_parquet(clean / "port_links.parquet", index=False)
+    warehouse.write_port_reference(config, raw)
+    # The optional country trade models are built only when their raw data exist.
+    has_country_trade = any(portwatch.daily_dir(raw, "country_trade_daily").glob("*.parquet"))
+    args = ["build", "--select", "tag:shipping"]
+    if has_country_trade:
+        args += ["--vars", "{country_trade_enabled: true}"]
+    warehouse.run_dbt(settings, args)
 
 
 def run_market(settings: Settings) -> None:
-    """Refresh stale FRED series and the GSCPI, rebuild `market_series`."""
+    """Refresh stale FRED series and the GSCPI, then `dbt build -s tag:markets`."""
     config = load_market_config(settings.config_dir / "market_data.yaml")
-    raw, clean = settings.raw_dir, settings.clean_dir
+    raw = settings.raw_dir
     series_ids = [s.id for s in config.fred_series]
     fred.ingest_fred(raw, series_ids, max_age_days=config.max_age_days)
     gscpi.ingest_gscpi(raw, config.gscpi_url, max_age_days=config.max_age_days)
-    clean.mkdir(parents=True, exist_ok=True)
-    market = clean_market_series(raw, config.fred_series)
-    market.to_parquet(clean / "market_series.parquet", index=False)
-    logger.info("market data: %s series, %s rows", market["series_id"].nunique(), len(market))
+    gscpi.write_gscpi_landing(raw)
+    warehouse.write_market_reference(config, raw)
+    warehouse.run_dbt(settings, ["build", "--select", "tag:markets"])
 
 
 def main(argv: list[str] | None = None) -> None:

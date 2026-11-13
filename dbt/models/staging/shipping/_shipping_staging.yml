@@ -1,0 +1,17 @@
+version: 2
+models:
+  - name: stg_portwatch__chokepoint_transits
+    description: Latest fetched value per day and chokepoint (PortWatch revises recent days).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [date, chokepoint_id]
+  - name: stg_portwatch__port_activity
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [date, port_id]
+  - name: stg_reference__ports
+    columns:
+      - name: port_id
+        data_tests: [unique, not_null]

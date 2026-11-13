@@ -9,9 +9,9 @@
 
 import pandas as pd
 
-from ptf.clean.portwatch import CARGO_TYPES
 from ptf.monitor.config import MonitorConfig
 from ptf.monitor.metrics import latest_status, location_series, series_table
+from ptf.monitor.vocabulary import CARGO_TYPES
 
 
 def top_links(

@@ -15,6 +15,8 @@ import duckdb
 import pandas as pd
 
 from ptf.config import Settings
+from ptf.market_config import MarketConfig
+from ptf.monitor.config import MonitorConfig
 from ptf.regions import RegionConfig
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,33 @@ def write_reference_tables(regions: RegionConfig, raw_dir: Path) -> list[Path]:
     return paths
 
 
+def write_market_reference(config: MarketConfig, raw_dir: Path) -> Path:
+    """Metadata of the market series (name, unit, frequency, group), GSCPI included."""
+    rows = [s.model_dump() for s in config.fred_series]
+    rows.append(
+        {
+            "id": "GSCPI",
+            "name": "Global Supply Chain Pressure Index (NY Fed)",
+            "unit": "std. dev. from average",
+            "frequency": "monthly",
+            "group": "supply_chain",
+        }
+    )
+    path = reference_dir(raw_dir) / "market_series.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).rename(columns={"id": "series_id"}).to_parquet(path, index=False)
+    return path
+
+
+def write_port_reference(config: MonitorConfig, raw_dir: Path) -> Path:
+    """The ports configured for the monitor (PortWatch id, short name, role)."""
+    path = reference_dir(raw_dir) / "ports.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [{"port_id": p.id, "port": p.name, "role": p.role} for p in config.ports]
+    pd.DataFrame(rows, columns=["port_id", "port", "role"]).to_parquet(path, index=False)
+    return path
+
+
 def warehouse_path(settings: Settings) -> Path:
     return settings.data_dir / "warehouse.duckdb"
 
@@ -89,6 +118,27 @@ def run_dbt(settings: Settings, args: list[str]) -> None:
         logger.error("dbt output:\n%s", result.stdout[-4000:])
         raise RuntimeError(f"dbt {' '.join(args)} failed (exit {result.returncode})")
     logger.info("dbt %s: %s", " ".join(args), result.stdout.strip().splitlines()[-1])
+
+
+def read_tables(settings: Settings, tables: dict[str, str]) -> dict[str, pd.DataFrame | None]:
+    """Read several warehouse tables in one read-only connection; missing tables -> None.
+
+    The connection is closed afterwards, so `dbt build` can write while the app is running.
+    `tables` maps a key of the result to a qualified table name, e.g. "marts.dim_port".
+    """
+    result: dict[str, pd.DataFrame | None] = {}
+    with duckdb.connect(str(warehouse_path(settings)), read_only=True) as connection:
+        existing = {
+            f"{schema}.{name}"
+            for schema, name in connection.execute(
+                "SELECT table_schema, table_name FROM information_schema.tables"
+            ).fetchall()
+        }
+        for key, table in tables.items():
+            result[key] = (
+                connection.execute(f"SELECT * FROM {table}").df() if table in existing else None
+            )
+    return result
 
 
 def read_table(settings: Settings, table: str) -> pd.DataFrame:
