@@ -23,3 +23,54 @@ sources:
       - name: regions
       - name: country_region
       - name: country_aliases
+      - name: market_series
+        description: Metadata of the market series (config/market_data.yaml, plus GSCPI).
+      - name: ports
+        description: Ports configured for the monitor (config/monitor.yaml).
+
+  # IMF PortWatch: one Parquet file per download and folder; dbt reads all downloads of a
+  # folder at once and keeps the most recent value in staging.
+  - name: portwatch
+    description: IMF PortWatch downloads (ptf.ingest.portwatch), files never overwritten.
+    tables:
+      - name: chokepoints_daily
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/chokepoints_daily/*.parquet', union_by_name = true)"
+      - name: ports_daily
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/ports_daily/*.parquet', union_by_name = true)"
+      - name: events
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/events/*.parquet', union_by_name = true)"
+      - name: port_links
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/port_links/*.parquet', union_by_name = true)"
+      - name: country_trade_daily
+        description: Optional (download_country_trade); only read when country_trade_enabled.
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/country_trade_daily/*.parquet', union_by_name = true)"
+      - name: chokepoints
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/chokepoints.parquet')"
+      - name: ports
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/ports.parquet')"
+
+  - name: fred
+    description: FRED series, one CSV per download in fred/{series_id}/ (ptf.ingest.fred).
+    tables:
+      - name: series_csv
+        meta:
+          # Every file has a header "observation_date,<SERIES ID>"; names= gives all files the
+          # same columns. FRED marks missing days with "." or an empty field.
+          external_location: >-
+            read_csv('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/fred/*/*.csv',
+            filename = true, header = true, names = ['observation_date', 'value'],
+            nullstr = ['.', ''], types = {'observation_date': 'DATE', 'value': 'DOUBLE'})
+
+  - name: gscpi
+    description: NY Fed GSCPI, parsed from the .xls by ptf.ingest.gscpi.write_gscpi_landing.
+    tables:
+      - name: landing_gscpi
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/gscpi/landing_gscpi.parquet')"

@@ -15,6 +15,8 @@ import duckdb
 import pandas as pd
 
 from ptf.config import Settings
+from ptf.market_config import MarketConfig
+from ptf.monitor.config import MonitorConfig
 from ptf.regions import RegionConfig
 
 logger = logging.getLogger(__name__)
@@ -55,6 +57,33 @@ def write_reference_tables(regions: RegionConfig, raw_dir: Path) -> list[Path]:
     pd.DataFrame(country_rows).to_parquet(paths[1], index=False)
     pd.DataFrame(alias_rows, columns=["code", "iso3"]).to_parquet(paths[2], index=False)
     return paths
+
+
+def write_market_reference(config: MarketConfig, raw_dir: Path) -> Path:
+    """Metadata of the market series (name, unit, frequency, group), GSCPI included."""
+    rows = [s.model_dump() for s in config.fred_series]
+    rows.append(
+        {
+            "id": "GSCPI",
+            "name": "Global Supply Chain Pressure Index (NY Fed)",
+            "unit": "std. dev. from average",
+            "frequency": "monthly",
+            "group": "supply_chain",
+        }
+    )
+    path = reference_dir(raw_dir) / "market_series.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).rename(columns={"id": "series_id"}).to_parquet(path, index=False)
+    return path
+
+
+def write_port_reference(config: MonitorConfig, raw_dir: Path) -> Path:
+    """The ports configured for the monitor (PortWatch id, short name, role)."""
+    path = reference_dir(raw_dir) / "ports.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = [{"port_id": p.id, "port": p.name, "role": p.role} for p in config.ports]
+    pd.DataFrame(rows, columns=["port_id", "port", "role"]).to_parquet(path, index=False)
+    return path
 
 
 def warehouse_path(settings: Settings) -> Path:

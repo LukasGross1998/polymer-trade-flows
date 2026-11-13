@@ -1,0 +1,198 @@
+version: 2
+
+models:
+  - name: dim_chokepoint
+    description: The 28 maritime chokepoints of IMF PortWatch.
+    columns:
+      - name: chokepoint_id
+        description: PortWatch id, e.g. chokepoint4 (Bab el-Mandeb).
+        data_tests: [unique, not_null]
+      - name: chokepoint
+      - name: lat
+      - name: lon
+
+  - name: dim_port
+    description: Ports monitored in the app (config/monitor.yaml) with PortWatch location data.
+    columns:
+      - name: port_id
+        data_tests: [unique, not_null]
+      - name: port
+        description: Short name from the configuration.
+      - name: country
+      - name: lat
+      - name: lon
+      - name: role
+        description: Why the port is monitored, e.g. "US Gulf Coast export hub".
+
+  - name: fct_chokepoint_transits
+    description: Vessel transits per day and chokepoint by vessel type, with deadweight capacity.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [date, chokepoint_id]
+    columns:
+      - name: date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date
+      - name: chokepoint_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_chokepoint')
+                field: chokepoint_id
+      - name: n_total
+        data_tests: [not_null, non_negative]
+      - name: n_container
+        data_tests: [non_negative]
+      - name: n_tanker
+        data_tests: [non_negative]
+      - name: n_dry_bulk
+      - name: n_general_cargo
+      - name: n_roro
+      - name: n_cargo
+      - name: capacity
+        description: Deadweight tonnage of all transits (t/day).
+        data_tests: [non_negative]
+      - name: capacity_container
+      - name: capacity_tanker
+      - name: fetched_at
+        description: When this value was downloaded; the latest download per day is kept.
+
+  - name: fct_port_activity
+    description: Port calls and estimated trade volumes per day for the monitored ports.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [date, port_id]
+    columns:
+      - name: date
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date
+      - name: port_id
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_port')
+                field: port_id
+      - name: portcalls
+        data_tests: [non_negative]
+      - name: portcalls_tanker
+      - name: portcalls_container
+      - name: import
+        description: Estimated imports (t/day), PortWatch estimate from draught and capacity.
+        data_tests: [non_negative]
+      - name: export
+        data_tests: [non_negative]
+      - name: fetched_at
+
+  - name: fct_disruption_events
+    description: PortWatch disruption events (newest download).
+    columns:
+      - name: event_id
+        data_tests: [unique, not_null]
+      - name: event_type
+        description: DR drought, EQ earthquake, FL flood, OT other (e.g. conflict), TC cyclone, VO volcano, WF wildfire.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [DR, EQ, FL, OT, TC, VO, WF]
+      - name: event
+      - name: alert_level
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [GREEN, ORANGE, RED]
+      - name: country
+      - name: from_date
+        data_tests: [not_null]
+      - name: to_date
+        description: Empty while the event is ongoing.
+      - name: lat
+      - name: lon
+      - name: affected_ports
+      - name: n_affected_ports
+      - name: description
+
+  - name: fct_port_links
+    description: >
+      Port-to-port network (PortWatch snapshot, May 2025): vessel capacity per day and average
+      transit time per directed link, all vessel types; links above min_link_capacity only.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [from_port_id, to_port_id]
+    columns:
+      - name: from_port_id
+      - name: from_port
+      - name: from_country
+      - name: from_lat
+      - name: from_lon
+      - name: to_port_id
+      - name: to_port
+      - name: to_country
+      - name: to_lat
+      - name: to_lon
+      - name: transit_days
+        data_tests: [non_negative]
+      - name: daily_capacity
+        description: Vessel capacity (deadweight t) travelling on the link per day, not cargo.
+        data_tests: [non_negative]
+
+  - name: mart_chokepoint_transits
+    description: fct_chokepoint_transits with the chokepoint name, as read by the monitor.
+    columns:
+      - name: date
+      - name: chokepoint_id
+      - name: chokepoint
+      - name: n_total
+      - name: n_container
+      - name: n_tanker
+      - name: n_dry_bulk
+      - name: n_general_cargo
+      - name: n_roro
+      - name: n_cargo
+      - name: capacity
+      - name: capacity_container
+      - name: capacity_tanker
+      - name: fetched_at
+
+  - name: mart_port_activity
+    description: fct_port_activity with the port's short name, as read by the monitor.
+    columns:
+      - name: date
+      - name: port_id
+      - name: port
+      - name: portcalls
+      - name: portcalls_tanker
+      - name: portcalls_container
+      - name: import
+      - name: export
+      - name: fetched_at
+
+  - name: mart_country_trade
+    description: Optional (country_trade_enabled); imports and exports per country by vessel type.
+    columns:
+      - name: date
+      - name: iso3
+      - name: country
+      - name: import
+      - name: export
+      - name: import_tanker
+      - name: import_dry_bulk
+      - name: import_container
+      - name: import_general_cargo
+      - name: import_roro
+      - name: export_tanker
+      - name: export_dry_bulk
+      - name: export_container
+      - name: export_general_cargo
+      - name: export_roro
+      - name: fetched_at

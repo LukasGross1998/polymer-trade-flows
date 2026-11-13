@@ -1,0 +1,12 @@
+version: 2
+models:
+  - name: dim_date
+    description: Calendar days from var('calendar_start') to today.
+    columns:
+      - name: date
+        data_tests: [unique, not_null]
+      - name: year
+      - name: month
+      - name: iso_year
+      - name: iso_week
+        description: ISO calendar week; week 53 folded into 52 (as in the monitor's baseline).

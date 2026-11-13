@@ -11,8 +11,8 @@ with an annual average would flag every quiet season as a disruption.
 
 import pandas as pd
 
-from ptf.clean.portwatch import VESSEL_TYPES
 from ptf.monitor.config import MonitorConfig
+from ptf.monitor.vocabulary import VESSEL_TYPES
 
 # 364 days = exactly 52 weeks, so the comparison day falls on the same weekday a year earlier.
 ONE_YEAR = pd.Timedelta(days=364)

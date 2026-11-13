@@ -1,6 +1,6 @@
 # 003 – dbt warehouse, second increment: shipping (PortWatch) and market data
 
-- **Status:** draft
+- **Status:** accepted
 - **Branch / PR:** `feat/dbt-shipping-markets`
 - **SPEC.md sections:** 7a, 7b (dashboard data), 3 (data pipeline)
 - **ADR:** ADR-011 (dbt on DuckDB)

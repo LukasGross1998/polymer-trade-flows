@@ -13,17 +13,33 @@ macro-paths: ["macros"]
 target-path: "target"
 clean-targets: ["target"]
 
+# Folders by domain carry tags, so each pipeline step builds only its part:
+# `dbt build --select tag:trade` (BACI), `tag:shipping` (PortWatch), `tag:markets` (FRED, GSCPI).
 models:
   ptf:
     staging:
       # One view per source table: renamed and typed, no business logic.
       +schema: staging
       +materialized: view
+      trade: {+tags: [trade]}
+      shipping: {+tags: [shipping]}
+      markets: {+tags: [markets]}
     marts:
       # Star schema and consumer tables, materialised for fast reads by the LP and the app.
       +schema: marts
       +materialized: table
+      trade: {+tags: [trade]}
+      shipping: {+tags: [shipping]}
+      markets: {+tags: [markets]}
+      common: {+tags: [shipping, markets]}
 
 seeds:
   ptf:
     +schema: reference
+    +tags: [trade]
+
+vars:
+  # Mirrors download_country_trade in config/monitor.yaml; the pipeline passes it.
+  country_trade_enabled: false
+  # First day of the calendar dimension (the PortWatch data start on 2019-01-01).
+  calendar_start: "2019-01-01"

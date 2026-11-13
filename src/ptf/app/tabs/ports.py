@@ -7,9 +7,9 @@ from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState, require
-from ptf.clean.portwatch import PORT_METRICS
 from ptf.monitor.metrics import latest_status, port_table
 from ptf.monitor.overview import active_events
+from ptf.monitor.vocabulary import PORT_METRICS
 
 # Volumes are tonnes per day; counts are vessels per day.
 UNITS = {"import": "t per day", "export": "t per day"}
