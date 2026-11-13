@@ -62,11 +62,12 @@ sources:
       - name: series_csv
         meta:
           # Every file has a header "observation_date,<SERIES ID>"; names= gives all files the
-          # same columns. FRED marks missing days with "." or an empty field.
+          # same columns. FRED marks missing days with "." or an empty field. Types are cast in
+          # staging: dbt-duckdb fills {name} via str.format, so no curly braces may appear here.
           external_location: >-
             read_csv('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/fred/*/*.csv',
             filename = true, header = true, names = ['observation_date', 'value'],
-            nullstr = ['.', ''], types = {'observation_date': 'DATE', 'value': 'DOUBLE'})
+            nullstr = ['.', ''], all_varchar = true)
 
   - name: gscpi
     description: NY Fed GSCPI, parsed from the .xls by ptf.ingest.gscpi.write_gscpi_landing.

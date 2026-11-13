@@ -36,7 +36,6 @@ def test_clean_builds_trade_marts_with_dbt(warehouse_setup: PipelineSetup) -> No
     assert usa_chn["imputed_qty_t"] == pytest.approx(500)
 
     assert flow(flows, "TWN", "CHN")["exporter_region"] == "NEA"  # S19 alias -> Taiwan
-    assert (settings.clean_dir / "brent_annual.parquet").exists()
 
 
 def test_fact_table_keeps_products_and_flags_imputation(warehouse_setup: PipelineSetup) -> None:

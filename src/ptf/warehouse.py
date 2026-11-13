@@ -120,6 +120,27 @@ def run_dbt(settings: Settings, args: list[str]) -> None:
     logger.info("dbt %s: %s", " ".join(args), result.stdout.strip().splitlines()[-1])
 
 
+def read_tables(settings: Settings, tables: dict[str, str]) -> dict[str, pd.DataFrame | None]:
+    """Read several warehouse tables in one read-only connection; missing tables -> None.
+
+    The connection is closed afterwards, so `dbt build` can write while the app is running.
+    `tables` maps a key of the result to a qualified table name, e.g. "marts.dim_port".
+    """
+    result: dict[str, pd.DataFrame | None] = {}
+    with duckdb.connect(str(warehouse_path(settings)), read_only=True) as connection:
+        existing = {
+            f"{schema}.{name}"
+            for schema, name in connection.execute(
+                "SELECT table_schema, table_name FROM information_schema.tables"
+            ).fetchall()
+        }
+        for key, table in tables.items():
+            result[key] = (
+                connection.execute(f"SELECT * FROM {table}").df() if table in existing else None
+            )
+    return result
+
+
 def read_table(settings: Settings, table: str) -> pd.DataFrame:
     """Read one warehouse table (e.g. "marts.mart_region_trade") as a DataFrame, read-only."""
     with duckdb.connect(str(warehouse_path(settings)), read_only=True) as connection:

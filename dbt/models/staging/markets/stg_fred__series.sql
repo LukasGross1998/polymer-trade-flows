@@ -3,8 +3,8 @@ with files as (
     select
         regexp_extract(filename, 'fred/([^/]+)/[^/]+\.csv$', 1) as series_id,
         regexp_extract(filename, '([^/]+)\.csv$', 1)            as download_stamp,
-        observation_date,
-        value
+        cast(observation_date as date) as observation_date,
+        cast(value as double)          as value
     from {{ source('fred', 'series_csv') }}
 )
 
