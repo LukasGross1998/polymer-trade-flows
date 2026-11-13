@@ -1,6 +1,6 @@
 # 002 – dbt warehouse, first increment: trade data (BACI)
 
-- **Status:** draft (depends on ADR-011 being accepted)
+- **Status:** accepted
 - **Branch / PR:** `feat/dbt-trade-model`
 - **SPEC.md sections:** 3 (data pipeline), 4 (model inputs)
 

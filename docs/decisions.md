@@ -287,7 +287,7 @@ package structure by domain, Docker, Airflow, run metadata.
 ## ADR-011: Data model and transformations in SQL with dbt on DuckDB
 
 - **Date:** 2026-11-13
-- **Status:** proposed
+- **Status:** accepted (2026-11-13, option A)
 
 **Context.** Since v0.3.0 the clean layer consists of 13 loose Parquet files written by
 pandas functions (`ptf.clean.*`). Their schema lives in Python constants and in a hand-written
@@ -313,7 +313,7 @@ data dictionary that a test keeps in sync. This works, but:
 | Risk | dbt v2 (Rust engine) in transition; Python dbt-core 1.x and dbt-duckdb remain maintained and Apache-2.0 | owned by Fivetran since 2025 (merged with dbt Labs); open source today, direction unclear | we maintain a mini-dbt | data model stays implicit |
 | Extra tooling | dbt project, `profiles.yml`, Jinja | SQLMesh project, state | little | little |
 
-**Decision (proposed): A – dbt-core 1.x with the dbt-duckdb adapter, one DuckDB file as
+**Decision: A – dbt-core 1.x with the dbt-duckdb adapter, one DuckDB file as
 warehouse.**
 
 - **Division of labour:**

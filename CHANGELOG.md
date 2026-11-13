@@ -11,6 +11,9 @@ versioning (`0.x`: no stable interface yet).
   PR template (ADR-010).
 - Tests for the BACI and GSCPI downloads and the pipeline command line.
 
+- ADR-011: data model and transformations in SQL with dbt on DuckDB (star schema);
+  spec 002 for the first increment (trade data).
+
 ### Changed
 - Shared test fakes moved to `tests/helpers.py`; optional app tables are checked with
   `require()` instead of being used unchecked.
