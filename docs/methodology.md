@@ -25,7 +25,7 @@ lives in `config/` and is explained here. Generated figures and tables: [data_qu
 
 Raw files are never overwritten.
 
-### 1.3 BACI -> clean
+### 1.3 BACI -> warehouse (dbt)
 
 BACI is built by CEPII from UN Comtrade: for every flow it combines the exporter's and the
 importer's report, removes estimated freight and insurance from import values (so values are
@@ -33,14 +33,24 @@ FOB) and weights each country's reports by their reliability, judged by how far 
 from the partners' reports. This is what we did ourselves in phase 1 (section 1.4), for all
 countries and with a more elaborate weighting.
 
-- the yearly CSVs are read in chunks directly from the zip; only HS 3901xx is kept (28 s for
-  six years of ~10 million rows each)
-- numeric country codes -> ISO3 via BACI's country list; "Other Asia, nes" (`S19`) -> `TWN`
-- value × 1,000 (BACI reports thousand USD)
-- missing quantities (445 product flows, < 0.1 % of tonnage) are imputed as value ÷ median
-  unit value of the same HS6 product and year and flagged (`is_imputed`)
-- `trade_hs6` keeps the product split; `bilateral_flows` sums the products per relation and
-  adds the regions – the input of the model
+Since ADR-011 the transformations are SQL models in dbt (`dbt/models`), built into
+`data/warehouse.duckdb`:
+
+- **Python** unpacks the zip: the yearly CSVs are read in chunks and HS 3901xx is kept,
+  values unchanged (`landing_hs3901.parquet`), plus BACI's country and product lists;
+  `config/regions.yaml` is written as reference tables
+- **staging** (`stg_*`): types and base units (value × 1,000 → USD); "Other Asia, nes"
+  (`S19`) → `TWN` via the aliases in the configuration
+- **marts**, a star schema: dimensions `dim_country`, `dim_region`, `dim_product`; fact
+  `fct_trade` (year × exporter × importer × HS6); `mart_bilateral_trade` and
+  `mart_region_trade` for analysis and the LP
+- missing quantities (445 product flows, < 0.1 % of tonnage) are imputed in `fct_trade` as
+  value ÷ median unit value of the same HS6 product and year (a window median in SQL) and
+  flagged (`is_imputed`)
+- 34 dbt tests check keys, relationships to the dimensions, non-negative values and that
+  every country has exactly one region; `dbt build` fails if one does not hold
+- the move from pandas was checked for parity: all 34,341 relations and 92,947 product flows
+  identical, largest difference 5 × 10⁻¹⁰ t (floating-point noise)
 
 ### 1.4 Own Comtrade reconciliation (phase 1, superseded, kept as a check)
 

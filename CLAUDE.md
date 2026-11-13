@@ -41,14 +41,15 @@ Die fachliche Spezifikation steht in `SPEC.md`. **Lies sie vor jeder neuen Phase
 - `uv run ruff check .` und `uv run ruff format --check .` sauber
 - `uv run mypy` ohne Fehler (strict, ADR-010)
 - `uv run pytest --cov=ptf --cov-fail-under=85` grün; neue Logik hat eigene Tests mit nachrechenbaren Werten
-- neue oder geänderte Tabellen stehen in `docs/data_dictionary.md` (der Datenkatalog-Test prüft das)
+- neue oder geänderte Tabellen stehen in `docs/data_dictionary.md` (Dateien) bzw. in den dbt-YAML-Dateien (Warehouse); der Datenkatalog-Test prüft beides
+- Warehouse-Modelle haben dbt-Tests (Schlüssel, Beziehungen, Wertebereiche)
 - neue Annahmen stehen in `config/` mit Quelle und in `docs/methodology.md`
 - größere Entscheidungen als ADR in `docs/decisions.md`; `CHANGELOG.md` unter „Unreleased“ ergänzt
 
 ## Tech-Stack (verbindlich)
 
 - Python 3.12, Paket- und Umgebungsverwaltung mit **uv** (`uv add`, `uv run`)
-- Datenhaltung lokal: **Parquet** + **DuckDB** (Layer: `raw` → `clean` → `model`), angelehnt an ein Lakehouse
+- Datenhaltung lokal: **Parquet** + **DuckDB** (Layer: `raw` → `clean` → `model`), angelehnt an ein Lakehouse; Transformationen in SQL mit **dbt** (`dbt/`, ADR-011)
 - Datenverarbeitung: **pandas** (entschieden, Begründung in `docs/decisions.md`, ADR-002)
 - Optimierung: **Pyomo** mit dem freien Solver **HiGHS** (`highspy`)
 - Visualisierung/App: **Dash** + Plotly
@@ -112,4 +113,6 @@ uv run mypy                  # Typprüfung (strict)
 uv run pytest -m "not slow"  # schnelle Tests ohne echte Seerouten
 uv run pytest --cov=ptf      # Tests mit Abdeckung (CI verlangt 85 %)
 uv run python -m ptf.app     # Dash-App starten (ab Phase 3)
+uv run python -m ptf.pipeline clean           # BACI entpacken + dbt build (Warehouse)
+cd dbt && uv run dbt build --profiles-dir .   # nur dbt, aus dem Ordner dbt/
 ```

@@ -40,7 +40,7 @@ uv run python -m ptf.app                  # open http://127.0.0.1:8050
 
 ## Approach
 
-1. **Data:** CEPII BACI bilateral trade by HS6 product -> Parquet/DuckDB; own Comtrade mirror reconciliation as a check
+1. **Data:** CEPII BACI bilateral trade by HS6 product -> SQL models in **dbt** -> DuckDB warehouse with a star schema; own Comtrade mirror reconciliation as a check
 2. **Model:** transport LP in Pyomo, solved with HiGHS; duals interpreted as regional prices
 3. **Scenarios:** declarative YAML scenarios, cost curves, before/after comparison
 4. **App:** Dash + Plotly
@@ -50,7 +50,7 @@ The full specification is in [SPEC.md](SPEC.md); design decisions are in
 
 ## Tech stack
 
-Python 3.12 · uv · pandas · Parquet + DuckDB · Pyomo + HiGHS · Dash + Plotly ·
+Python 3.12 · uv · pandas · Parquet + DuckDB · dbt · Pyomo + HiGHS · Dash + Plotly ·
 pytest · ruff · pre-commit · GitHub Actions · later Docker and Airflow
 
 ## How to run
@@ -72,7 +72,7 @@ uv run ruff format .             # format
 
 ```bash
 uv run python -m ptf.pipeline ingest   # distances, Brent, BACI zip (~800 MB, downloaded once)
-uv run python -m ptf.pipeline clean    # BACI -> trade_hs6, bilateral_flows (data/clean)
+uv run python -m ptf.pipeline clean    # BACI landing + dbt build -> data/warehouse.duckdb
 uv run python -m ptf.pipeline report   # docs/data_quality.md + docs/figures
 uv run python -m ptf.pipeline model    # transport LP -> docs/model_results.md
 uv run python -m ptf.pipeline portwatch  # chokepoints, ports and events for the app
