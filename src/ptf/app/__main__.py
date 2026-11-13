@@ -11,7 +11,7 @@ from dash import Dash, Input, Output, State, dcc, html
 
 from ptf.app import style
 from ptf.app.data import AppState, monitor_data_available
-from ptf.app.tabs import chokepoints, flows, ports, prices, situation, sourcing
+from ptf.app.tabs import chokepoints, flows, landed_cost, ports, prices, situation, sourcing
 from ptf.core.settings import Settings, get_settings
 
 # Buyer questions first (spec 006), logistics detail after.
@@ -19,6 +19,7 @@ TABS = [
     ("situation", "Situation", situation),
     ("prices", "Prices & drivers", prices),
     ("sourcing", "Sourcing", sourcing),
+    ("landed", "Landed cost", landed_cost),
     ("chokepoints", "Chokepoints", chokepoints),
     ("ports", "Ports", ports),
     ("flows", "Trade flows", flows),

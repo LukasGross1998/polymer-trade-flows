@@ -8,9 +8,10 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from ptf.insights import exposure, signals
+from ptf.insights import exposure, landed_cost, signals
 from ptf.insights.config import SourcingConfig
 from ptf.markets import indicators
+from ptf.model.config import FreightAssumption
 from ptf.shipping.config import MonitorConfig
 from ptf.shipping.metrics import latest_status, monitor_table
 
@@ -91,3 +92,60 @@ def traffic_lights(
     else:
         lights.append(signals.Signal("Logistics", signals.GREEN, "n/a", "no market data yet"))
     return lights
+
+
+@dataclass
+class LandedView:
+    year: int
+    table: pd.DataFrame  # top suppliers, cheapest first (insights.landed_cost.landed_cost)
+    reference_eur_t: float | None  # average price within Europe, EUR/t
+    usd_per_eur: float
+    price_scale: float
+    closure_extra_eur_t: float | None  # Red Sea closure: extra landed cost, Middle East
+
+
+def landed_view(
+    sources: pd.DataFrame,
+    market: pd.DataFrame | None,
+    distances_open: pd.DataFrame,
+    distances_closed: pd.DataFrame | None,
+    freight: FreightAssumption,
+    config: SourcingConfig,
+    red_sea_closed: bool,
+    freight_factor: float,
+    indexed_prices: bool,
+) -> LandedView:
+    """Landed cost of the largest supplier countries for the chosen route, freight and prices."""
+    settings = config.landed_cost
+    region = config.focus_region
+    year = exposure.latest_year(sources, region)
+    fx = None if market is None else indicators.latest(market, settings.fx_series)
+    usd_per_eur = fx[1] if fx is not None else 1.0
+    scale = 1.0
+    if indexed_prices and market is not None:
+        scale = landed_cost.price_factor(market, settings.resin_index, year)
+
+    prices = landed_cost.unit_prices(sources, region, year)
+    top = prices.nlargest(settings.top_n, "qty_t")
+
+    def compute(distances: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
+        return landed_cost.landed_cost(
+            rows, distances, freight, settings.duty, region, usd_per_eur, freight_factor, scale
+        )
+
+    chosen = distances_closed if red_sea_closed and distances_closed is not None else distances_open
+    closure = None
+    if distances_closed is not None:
+        open_all = landed_cost.weighted_landed(compute(distances_open, prices), "MDE")
+        closed_all = landed_cost.weighted_landed(compute(distances_closed, prices), "MDE")
+        if open_all is not None and closed_all is not None:
+            closure = closed_all - open_all
+    reference = landed_cost.reference_price(sources, region, year)
+    return LandedView(
+        year=year,
+        table=compute(chosen, top),
+        reference_eur_t=None if reference is None else reference * scale / usd_per_eur,
+        usd_per_eur=usd_per_eur,
+        price_scale=scale,
+        closure_extra_eur_t=closure,
+    )

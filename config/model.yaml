@@ -3,6 +3,17 @@
 
 base_year: 2023  # latest year with complete data for the reporters loaded so far
 
+# Route variants: extra sea-distance tables with passages blocked (searoute names), written
+# by `ptf ingest` as data/raw/distances/sea_distances_<name>.parquet. Used by the landed-cost
+# view (spec 007) and later by the scenarios.
+route_variants:
+  red_sea_closed:
+    source: assumption
+    note: >-
+      Suez and Bab el-Mandeb closed. Panama is blocked as well: otherwise searoute routes
+      Asian cargo to Europe through Panama instead of around the Cape of Good Hope.
+    restrictions: [northwest, suez, babalmandab, panama]
+
 # Cost of one tonne of demand that cannot be supplied (USD/t). Far above any supply cost,
 # so the model only leaves demand unmet when capacity is physically missing.
 penalty_usd_t: 5000

@@ -475,3 +475,40 @@ Higher is worse in all three cases. The thresholds are a starting point to be tu
 are not taken from a published benchmark. "What changed" lists chokepoints newly below
 normal and new orange/red events within 7 days, and the three largest 30-day moves of the
 market series.
+
+### 6.4 Landed cost by supplier country (spec 007)
+
+*What does one tonne cost delivered to Europe from each supplier country?*
+
+landed = price + freight + duty (USD/t, converted to EUR with the latest `DEXUSEU`):
+
+- **price:** BACI unit value of the country's exports to Europe (value / tonnes, FOB) in the
+  latest year; optionally × (resin index latest / its average in that year) with the US PPI
+  for plastics resins (`PCU325211325211`) – a proxy for "today", not a quote;
+- **freight:** the transport model's assumption (40 USD/t + 7 USD/t per 1,000 nm,
+  `config/model.yaml`) for the sea distance from the region's port to Rotterdam, × a freight
+  factor (slider; Red Sea crisis rates were roughly 2–3× the pre-crisis level);
+- **duty:** EU duty rate × (price + freight), because the EU customs value is CIF
+  (insurance ignored). Rates in `config/sourcing.yaml`: 6.5 % third-country duty; 0 % for
+  the USA (from 2026-07-01), South Korea, Egypt and Israel; 5.2 % for Mercosur (phase-in).
+  Source: a TARIC mirror (tariffnumber.com), read 2026-11-13; to be checked in the official
+  TARIC consultation before relying on it.
+
+**Red Sea closed:** a second distance table with Suez, Bab el-Mandeb and Panama blocked
+(`route_variants` in `config/model.yaml`). Panama has to be blocked as well, otherwise
+searoute sends Asian cargo through Panama instead of around the Cape. Jebel Ali → Rotterdam
+grows from 6,262 to 11,045 nm, Shanghai from 10,546 to 13,866 nm; Houston is unchanged.
+
+**Result (BACI 2024 prices, 1.115 USD/EUR, freight factor 1):** cheapest delivered are
+Uzbekistan (961 EUR/t), Iran (1,060), Qatar (1,144), the USA (1,201) and Saudi Arabia
+(1,213); the average price within Europe is 1,355 EUR/t. Thanks to the duty preference the
+USA lands close to the Gulf suppliers despite a higher FOB price. Closing the Red Sea adds
+about 32 EUR/t for Middle East supplies (volume-weighted) at normal freight rates.
+
+**Limits:**
+- Unit values average all PE grades; differences between countries partly reflect the mix
+  (e.g. more LLDPE or HDPE), not the price of the same grade.
+- The model region Europe includes the UK, Turkey, Switzerland, Norway, Ukraine and others,
+  where EU duties do not apply; most of Iran's volume goes to Turkey. GSP preferences (e.g.
+  Uzbekistan) and anti-dumping or safeguard duties are not modelled.
+- One port per region (section 6.1); no inland freight, insurance or port fees.

@@ -6,6 +6,11 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Landed-cost tab (spec 007): price (BACI unit value, optionally indexed to today), sea
+  freight and EU duty per supplier country in EUR/t, with Red Sea open/closed and a freight
+  factor; duty rates in `config/sourcing.yaml`.
+- Route variant `red_sea_closed` (`config/model.yaml`), written by `ptf ingest` as a second
+  sea-distance table.
 - Buyer dashboard (spec 006): tabs "Situation" (traffic lights for price, supply and
   logistics, "what changed"), "Prices & drivers" (EUR/USD switch, feedstock vs. resin
   indexed to 2019) and "Sourcing" (import sources treemap, Sankey of routes, share of

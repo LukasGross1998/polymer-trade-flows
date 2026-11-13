@@ -17,6 +17,7 @@ from ptf.insights import view
 from ptf.insights.config import SourcingConfig, load_sourcing_config
 from ptf.markets import steps as markets_steps
 from ptf.markets.config import MarketConfig, load_market_config
+from ptf.model.config import ModelConfig, load_model_config
 from ptf.model.distances import read_distance_table
 from ptf.shipping import steps as shipping_steps
 from ptf.shipping.config import MonitorConfig, load_monitor_config
@@ -27,6 +28,7 @@ class AppData:
     monitor_config: MonitorConfig
     market_config: MarketConfig
     sourcing_config: SourcingConfig
+    model_config: ModelConfig
     transits: pd.DataFrame
     chokepoints: pd.DataFrame
     port_activity: pd.DataFrame | None = None
@@ -37,6 +39,7 @@ class AppData:
     port_links: pd.DataFrame | None = None
     import_sources: pd.DataFrame | None = None
     distances: pd.DataFrame | None = None  # sea routes with passages (raw layer, model)
+    distances_closed: pd.DataFrame | None = None  # same with the Red Sea closed
 
     @property
     def latest_date(self) -> pd.Timestamp:
@@ -103,6 +106,7 @@ def load_app_data(settings: Settings) -> AppData:
         monitor_config=load_monitor_config(settings.config_dir / "shipping.yaml"),
         market_config=load_market_config(settings.config_dir / "markets.yaml"),
         sourcing_config=load_sourcing_config(settings.config_dir / "sourcing.yaml"),
+        model_config=load_model_config(settings.config_dir / "model.yaml"),
         transits=require(tables["transits"], "mart_chokepoint_transits"),
         chokepoints=require(tables["chokepoints"], "dim_chokepoint"),
         port_activity=tables["port_activity"],
@@ -113,6 +117,7 @@ def load_app_data(settings: Settings) -> AppData:
         port_links=tables["port_links"],
         import_sources=tables["import_sources"],
         distances=read_distance_table(settings.raw_dir),
+        distances_closed=read_distance_table(settings.raw_dir, "red_sea_closed"),
     )
 
 
