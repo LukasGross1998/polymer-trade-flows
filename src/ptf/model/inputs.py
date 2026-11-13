@@ -82,7 +82,7 @@ def route_costs(distances: pd.DataFrame, config: ModelConfig) -> pd.DataFrame:
     routes = distances[
         distances["origin_region"].isin(config.regions)
         & distances["dest_region"].isin(config.regions)
-    ].copy()
+    ].drop(columns=["passages"], errors="ignore")  # route passages are for the buyer view
     routes["prod_cost_usd_t"] = routes["origin_region"].map(
         {code: r.prod_cost_usd_t for code, r in config.regions.items()}
     )

@@ -82,12 +82,14 @@ ignore_missing_imports = true
 root_package = "ptf"
 
 [[tool.importlinter.contracts]]
-name = "Entry points on top, independent domains in the middle, core at the bottom"
+name = "Entry points on top, insights, independent domains, core at the bottom"
 type = "layers"
 # A higher layer may import a lower one, never the other way round. Modules separated by
 # "|" are independent: they must not import each other (domains talk via the warehouse).
+# `insights` combines domains for the buyer view (ADR-014).
 layers = [
     "ptf.cli | ptf.app",
+    "ptf.insights",
     "ptf.trade | ptf.shipping | ptf.markets | ptf.model | ptf.legacy",
     "ptf.core",
 ]
@@ -95,5 +97,5 @@ layers = [
 [[tool.importlinter.contracts]]
 name = "Only the command line uses the superseded Comtrade code"
 type = "forbidden"
-source_modules = ["ptf.app"]
+source_modules = ["ptf.app", "ptf.insights"]
 forbidden_modules = ["ptf.legacy"]

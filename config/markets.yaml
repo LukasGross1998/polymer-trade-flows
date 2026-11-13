@@ -41,6 +41,16 @@ fred_series:
     unit: index
     frequency: monthly
     group: freight_polymers
+  - id: PCU325211325211
+    name: US PPI plastics material and resin manufacturing
+    unit: index
+    frequency: monthly
+    group: freight_polymers
+  - id: DEXUSEU
+    name: US dollars per euro
+    unit: USD/EUR
+    frequency: daily
+    group: fx
   - id: DEXCHUS
     name: Chinese yuan per US dollar
     unit: CNY/USD

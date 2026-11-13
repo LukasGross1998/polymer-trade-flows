@@ -438,3 +438,33 @@ was found relative to the source file, and dbt wrote `target/` and `logs/` into 
     on Linux the container user's id (system user) would own them; set `user:` in compose
     there if needed.
   - The Mac builds `linux/arm64`, CI `linux/amd64`; all dependencies ship wheels for both.
+
+## ADR-014: Insights layer for logic that combines domains
+
+- **Date:** 2026-11-13
+- **Status:** accepted (spec 006)
+
+**Context.** The buyer view needs numbers that no single domain can compute: the share of
+Europe's imports that passes a disrupted chokepoint combines trade (who supplies), model
+(which sea route) and shipping (which chokepoint is disrupted). ADR-012 forbids domains to
+import each other, and the app must not hold business logic.
+
+**Options.**
+- *A. Put it in the app:* quick, but logic in Dash callbacks is hard to test and reuse.
+- *B. Let one domain import the others* (e.g. shipping imports trade): breaks ADR-012 and
+  creates hidden coupling.
+- *C. Compute it in dbt:* the disruption flag comes from Python (rolling seasonal baseline,
+  section 4.2 of the methodology); moving it to SQL is a larger, separate decision.
+- *D. A new layer `ptf.insights` between the entry points and the domains.*
+
+**Decision: D.** `ptf.insights` may import any domain and `core`; domains must not import
+it; the app and the CLI may. import-linter enforces the new layer order
+`cli | app` → `insights` → domains → `core`, and `insights` must not use `legacy`.
+`insights.view` computes everything a buyer tab shows from the loaded tables, so the tabs
+only format and draw.
+
+**Consequences.**
+- *Positive:* cross-domain questions have a tested home with plain functions and
+  hand-checkable unit tests; domains stay independent.
+- *Negative:* one more layer to understand; the line between "domain logic" and "insight"
+  needs judgement (rule: if it needs two domains, it is an insight).

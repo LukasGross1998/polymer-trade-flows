@@ -69,3 +69,54 @@ def test_active_events_open_or_recent_and_severe() -> None:
     active = active_events(events, as_of=pd.Timestamp("2026-11-08"))
 
     assert active["event"].tolist() == ["open red", "recent orange"]
+
+
+def test_usd_to_eur_same_day_or_earlier_rate() -> None:
+    brent = pd.DataFrame({"date": pd.to_datetime(["2026-11-02", "2026-11-03"]), "value": 80.0})
+    # No rate on 2026-11-03 (holiday): the rate of 2026-11-02 applies.
+    rates = pd.DataFrame({"date": pd.to_datetime(["2026-11-02"]), "value": [1.10]})
+
+    eur = indicators.usd_to_eur(brent, rates)
+
+    assert eur["value"].tolist() == pytest.approx([72.727, 72.727], abs=1e-3)  # 80 / 1.10
+
+
+def test_usd_to_eur_monthly_uses_monthly_average_rate() -> None:
+    gas = pd.DataFrame({"date": pd.to_datetime(["2026-09-01"]), "value": [12.0]})
+    rates = pd.DataFrame(
+        {"date": pd.to_datetime(["2026-09-01", "2026-09-30"]), "value": [1.0, 1.4]}
+    )
+
+    eur = indicators.usd_to_eur(gas, rates, monthly=True)
+
+    assert eur["value"].tolist() == pytest.approx([10.0])  # 12 / mean(1.0, 1.4)
+
+
+def test_in_currency_converts_only_usd_based_series() -> None:
+    rows = [
+        ("DCOILBRENTEU", "USD/bbl", "daily", "energy", 80.0),
+        ("DEXUSEU", "USD/EUR", "daily", "fx", 1.25),
+        ("GSCPI", "std. dev.", "monthly", "supply_chain", 1.0),
+    ]
+    data = pd.DataFrame(
+        [
+            {
+                "date": pd.Timestamp("2026-11-02"),
+                "series_id": s,
+                "name": s,
+                "unit": u,
+                "frequency": f,
+                "group": g,
+                "value": v,
+            }
+            for s, u, f, g, v in rows
+        ]
+    )
+
+    eur = indicators.in_currency(data, "EUR").set_index("series_id")
+
+    assert eur.loc["DCOILBRENTEU", "value"] == pytest.approx(64.0)  # 80 / 1.25
+    assert eur.loc["DCOILBRENTEU", "unit"] == "EUR/bbl"
+    assert eur.loc["DEXUSEU", "value"] == 1.25
+    assert eur.loc["GSCPI", "value"] == 1.0
+    assert indicators.in_currency(data, "USD") is data

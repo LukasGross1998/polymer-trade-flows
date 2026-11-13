@@ -1,0 +1,40 @@
+# Buyer view of the dashboard (ptf.insights, spec 006). Rationale: docs/methodology.md,
+# section 6. All thresholds are assumptions (source: assumption) to be tuned by the user.
+
+# The buyer's region: imports into this model region (config/regions.yaml) are analysed.
+focus_region: EUR
+
+# searoute passage name -> PortWatch chokepoint id (marts.dim_chokepoint). The order is the
+# order in route labels: roughly from Asia westwards, so a Gulf route reads
+# "Hormuz · Bab el-Mandeb · Suez · Gibraltar".
+# source: searoute's passage list and IMF PortWatch chokepoint names.
+passage_chokepoints:
+  ormuz: chokepoint6         # Strait of Hormuz
+  malacca: chokepoint5       # Malacca Strait
+  sunda: chokepoint19        # Sunda Strait
+  babalmandab: chokepoint4   # Bab el-Mandeb Strait
+  suez: chokepoint1          # Suez Canal
+  south_africa: chokepoint7  # Cape of Good Hope
+  bosporus: chokepoint3      # Bosporus Strait
+  gibraltar: chokepoint8     # Gibraltar Strait
+  panama: chokepoint2        # Panama Canal
+  bering: chokepoint26       # Bering Strait
+
+# Traffic lights on the situation page: amber from `amber`, red from `red` (inclusive).
+# source: assumption
+signals:
+  price:
+    series: DCOILBRENTEU     # Brent, converted to EUR with DEXUSEU
+    days: 90                 # change over this many days, in %
+    amber: 5.0
+    red: 10.0
+  supply:                    # share of extra-regional imports through a disrupted chokepoint, %
+    amber: 10.0
+    red: 25.0
+  logistics:                 # latest GSCPI, standard deviations from the average
+    series: GSCPI
+    amber: 0.5
+    red: 1.0
+
+# "What changed" list on the situation page.
+recent_days: 7

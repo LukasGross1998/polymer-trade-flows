@@ -70,3 +70,73 @@ def indexed(market: pd.DataFrame, series_ids: list[str], start: pd.Timestamp) ->
     if not frames:
         return pd.DataFrame(columns=["date", "series_id", "value"])
     return pd.concat(frames, ignore_index=True)[["date", "series_id", "value"]]
+
+
+def is_usd_based(market: pd.DataFrame, series_id: str) -> bool:
+    """Prices in USD (unit "USD/...") and the US producer price indices (USD-based).
+
+    Exchange rates are excluded: "USD/EUR" is a rate, not a price to convert.
+    """
+    meta = market.loc[market["series_id"] == series_id, ["unit", "group"]]
+    if meta.empty:
+        return False
+    unit, group = meta.iloc[0]["unit"], meta.iloc[0]["group"]
+    if group == "fx":
+        return False
+    return str(unit).startswith("USD/") or group == "freight_polymers"
+
+
+def usd_to_eur(
+    values: pd.DataFrame, usd_per_eur: pd.DataFrame, monthly: bool = False
+) -> pd.DataFrame:
+    """Convert a date/value series from USD to EUR (value / USD per EUR).
+
+    Daily values use the rate of the same day, or the most recent earlier one (FRED has no
+    rate on holidays). Monthly values use the average rate of that month, because a monthly
+    price is an average over the month too.
+    """
+    rates = usd_per_eur.sort_values("date")[["date", "value"]].rename(columns={"value": "rate"})
+    if monthly:
+        rates = rates.set_index("date")["rate"].resample("MS").mean().dropna().reset_index()
+        merged = values.merge(rates, on="date", how="left")
+    else:
+        merged = pd.merge_asof(values.sort_values("date"), rates, on="date", direction="backward")
+    merged = merged.dropna(subset=["rate"])
+    return merged.assign(value=merged["value"] / merged["rate"])[["date", "value"]]
+
+
+def in_currency(market: pd.DataFrame, currency: str, fx_id: str = "DEXUSEU") -> pd.DataFrame:
+    """The long market table with all USD-based series converted to `currency` (USD or EUR).
+
+    Other series (exchange rates, GSCPI) are returned unchanged. Units say the new currency.
+    """
+    if currency == "USD":
+        return market
+    if currency != "EUR":
+        raise ValueError(f"unsupported currency {currency!r}")
+    rates = series(market, fx_id)
+    frames = []
+    for series_id, one in market.groupby("series_id", sort=False):
+        if is_usd_based(market, str(series_id)) and not rates.empty:
+            monthly = one["frequency"].iloc[0] == "monthly"
+            converted = usd_to_eur(one[["date", "value"]], rates, monthly=monthly)
+            meta = one.drop(columns=["date", "value"]).iloc[0]
+            one = converted.assign(**{str(k): v for k, v in meta.items()})
+            one["unit"] = str(meta["unit"]).replace("USD", "EUR")
+        frames.append(one)
+    return pd.concat(frames, ignore_index=True)[market.columns]
+
+
+def monthly_table(market: pd.DataFrame, series_ids: list[str]) -> pd.DataFrame:
+    """Monthly averages of several series as a long table (date, series_id, value).
+
+    Daily and monthly series become comparable: one point per month for each.
+    """
+    frames = [
+        monthly_mean(market, series_id).assign(series_id=series_id)
+        for series_id in series_ids
+        if not series(market, series_id).empty
+    ]
+    if not frames:
+        return pd.DataFrame(columns=["date", "series_id", "value"])
+    return pd.concat(frames, ignore_index=True)[["date", "series_id", "value"]]

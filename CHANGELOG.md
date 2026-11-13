@@ -5,6 +5,20 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Added
+- Buyer dashboard (spec 006): tabs "Situation" (traffic lights for price, supply and
+  logistics, "what changed"), "Prices & drivers" (EUR/USD switch, feedstock vs. resin
+  indexed to 2019) and "Sourcing" (import sources treemap, Sankey of routes, share of
+  imports through disrupted chokepoints).
+- `ptf.insights` layer for logic that combines domains (ADR-014); `config/sourcing.yaml`.
+- dbt mart `mart_import_sources` with tests (`value_between`, shares sum to 1).
+- Route passages (`passages`) in the sea-distance table; FRED series `DEXUSEU` and
+  `PCU325211325211`.
+
+### Changed
+- Tabs "Overview" and "Energy & freight" replaced by "Situation" and "Prices & drivers";
+  app title "Polyethylene supply chain monitor".
+
 ## 0.4.0 – 2026-11-13
 
 Architecture release: data model in dbt, package structure by domain, Docker. Results of the
