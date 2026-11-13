@@ -38,3 +38,33 @@ signals:
 
 # "What changed" list on the situation page.
 recent_days: 7
+
+# Landed cost per supplier country (spec 007): price (BACI unit value) + sea freight
+# (config/model.yaml) + EU duty on price + freight, converted to EUR.
+landed_cost:
+  top_n: 10                    # largest supplier countries by volume shown in the chart
+  fx_series: DEXUSEU           # US dollars per euro
+  resin_index: PCU325211325211 # scales the BACI-year unit value to today ("indexed" basis)
+  duty:
+    # source for all rates: EU TARIC as mirrored by tariffnumber.com (CN 3901 10 10,
+    # 3901 20 90), read 2026-11-13. Not yet checked in the official TARIC consultation.
+    default_pct: 6.5           # third-country duty (erga omnes)
+    preferential:
+      USA:
+        pct: 0.0
+        source: "TARIC mirror: tariff preference from 2026-07-01"
+      KOR:
+        pct: 0.0
+        source: "TARIC mirror: EU-Korea FTA, from 2014-07-01"
+      EGY:
+        pct: 0.0
+        source: "TARIC mirror: EU-Egypt Association Agreement, from 2004-06-01"
+      ISR:
+        pct: 0.0
+        source: "TARIC mirror: EU-Israel Association Agreement"
+      BRA: &mercosur
+        pct: 5.2
+        source: "TARIC mirror: Mercosur group, 2026-05-01 to 2026-12-31 (phase-in)"
+      ARG: *mercosur
+      URY: *mercosur
+      PRY: *mercosur

@@ -46,6 +46,7 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | `mirror` (check) | `data/clean/mirror.parquet` | one trade relation: year, exporter, importer | `ptf.legacy.comtrade.mirror` |
 | `comtrade_flows` (check) | `data/clean/comtrade_flows.parquet` | one trade relation: year, exporter, importer | `ptf.legacy.comtrade.reconcile` |
 | `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.model.distances` |
+| `sea_distances` (variant) | `data/raw/distances/sea_distances_red_sea_closed.parquet` | same columns, Suez, Bab el-Mandeb and Panama blocked (`route_variants` in `config/model.yaml`) | `ptf.model.distances` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |

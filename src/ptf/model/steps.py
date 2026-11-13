@@ -24,8 +24,12 @@ CONFIG_FILE = "model.yaml"
 
 
 def ingest(settings: Settings) -> None:
-    """Sea distances between the regions' reference ports (cached)."""
-    distances.ingest_distances(load_regions(settings.config_dir / "regions.yaml"), settings.raw_dir)
+    """Sea distances between the regions' reference ports, base case and route variants."""
+    regions = load_regions(settings.config_dir / "regions.yaml")
+    config = load_model_config(settings.config_dir / CONFIG_FILE)
+    distances.ingest_distances(regions, settings.raw_dir)
+    variants = {name: v.restrictions for name, v in config.route_variants.items()}
+    distances.ingest_route_variants(regions, settings.raw_dir, variants)
 
 
 def run(settings: Settings) -> None:

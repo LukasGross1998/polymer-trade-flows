@@ -193,7 +193,9 @@ def build_warehouse(setup: "PipelineSetup") -> None:
     warehouse.run_dbt(settings, ["build"])
 
 
-def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:
+def write_synthetic_distances(
+    raw_dir: Path, regions: RegionConfig, variant: str = "base", distance_nm: float = 5000.0
+) -> None:
     """5,000 nm between all regions: keeps model tests fast and independent of searoute.
 
     Routes from the Middle East pass Hormuz and Suez, all others no passage.
@@ -204,14 +206,14 @@ def write_synthetic_distances(raw_dir: Path, regions: RegionConfig) -> None:
             "dest_region": d,
             "origin_port": regions.regions[o].port.name,
             "dest_port": regions.regions[d].port.name,
-            "distance_nm": 0.0 if o == d else 5000.0,
+            "distance_nm": 0.0 if o == d else distance_nm,
             "passages": ["ormuz", "suez"] if o == "MDE" and d != "MDE" else [],
         }
         for o in regions.regions
         for d in regions.regions
     ]
     (raw_dir / "distances").mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(rows).to_parquet(raw_dir / "distances" / "sea_distances_base.parquet")
+    pd.DataFrame(rows).to_parquet(raw_dir / "distances" / f"sea_distances_{variant}.parquet")
 
 
 BACI_COUNTRIES = (

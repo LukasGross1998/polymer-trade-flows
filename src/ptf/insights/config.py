@@ -28,11 +28,34 @@ class Signals(BaseModel):
     logistics: LogisticsSignal
 
 
+class PreferentialDuty(BaseModel):
+    pct: float
+    source: str
+
+
+class Duty(BaseModel):
+    default_pct: float
+    preferential: dict[str, PreferentialDuty] = {}
+
+    def rate_pct(self, iso3: str) -> float:
+        """EU import duty for goods from `iso3`, in % of the customs value (CIF)."""
+        preference = self.preferential.get(iso3)
+        return preference.pct if preference is not None else self.default_pct
+
+
+class LandedCostSettings(BaseModel):
+    top_n: int
+    fx_series: str
+    resin_index: str
+    duty: Duty
+
+
 class SourcingConfig(BaseModel):
     focus_region: str
     passage_chokepoints: dict[str, str]
     signals: Signals
     recent_days: int
+    landed_cost: LandedCostSettings
 
 
 def load_sourcing_config(path: Path) -> SourcingConfig:

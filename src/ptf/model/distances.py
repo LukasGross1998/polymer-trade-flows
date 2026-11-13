@@ -70,14 +70,14 @@ def build_distance_table(
     return pd.DataFrame(rows)
 
 
-def distance_path(raw_dir: Path) -> Path:
-    return raw_dir / "distances" / "sea_distances_base.parquet"
+def distance_path(raw_dir: Path, variant: str = "base") -> Path:
+    return raw_dir / "distances" / f"sea_distances_{variant}.parquet"
 
 
-def read_distance_table(raw_dir: Path) -> pd.DataFrame | None:
-    """The stored base-case table, or None if it is missing or predates the `passages` column
+def read_distance_table(raw_dir: Path, variant: str = "base") -> pd.DataFrame | None:
+    """A stored distance table, or None if it is missing or predates the `passages` column
     (then `ptf ingest` has to run again)."""
-    path = distance_path(raw_dir)
+    path = distance_path(raw_dir, variant)
     if not path.exists():
         return None
     table = pd.read_parquet(path)
@@ -90,3 +90,16 @@ def ingest_distances(regions: RegionConfig, raw_dir: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     build_distance_table(regions).to_parquet(path, index=False)
     return path
+
+
+def ingest_route_variants(
+    regions: RegionConfig, raw_dir: Path, variants: dict[str, list[str]]
+) -> list[Path]:
+    """One distance table per variant (name -> blocked passages), e.g. "red_sea_closed"."""
+    paths = []
+    for name, restrictions in variants.items():
+        path = distance_path(raw_dir, name)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        build_distance_table(regions, restrictions).to_parquet(path, index=False)
+        paths.append(path)
+    return paths

@@ -12,7 +12,7 @@ from helpers import REPO_ROOT, PipelineSetup, write_synthetic_distances
 
 from ptf.app.__main__ import create_app
 from ptf.app.data import AppData, load_app_data
-from ptf.app.tabs import chokepoints, flows, ports, prices, situation, sourcing
+from ptf.app.tabs import chokepoints, flows, landed_cost, ports, prices, situation, sourcing
 from ptf.core import warehouse
 from ptf.core.settings import Settings, get_settings
 from ptf.shipping.config import load_monitor_config
@@ -138,3 +138,19 @@ def test_wsgi_module_exposes_the_flask_server(
 
     assert isinstance(wsgi.server, Flask)
     get_settings.cache_clear()
+
+
+def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None:
+    raw, regions = warehouse_setup.settings.raw_dir, warehouse_setup.regions
+    write_synthetic_distances(raw, regions)
+    write_synthetic_distances(raw, regions, "red_sea_closed", distance_nm=10000.0)
+    data = load_app_data(warehouse_setup.settings)
+
+    kpis, bars, table = landed_cost.update(data, "open", 1.0, "baci")
+    # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; freight 40 + 7 x 5 = 75;
+    # US duty 0 %; no EUR rate in the fixtures, so 1 USD = 1 EUR.
+    assert kpis[0].children[1].children == "1,325 EUR/t"
+    assert [t.name for t in bars.data] == ["Price (FOB)", "Sea freight", "EU duty"]
+
+    closed, *_ = landed_cost.update(data, "closed", 2.0, "baci")
+    assert closed[0].children[1].children == "1,470 EUR/t"  # freight (40 + 70) x 2 = 220

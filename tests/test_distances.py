@@ -1,7 +1,15 @@
+from pathlib import Path
+
 import pytest
 
 from ptf.core.regions import Port, RegionConfig
-from ptf.model.distances import build_distance_table, port_distance_nm, sea_route
+from ptf.model.distances import (
+    build_distance_table,
+    ingest_route_variants,
+    port_distance_nm,
+    read_distance_table,
+    sea_route,
+)
 
 ROTTERDAM = Port(name="Rotterdam", lon=4.05, lat=51.95)
 SHANGHAI = Port(name="Shanghai", lon=121.8, lat=31.2)
@@ -52,3 +60,36 @@ def test_route_passages_middle_east_and_north_america_to_europe() -> None:
 
     assert gulf == ["babalmandab", "gibraltar", "ormuz", "suez"]
     assert atlantic == []
+
+
+@pytest.mark.slow
+def test_red_sea_closed_variant_goes_around_the_cape(tmp_path: Path) -> None:
+    regions = RegionConfig.model_validate(
+        {
+            "rest_of_world": "ROW",
+            "regions": {
+                "EUR": {"name": "Europe", "port": ROTTERDAM.model_dump(), "reporters": ["DEU"]},
+                "MDE": {
+                    "name": "Middle East",
+                    "port": {"name": "Jebel Ali", "lon": 55.0, "lat": 25.0},
+                    "reporters": ["ARE"],
+                },
+                "NAM": {
+                    "name": "North America",
+                    "port": {"name": "Houston", "lon": -95.0, "lat": 29.7},
+                    "reporters": ["USA"],
+                },
+            },
+        }
+    )
+    closed = ["northwest", "suez", "babalmandab", "panama"]
+
+    (path,) = ingest_route_variants(regions, tmp_path, {"red_sea_closed": closed})
+    table = read_distance_table(tmp_path, "red_sea_closed")
+
+    assert path.name == "sea_distances_red_sea_closed.parquet"
+    assert table is not None
+    by_pair = table.set_index(["origin_region", "dest_region"])
+    assert 10_500 < by_pair.loc[("MDE", "EUR"), "distance_nm"] < 11_500  # 6,262 nm via Suez
+    assert "south_africa" in list(by_pair.loc[("MDE", "EUR"), "passages"])
+    assert 4_500 < by_pair.loc[("NAM", "EUR"), "distance_nm"] < 5_500  # Atlantic, unchanged

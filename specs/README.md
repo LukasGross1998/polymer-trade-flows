@@ -13,3 +13,4 @@ increments.
 | 004 | [Package structure by domain](004-package-by-domain.md) | done |
 | 005 | [Docker image and compose](005-docker.md) | done |
 | 006 | [Buyer dashboard: situation, prices, sourcing exposure](006-buyer-dashboard.md) | done |
+| 007 | [Landed cost by supplier country](007-landed-cost.md) | done |

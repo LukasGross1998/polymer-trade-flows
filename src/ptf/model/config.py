@@ -35,11 +35,20 @@ class RegionAssumption(BaseModel):
         return self.capacity_t * self.utilisation
 
 
+class RouteVariant(BaseModel):
+    """Passages blocked in a variant of the sea-distance table (searoute names)."""
+
+    source: str
+    note: str = ""
+    restrictions: list[str]
+
+
 class ModelConfig(BaseModel):
     base_year: int
     penalty_usd_t: float = Field(gt=0)
     freight: FreightAssumption
     regions: dict[str, RegionAssumption]
+    route_variants: dict[str, RouteVariant] = {}
 
 
 def load_model_config(path: Path) -> ModelConfig:
