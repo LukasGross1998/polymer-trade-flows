@@ -27,10 +27,15 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
 - **Sourcing:** where Europe's imports from outside the region come from (BACI) and which
   share passes a chokepoint that is disrupted today: currently about half, mainly Middle
   East and Asian supplies through Hormuz, Bab el-Mandeb and Suez.
-- **Landed cost:** price, sea freight and EU duty per supplier country in EUR/t, with the
-  Red Sea open or closed and adjustable freight rates.
-- **Order planner:** landed cost against arrival date if ordered today; the cheapest
-  supplier that arrives by the need-by date (lead times with port and storm buffers).
+- **Landed cost:** price and EU duty (TARIC preferences with validity) per supplier country
+  in EUR/t, with the Red Sea open or closed; sea freight shows "n/a" until a sourced rate
+  exists.
+- **Order planner:** cost against the ship's arrival date if ordered today (UNCTAD time in
+  port + sea days at the IMO average container ship speed); no recommendation without
+  freight.
+
+Only values confirmed by a data source are used (ADR-016); every config number is listed in
+[docs/value_register.md](docs/value_register.md).
 
 **Markets & logistics:**
 
@@ -63,7 +68,7 @@ uv run python -m ptf.app    # open http://127.0.0.1:8050
 ## Approach
 
 1. **Data:** CEPII BACI bilateral trade by HS6 product -> SQL models in **dbt** -> DuckDB warehouse with a star schema; own Comtrade mirror reconciliation as a check
-2. **Model:** transport LP in Pyomo, solved with HiGHS; duals interpreted as regional prices
+2. **Model:** transport LP in Pyomo, solved with HiGHS; duals interpreted as regional prices (switched off until its inputs are sourced, ADR-016)
 3. **Scenarios:** declarative YAML scenarios, cost curves, before/after comparison
 4. **App:** Dash + Plotly
 

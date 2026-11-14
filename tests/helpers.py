@@ -375,3 +375,22 @@ def arcgis_page(features: list[dict[str, Any]], more: bool) -> FakeResponse:
     if more:
         payload["exceededTransferLimit"] = True
     return FakeResponse(200, payload)
+
+
+def sourced(value: float, **extra: Any) -> dict[str, Any]:
+    """A `Sourced` value in config form, with a test source (spec 015)."""
+    return {
+        "value": value,
+        "source": "test source",
+        "url": "https://example.org/test",
+        "read": "2026-11-14",
+        **extra,
+    }
+
+
+def with_lp_fixture(settings: Settings, folder: Path) -> Settings:
+    """Settings whose config is the project's, except a synthetic, enabled LP (test only)."""
+    config = folder / "config"
+    shutil.copytree(REPO_ROOT / "config", config, dirs_exist_ok=True)
+    shutil.copy(REPO_ROOT / "tests" / "fixtures" / "config_lp" / "model.yaml", config)
+    return settings.model_copy(update={"config_dir": config})

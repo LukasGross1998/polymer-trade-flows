@@ -104,7 +104,7 @@ def layout(data: AppData) -> html.Div:
                 ],
                 style={**style.ROW, "marginTop": "16px"},
             ),
-            weather_card.layout("cp-weather"),
+            weather_card.layout("cp-weather", data.monitor_config.weather),
             html.Div(
                 "Source: IMF PortWatch (daily transit counts from satellite AIS data). Not "
                 "real-time: data arrive a few days late and are updated about weekly. Normal = "

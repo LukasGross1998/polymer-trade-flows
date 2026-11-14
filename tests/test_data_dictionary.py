@@ -5,6 +5,7 @@ files (dbt/models/**/_*.yml), which `dbt docs` turns into browsable documentatio
 """
 
 import re
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -12,6 +13,7 @@ import yaml
 from helpers import (
     REPO_ROOT,
     PipelineSetup,
+    with_lp_fixture,
     write_synthetic_distances,
 )
 
@@ -72,8 +74,10 @@ def test_sea_distances_match_dictionary(pipeline_setup: PipelineSetup) -> None:
     "table",
     ["observed_region_flows", "region_balance", "route_costs", "lp_flows", "lp_regions"],
 )
-def test_model_tables_match_dictionary(warehouse_setup: PipelineSetup, table: str) -> None:
-    settings = warehouse_setup.settings
+def test_model_tables_match_dictionary(
+    warehouse_setup: PipelineSetup, table: str, tmp_path: Path
+) -> None:
+    settings = with_lp_fixture(warehouse_setup.settings, tmp_path)
     write_synthetic_distances(settings.raw_dir, warehouse_setup.regions)
     model_steps.run(settings)
 

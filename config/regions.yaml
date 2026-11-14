@@ -1,6 +1,6 @@
 # Mapping of countries (ISO 3166-1 alpha-3) to model regions.
 #
-# source: assumption — own grouping into 10 regions with similar supply economics and
+# setting: own grouping into 10 regions with similar supply economics and
 # shipping geography. Rationale per region: docs/methodology.md, section "Regions".
 #
 # Per region:
@@ -11,7 +11,7 @@
 #                world" instead of trade within Europe).
 # Countries listed nowhere (mainly Oceania) fall into the rest-of-world region.
 #
-# `port` is the representative seaport used for sea distances (searoute). Coordinates are
+# `port` (setting) is the representative seaport used for sea distances (searoute). Coordinates are
 # approximate (lon, lat in decimal degrees); searoute snaps them to the nearest sea lane.
 
 rest_of_world: ROW

@@ -1,9 +1,12 @@
 """Typed access to `config/sourcing.yaml` (focus region, chokepoint mapping, thresholds)."""
 
+from datetime import date
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+
+from ptf.core.sourced import Sourced, SourcedRate, SourcedTable
 
 
 class Threshold(BaseModel):
@@ -29,19 +32,37 @@ class Signals(BaseModel):
     logistics: LogisticsSignal
 
 
-class PreferentialDuty(BaseModel):
-    pct: float
-    source: str
-
-
 class Duty(BaseModel):
-    default_pct: float
-    preferential: dict[str, PreferentialDuty] = {}
+    """EU import duty: the third-country rate and the preferences found in TARIC (spec 015)."""
 
-    def rate_pct(self, iso3: str) -> float:
-        """EU import duty for goods from `iso3`, in % of the customs value (CIF)."""
+    default_pct: Sourced
+    preferential: dict[str, SourcedRate] = {}
+
+    def rate_pct(self, iso3: str, on: date | None = None) -> float:
+        """EU import duty for goods from `iso3` on date `on`, in % of the customs value (CIF).
+
+        A preference applies only inside the validity period TARIC gives for it.
+        """
         preference = self.preferential.get(iso3)
-        return preference.pct if preference is not None else self.default_pct
+        if preference is not None and on is not None:
+            started = preference.valid_from is None or preference.valid_from <= on
+            running = preference.valid_to is None or on <= preference.valid_to
+            if not (started and running):
+                preference = None
+        return preference.value if preference is not None else self.default_pct.value
+
+    def with_default(self, pct: float, source: str, url: str, read: date) -> "Duty":
+        """The same preferences with another third-country rate (e.g. from WITS per grade)."""
+        default = Sourced(value=pct, source=source, url=url, read=read)
+        return self.model_copy(update={"default_pct": default})
+
+
+class ImportControl(BaseModel):
+    """An EU sanctions measure on imports from a country, as listed in TARIC."""
+
+    regulation: str
+    url: str
+    read: date
 
 
 class LandedCostSettings(BaseModel):
@@ -52,17 +73,32 @@ class LandedCostSettings(BaseModel):
 
 
 class LeadTime(BaseModel):
-    """Assumptions of the order planner (spec 010), in days and knots."""
+    """Inputs of the order planner (spec 010, sourced values since spec 015).
 
-    speed_knots: float
-    origin_port_days: float
-    destination_port_days: float
-    congestion_buffer_days: float
-    storm_buffer_days: float
-    europe_days: float
+    Ship transit time = median time in port at origin + sea days + median time in port at
+    destination. Settings: the ship size whose speed is used, the destination country, the
+    default need-by days and quantity.
+    """
+
+    vessel_size: str
+    speed_knots: SourcedTable  # average speed at sea by container ship size (TEU)
+    port_days: SourcedTable  # median time in port of container ships by country (ISO3)
+    destination_country: str
     default_need_by_days: int
     default_quantity_t: float
-    overland_days: dict[str, float] = {}
+
+    @model_validator(mode="after")
+    def vessel_size_has_a_speed(self) -> "LeadTime":
+        if self.speed_knots.get(self.vessel_size) is None:
+            raise ValueError(f"no sourced speed for vessel size {self.vessel_size!r}")
+        return self
+
+    @property
+    def speed(self) -> float:
+        """Average speed at sea of the chosen ship size, in knots."""
+        value = self.speed_knots.get(self.vessel_size)
+        assert value is not None  # checked when the config loads
+        return value
 
 
 class Relevance(BaseModel):
@@ -80,6 +116,7 @@ class SourcingConfig(BaseModel):
     signals: Signals
     recent_days: int
     landed_cost: LandedCostSettings
+    import_controls: dict[str, ImportControl] = {}
     lead_time: LeadTime
     relevance: Relevance = Relevance()
 

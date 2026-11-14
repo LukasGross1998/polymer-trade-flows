@@ -1,5 +1,6 @@
 # Buyer view of the dashboard (ptf.insights, spec 006). Rationale: docs/methodology.md,
-# section 6. All thresholds are assumptions (source: assumption) to be tuned by the user.
+# section 6. Spec 015: facts carry source, url and read date; thresholds and limits are
+# settings (the user's choice). Value register: docs/value_register.md.
 
 # The buyer's region: imports into this model region (config/regions.yaml) are analysed.
 focus_region: EUR
@@ -22,7 +23,7 @@ passage_chokepoints:
 
 # Traffic lights on the situation page, four levels (spec 013): yellow from `yellow`, orange
 # from `orange`, red from `red` (inclusive), green below. Red is meant for real exceptions.
-# source: assumption (GSCPI: its 2021 peak was 4.3; red from 2.0 = twice its usual swing)
+# setting: all thresholds below are the user's choice (GSCPI in standard deviations).
 signals:
   price:
     series: DCOILBRENTEU     # Brent, converted to EUR with DEXUSEU
@@ -41,7 +42,7 @@ signals:
     red: 2.0
 
 # What is relevant for a buyer in the focus region (spec 013). The situation page shows only
-# these by default; a switch shows everything. source: assumption
+# these by default; a switch shows everything. setting
 relevance:
   min_region_share: 5.0          # supplier regions with >= 5 % of extra-regional imports
   extra_chokepoints: [chokepoint9]   # Dover Strait: approach to the ARA ports
@@ -61,48 +62,184 @@ relevance:
 recent_days: 7
 
 # Landed cost per supplier country (spec 007): price (BACI unit value) + sea freight
-# (config/model.yaml) + EU duty on price + freight, converted to EUR.
+# (config/model.yaml, today not sourced: shown as n/a) + EU duty, converted to EUR.
 landed_cost:
-  top_n: 10                    # largest supplier countries by volume shown in the chart
-  fx_series: DEXUSEU           # US dollars per euro
-  resin_index: PCU325211325211 # scales the BACI-year unit value to today ("indexed" basis)
+  top_n: 10                    # setting: largest supplier countries by volume shown
+  fx_series: DEXUSEU           # US dollars per euro (FRED)
+  resin_index: PCU325211325211 # US PPI plastics resins (FRED), scales the BACI-year unit value
   duty:
-    # source for all rates: EU TARIC as mirrored by tariffnumber.com (CN 3901 10 10,
-    # 3901 20 90), read 2026-11-13. Not yet checked in the official TARIC consultation.
-    default_pct: 6.5           # third-country duty (erga omnes)
+    # The third-country rate per grade comes from World Bank WITS (pipeline); this value is
+    # the fallback when WITS has none.
+    default_pct:
+      value: 6.5
+      source: "EU TARIC, third-country duty (erga omnes), CN 3901 10 10 90"
+      url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=US"
+      read: 2026-11-14
+    # Preferences found in TARIC for the extra-European suppliers on 14 Nov 2026 (checked:
+    # USA, CAN, MEX, BRA, ARG, URY, PRY, KOR, JPN, SGP, EGY, ISR, DZA, ZAF, UZB with a
+    # preference; SAU, QAT, ARE, KWT, OMN, CHN, IND, TWN, THA, MYS, IRN, RUS without one).
+    # Checked on CN 3901 10 10 90; for USA also on 3901 20 90 00. Other 3901 lines may
+    # differ: TARIC is the reference.
     preferential:
       USA:
-        pct: 0.0
-        source: "TARIC mirror: tariff preference from 2026-07-01"
+        value: 0.0
+        source: "EU TARIC, tariff preference for US, CN 3901 10 10 90 and 3901 20 90 00"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=US"
+        read: 2026-11-14
+        valid_from: 2026-07-01
+      CAN:
+        value: 0.0
+        source: "EU TARIC, tariff preference for CA, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=CA"
+        read: 2026-11-14
+        valid_from: 2017-09-21
+      MEX:
+        value: 0.0
+        source: "EU TARIC, tariff preference for MX, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=MX"
+        read: 2026-11-14
+        valid_from: 2016-07-01
       KOR:
-        pct: 0.0
-        source: "TARIC mirror: EU-Korea FTA, from 2014-07-01"
+        value: 0.0
+        source: "EU TARIC, tariff preference for KR, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=KR"
+        read: 2026-11-14
+        valid_from: 2014-07-01
+        valid_to: 2026-12-31
+      JPN:
+        value: 0.0
+        source: "EU TARIC, tariff preference for JP, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=JP"
+        read: 2026-11-14
+        valid_from: 2020-02-01
+      SGP:
+        value: 0.0
+        source: "EU TARIC, tariff preference for SG, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=SG"
+        read: 2026-11-14
+        valid_from: 2019-11-21
+        valid_to: 2026-12-31
       EGY:
-        pct: 0.0
-        source: "TARIC mirror: EU-Egypt Association Agreement, from 2004-06-01"
+        value: 0.0
+        source: "EU TARIC, tariff preference for EG, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=EG"
+        read: 2026-11-14
+        valid_from: 2004-06-01
       ISR:
-        pct: 0.0
-        source: "TARIC mirror: EU-Israel Association Agreement"
-      BRA: &mercosur
-        pct: 5.2
-        source: "TARIC mirror: Mercosur group, 2026-05-01 to 2026-12-31 (phase-in)"
-      ARG: *mercosur
-      URY: *mercosur
-      PRY: *mercosur
+        value: 0.0
+        source: "EU TARIC, tariff preference for IL, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=IL"
+        read: 2026-11-14
+        valid_from: 2023-05-16
+      DZA:
+        value: 0.0
+        source: "EU TARIC, tariff preference for DZ, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=DZ"
+        read: 2026-11-14
+        valid_from: 2005-09-01
+      ZAF:
+        value: 0.0
+        source: "EU TARIC, tariff preference for ZA, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=ZA"
+        read: 2026-11-14
+        valid_from: 2016-10-10
+      UZB:
+        value: 0.0
+        source: "EU TARIC, tariff preference for UZ, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=UZ"
+        read: 2026-11-14
+        valid_from: 2014-01-01
+        valid_to: 2026-12-31
+      BRA:
+        value: 5.2
+        source: "EU TARIC, tariff preference for BR, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=BR"
+        read: 2026-11-14
+        valid_from: 2026-05-01
+        valid_to: 2026-12-31
+      ARG:
+        value: 5.2
+        source: "EU TARIC, tariff preference for AR, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=AR"
+        read: 2026-11-14
+        valid_from: 2026-05-01
+        valid_to: 2026-12-31
+      URY:
+        value: 5.2
+        source: "EU TARIC, tariff preference for UY, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=UY"
+        read: 2026-11-14
+        valid_from: 2026-05-01
+        valid_to: 2026-12-31
+      PRY:
+        value: 5.2
+        source: "EU TARIC, tariff preference for PY, CN 3901 10 10 90"
+        url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=PY"
+        read: 2026-11-14
+        valid_from: 2026-05-01
+        valid_to: 2026-12-31
 
-# Order planner (spec 010): lead time = origin port + sea days + destination port + buffers.
-# source: assumption (container ships slow-steam at about 14 knots; 4 days each for loading
-# and export clearance, discharge, import clearance and delivery to the warehouse).
+# Imports under EU sanctions (TARIC "import control" measures on CN 3901 10 10 90). Used by
+# the sourceable filter (phase 2); listed here so the source stays with the data.
+import_controls:
+  IRN:
+    regulation: "Council Regulation (EU) No 267/2012, import control from 2025-09-30"
+    url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=IR"
+    read: 2026-11-14
+  RUS:
+    regulation: "Council Regulation (EU) No 833/2014, import control 2023-12-19 to 2027-12-31"
+    url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=RU"
+    read: 2026-11-14
+
+# Order planner (spec 010, revised by spec 015): ship transit time =
+#   median time in port at origin + sea days + median time in port at destination.
+# Sea days = searoute distance / average speed at sea of container ships. Not included
+# (no source): loading and export clearance, import clearance, delivery to the warehouse,
+# waiting for a sailing, congestion or storm delays (shown as flags only).
 lead_time:
-  speed_knots: 14
-  origin_port_days: 4
-  destination_port_days: 4
-  congestion_buffer_days: 3   # a monitored port of the origin or destination region is below normal
-  storm_buffer_days: 2        # a chokepoint on the route has a storm (red) forecast
-  europe_days: 7              # reference "buy in Europe": truck or short sea from a European producer
-  default_need_by_days: 45
-  default_quantity_t: 500
-  # Landlocked exporters: days by rail or truck to the region's port, added to the lead time.
-  # source: assumption (Uzbekistan: rail to the Baltic or Black Sea, about three weeks).
-  overland_days:
-    UZB: 21
+  vessel_size: "8000-11999"   # setting: container ship size (TEU) whose speed is used
+  speed_knots:
+    source: "Fourth IMO GHG Study 2020, Table 35 (detailed results for 2018), average speed over ground at sea, container ships by size (TEU)"
+    url: "https://www.imo.org/en/OurWork/Environment/Pages/Fourth-IMO-Greenhouse-Gas-Study-2020.aspx"
+    read: 2026-11-14
+    values:
+      "0-999": 11.8
+      "1000-1999": 13.4
+      "2000-2999": 14.2
+      "3000-4999": 14.7
+      "5000-7999": 15.7
+      "8000-11999": 16.3
+      "12000-14499": 16.3
+      "14500-19999": 16.5
+      "20000-+": 16.3
+  port_days:
+    source: "UNCTADstat US.PortCalls, median time in port (days), container ships, 2023 (bulk file of March 2024, 22 economies)"
+    url: "https://unctadstat-api.unctad.org/bulkdownload/US.PortCalls/US_PortCalls"
+    read: 2026-11-14
+    note: "time the ship spends in port, not the cargo's loading, clearance and delivery"
+    values:
+      AUS: 1.4417
+      CAN: 1.4569
+      CHN: 0.6049
+      HRV: 0.6701
+      DNK: 0.5701
+      FRA: 0.8535
+      DEU: 1.0174
+      GRC: 1.034
+      IDN: 0.9653
+      ITA: 0.8997
+      JPN: 0.35
+      KOR: 0.6465
+      NLD: 0.8007
+      NOR: 0.2958
+      PHL: 0.825
+      RUS: 1.5562
+      SGP: 0.8521
+      ESP: 0.6007
+      SWE: 0.6674
+      TUR: 0.6528
+      GBR: 0.6812
+      USA: 1.084
+  destination_country: NLD    # setting: country of the focus region's representative port (Rotterdam)
+  default_need_by_days: 45    # setting
+  default_quantity_t: 500     # setting

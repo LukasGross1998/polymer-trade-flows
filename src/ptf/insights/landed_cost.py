@@ -3,13 +3,17 @@
 landed = price + freight + duty, where
 - price   = BACI unit value of the country's exports to the focus region (value / tonnes,
             FOB, USD/t), optionally scaled to today with a resin price index;
-- freight = LP freight assumption for the sea distance, times a freight factor;
-- duty    = EU duty rate x (price + freight): the customs value is CIF (insurance ignored).
+- freight = sourced freight rate for the sea distance, times a freight factor; without a
+            sourced rate (spec 015) freight is unknown (NaN) and "landed" is price + duty;
+- duty    = EU duty rate (TARIC / WITS) x customs value; the customs value is CIF (price +
+            freight, insurance ignored), or the price alone while freight is unknown.
 
 Combines trade (unit values), model (distances, freight) and markets (FX, resin index),
 so it lives in the insights layer (ADR-014). Unit values average over all PE grades; part of
 the differences between countries is the product mix, not the price.
 """
+
+from datetime import date
 
 import pandas as pd
 
@@ -56,16 +60,19 @@ def price_factor(market: pd.DataFrame, index_id: str, base_year: int) -> float:
 def landed_cost(
     prices: pd.DataFrame,
     distances: pd.DataFrame,
-    freight: FreightAssumption,
+    freight: FreightAssumption | None,
     duty: Duty,
     focus_region: str,
     usd_per_eur: float,
     freight_factor: float = 1.0,
     price_scale: float = 1.0,
+    on: date | None = None,
 ) -> pd.DataFrame:
     """Price, freight, duty and landed cost per supplier, in USD/t and EUR/t, cheapest first.
 
     Suppliers without a sea distance to the focus region (rest of world) are left out.
+    Without a sourced freight rate the freight columns are NaN and landed = price + duty.
+    Duty preferences apply on date `on` (TARIC validity).
     """
     to_focus = distances.loc[
         distances["dest_region"] == focus_region, ["origin_region", "distance_nm"]
@@ -73,9 +80,12 @@ def landed_cost(
     table = prices.merge(to_focus, left_on="exporter_region", right_on="origin_region", how="inner")
     table = table.drop(columns=["origin_region"])
     table["price_usd_t"] = table["price_usd_t"] * price_scale
-    table["freight_usd_t"] = table["distance_nm"].map(freight.cost_usd_t) * freight_factor
-    table["duty_pct"] = table["exporter_iso3"].map(duty.rate_pct)
-    customs_value = table["price_usd_t"] + table["freight_usd_t"]
+    if freight is not None:
+        table["freight_usd_t"] = table["distance_nm"].map(freight.cost_usd_t) * freight_factor
+    else:
+        table["freight_usd_t"] = float("nan")
+    table["duty_pct"] = table["exporter_iso3"].map(lambda iso3: duty.rate_pct(iso3, on))
+    customs_value = table["price_usd_t"] + table["freight_usd_t"].fillna(0.0)
     table["duty_usd_t"] = customs_value * table["duty_pct"] / 100
     table["landed_usd_t"] = customs_value + table["duty_usd_t"]
     for part in [*COMPONENTS, "landed"]:

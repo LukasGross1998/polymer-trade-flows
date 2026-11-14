@@ -174,14 +174,17 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     write_synthetic_distances(raw, regions, "red_sea_closed", distance_nm=10000.0)
     data = load_app_data(warehouse_setup.settings)
 
-    kpis, bars, table = landed_cost.update(data, "open", 1.0, "baci")
-    # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; freight 40 + 7 x 5 = 75;
-    # US duty 0 %; no EUR rate in the fixtures, so 1 USD = 1 EUR.
-    assert kpis[0].children[1].children == "1,325 EUR/t"
-    assert [t.name for t in bars.data] == ["Price (FOB)", "Sea freight", "EU duty"]
+    kpis, bars, table = landed_cost.update(data, "open", "baci")
+    # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
+    # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
+    assert kpis[0].children[0].children == "Lowest cost origin, price + duty, excl. freight"
+    assert kpis[0].children[1].children == "1,250 EUR/t"
+    assert [t.name for t in bars.data] == ["Price (FOB)", "EU duty"]
+    assert table.children[1].children[4].children == "n/a"  # freight column
 
-    closed, *_ = landed_cost.update(data, "closed", 2.0, "baci")
-    assert closed[0].children[1].children == "1,470 EUR/t"  # freight (40 + 70) x 2 = 220
+    closed, *_ = landed_cost.update(data, "closed", "baci")
+    assert closed[0].children[1].children == "1,250 EUR/t"  # longer route, no freight cost
+    assert closed[2].children[2].children == "n/a – no sourced freight rate"
 
 
 def test_world_trade_by_class_tab(data: AppData) -> None:
@@ -209,15 +212,15 @@ def test_grade_filter_in_sourcing_and_landed_cost(warehouse_setup: PipelineSetup
     assert [o["value"] for o in data.grade_options()][:2] == ["all", "390110"]
     kpis, *_ = sourcing.update(data, "390120")
     assert kpis[0].children[1].children == "0.0 Mt"  # 1,000 t HDPE from the USA in 2023
-    # HDPE only: 1.2 m USD for 1,000 t = 1,200 USD/t, plus 75 USD/t freight, US duty 0 %.
-    landed, *_ = landed_cost.update(data, "open", 1.0, "baci", "390120")
-    assert landed[0].children[1].children == "1,275 EUR/t"
+    # HDPE only: 1.2 m USD for 1,000 t = 1,200 USD/t, US duty 0 %, freight not sourced.
+    landed, *_ = landed_cost.update(data, "open", "baci", "390120")
+    assert landed[0].children[1].children == "1,200 EUR/t"
 
 
 def test_weather_card_and_seamark_layer(data: AppData) -> None:
     waves, gusts, note = weather_card.update(data, "port24", today=pd.Timestamp("2026-11-12"))
 
-    # Fixture: Jubail gusts 95 km/h and waves 4.5 m on 13 Nov -> storm (gusts >= 89 km/h).
+    # Fixture: Jubail gusts 95 km/h and waves 4.5 m on 13 Nov -> storm (gusts >= 88.9 km/h).
     assert note.children == "▲ Storm forecast on 13 Nov: waves 4.5 m, gusts 95 km/h"
     assert [t.name for t in waves.data] == ["observed", "forecast"]
     assert weather_card.update(data, "chokepoint4", today=pd.Timestamp("2026-11-12"))[
@@ -235,15 +238,17 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
     order = pd.Timestamp("2026-11-14")
 
     kpis, scatter, table = planner.update(data, "2027-01-31", 500, order_date=order)
-    # Fixture: only the USA ship to Europe; 5,000 nm / (14 kn x 24) = 14.9 sea days + 8 port days
-    # = 23 days -> arrival 7 Dec, in time; landed 1,325 EUR/t x 500 t = 662,500 EUR.
-    assert kpis[0].children[1].children == "USA"
-    assert kpis[0].children[2].children == "arrives 07 Dec 2026 (23 days)"
-    assert kpis[1].children[2].children == "662 thousand EUR for 500 t"
-    assert scatter.data[0].x[0] == pd.Timestamp("2026-12-07")
+    # Fixture: only the USA ship to Europe. UNCTAD port days USA 1.08 + Netherlands 0.80;
+    # 5,000 nm / (16.3 kn x 24) = 12.8 sea days -> 14.7, rounded 15 days -> 29 Nov.
+    # No sourced freight rate: no recommendation (spec 015).
+    assert kpis[0].children[1].children == "none"
+    assert kpis[0].children[2].children == "sea freight has no sourced rate"
+    assert kpis[1].children[1].children == "15 days"
+    assert kpis[1].children[2].children == "USA, arrives 29 Nov 2026"
+    assert scatter.data[0].x[0] == pd.Timestamp("2026-11-29")
 
-    late, *_ = planner.update(data, "2026-11-30", 500, order_date=order)
-    assert late[0].children[0].children == "No origin in time – earliest"
+    late, *_ = planner.update(data, "2026-11-20", 500, order_date=order)
+    assert late[2].children[1].children == "0 of 1"
 
 
 def test_dce_price_converted_to_usd_and_eur(data: AppData) -> None:

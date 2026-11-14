@@ -69,7 +69,7 @@ def layout(data: AppData) -> html.Div:
                 style=style.ROW,
             ),
             html.Div(charts.graph("port-timeseries"), style=style.CARD),
-            weather_card.layout("port-weather"),
+            weather_card.layout("port-weather", data.monitor_config.weather),
             html.Div(
                 "Source: IMF PortWatch. Port calls are counted from satellite AIS data; import and "
                 "export volumes are PortWatch estimates from vessel draught and capacity, not "

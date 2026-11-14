@@ -76,7 +76,9 @@ def layout(data: AppData) -> html.Div:
                         [
                             heading(
                                 f"What changed in the last {days} days",
-                                "Chokepoints newly below 70 % of normal, new orange or red "
+                                "Chokepoints newly below "
+                                f"{data.monitor_config.disruption_threshold:.0%} of normal, new "
+                                "orange or red "
                                 "disruption events, gale or storm forecasts and the largest "
                                 f"{days}-day moves of daily market series. 'Relevant for "
                                 "Europe' keeps only the supplier regions, sea routes, ports and "
@@ -94,7 +96,8 @@ def layout(data: AppData) -> html.Div:
                                 "2019-2023 (IMF PortWatch). Second line: share of Europe's PE "
                                 "imports from outside Europe whose sea route passes it, and the "
                                 "extra days at sea if the Red Sea is closed (route via the "
-                                "Cape, 14 knots).",
+                                f"Cape, {data.sourcing_config.lead_time.speed:g} knots: average "
+                                "speed at sea of container ships, Fourth IMO GHG Study 2020).",
                             ),
                             html.Div(id="sit-chokepoints"),
                         ],
@@ -108,7 +111,9 @@ def layout(data: AppData) -> html.Div:
                     heading(
                         "Active disruption events (IMF PortWatch, orange and red alerts)",
                         "Open events and events that ended in the last 30 days. 'Relevant for "
-                        "Europe': within 1,000 km of a relevant chokepoint or port.",
+                        "Europe': within "
+                        f"{data.sourcing_config.relevance.event_radius_km:,.0f} km of a relevant "
+                        "chokepoint or port.",
                     ),
                     html.Div(id="sit-events"),
                 ],

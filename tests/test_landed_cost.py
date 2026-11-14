@@ -1,14 +1,24 @@
 """Landed cost per supplier country (spec 007) with hand-checkable numbers."""
 
+from datetime import date
+
 import pandas as pd
 import pytest
+from helpers import sourced
 
 from ptf.insights import landed_cost
-from ptf.insights.config import Duty, PreferentialDuty
+from ptf.insights.config import Duty
 from ptf.model.config import FreightAssumption
 
-FREIGHT = FreightAssumption(source="test", fixed_usd_t=40, variable_usd_t_per_1000nm=7)
-DUTY = Duty(default_pct=6.5, preferential={"USA": PreferentialDuty(pct=0.0, source="test")})
+FREIGHT = FreightAssumption.model_validate(
+    {"fixed_usd_t": sourced(40), "variable_usd_t_per_1000nm": sourced(7)}
+)
+DUTY = Duty.model_validate(
+    {
+        "default_pct": sourced(6.5),
+        "preferential": {"USA": sourced(0.0, valid_from="2026-07-01", valid_to="2026-12-31")},
+    }
+)
 DISTANCES = pd.DataFrame(
     {
         "origin_region": ["MDE", "NAM", "EUR"],
@@ -76,6 +86,26 @@ def test_freight_factor_preference_and_rest_of_world() -> None:
     assert usa["duty_usd_t"] == 0.0  # preferential rate
     assert usa["landed_usd_t"] == pytest.approx(1200 + 75)  # 40 + 7 x 5
     assert "XXX" not in table().index  # no sea distance for the rest of the world
+
+
+def test_without_sourced_freight_landed_is_price_plus_duty() -> None:
+    prices = landed_cost.unit_prices(SOURCES, "EUR", 2024)
+    sau = landed_cost.landed_cost(prices, DISTANCES, None, DUTY, "EUR", 1.0).set_index(
+        "exporter_iso3"
+    )
+    sau = sau.loc["SAU"]
+
+    assert pd.isna(sau["freight_usd_t"])  # n/a, not an estimate
+    assert sau["duty_usd_t"] == pytest.approx(65.0)  # 6.5 % of the price alone
+    assert sau["landed_usd_t"] == pytest.approx(1065.0)
+
+
+def test_preference_only_inside_its_validity() -> None:
+    assert DUTY.rate_pct("USA", date(2026, 11, 14)) == 0.0
+    assert DUTY.rate_pct("USA", date(2026, 6, 30)) == 6.5  # before it started
+    assert DUTY.rate_pct("USA", date(2027, 1, 1)) == 6.5  # expired
+    assert DUTY.rate_pct("USA") == 0.0  # no date: as configured
+    assert DUTY.rate_pct("SAU", date(2026, 11, 14)) == 6.5
 
 
 def test_price_scale_reference_and_weighting() -> None:

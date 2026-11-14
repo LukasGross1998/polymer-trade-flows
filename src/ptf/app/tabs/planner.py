@@ -1,7 +1,9 @@
 """Tab "Order planner": landed cost against arrival date, recommendation for a need-by date.
 
-Planning estimates (spec 010): landed cost of spec 007 plus lead times from sea distances,
-port and weather buffers. No real quotes, average transit times, one port per region.
+Planning estimates (spec 010; sourced inputs only since spec 015): cost of spec 007 plus the
+ship transit time (median time in port at both ends + sea days at the average container ship
+speed). No quotes, no sailing schedules, one port per region; no recommendation while sea
+freight has no sourced rate.
 """
 
 import pandas as pd
@@ -68,17 +70,17 @@ def layout(data: AppData) -> html.Div:
             html.Div(charts.graph("pl-scatter"), style={**style.CARD, "marginBottom": "16px"}),
             html.Div(id="pl-table", style={**style.CARD, "marginBottom": "16px"}),
             html.Div(
-                f"Planning estimate, not a quote. Lead time = {lead.origin_port_days:g} days at "
-                f"the origin port + sea days at {lead.speed_knots:g} knots + "
-                f"{lead.destination_port_days:g} days at the destination, plus "
-                f"{lead.congestion_buffer_days:g} days if a monitored port of the region is below "
-                f"normal and {lead.storm_buffer_days:g} days if a chokepoint on the route has a "
-                "storm forecast, plus days overland for landlocked exporters "
-                "(config/sourcing.yaml). "
-                "Landed cost as in the Landed cost tab "
-                "(BACI prices, LP freight assumption, EU duty). One port per region, average "
-                "transit times, no sailing schedules. Buy in Europe: average price within "
-                f"Europe, {lead.europe_days:g} days.",
+                "Planning estimate, not a quote. Ship transit time = median time in port of "
+                "container ships at origin and at the destination (UNCTADstat, 2023; "
+                f"{lead.port_days.get(lead.destination_country) or 0:.1f} days in the "
+                "Netherlands) + sea days at "
+                f"{lead.speed:g} knots (average speed at sea of {lead.vessel_size} TEU container "
+                "ships, Fourth IMO GHG Study 2020). Not included because no source gives them: "
+                "loading and export clearance, waiting for a sailing, import clearance, "
+                "delivery to the warehouse, delays from congestion or storms (shown as flags). "
+                "Countries without UNCTAD port data have no arrival date (n/a). Cost: price + "
+                "EU duty as in the Landed cost tab; sea freight has no sourced rate, so no "
+                "origin is recommended.",
                 style=style.SMALL_NOTE,
             ),
         ]
@@ -93,7 +95,7 @@ def compute(
     route: str = "open",
     order_date: pd.Timestamp | None = None,
 ) -> PlannerView | None:
-    landed = compute_landed(data, route, 1.0, "baci", grade)
+    landed = compute_landed(data, route, "baci", grade)
     if landed is None or landed.table.empty or data.distances is None:
         return None
     closed = route == "closed" and data.distances_closed is not None
@@ -115,50 +117,59 @@ def compute(
 
 def kpi_values(view: PlannerView) -> list[dict[str, str]]:
     table = view.table
-    pick = table[table["recommended"]].iloc[0]
-    reference = view.landed.reference_eur_t
-    on_time = bool(pick["on_time"])
-    values = [
-        {
-            "label": "Recommended origin" if on_time else "No origin in time – earliest",
+    picks = table[table["recommended"]]
+    known = table["on_time"].notna()
+    in_time = int((table["on_time"] == True).sum())  # noqa: E712 (None means unknown)
+    if not picks.empty:
+        pick = picks.iloc[0]
+        first = {
+            "label": "Recommended origin",
             "value": str(pick["exporter_name"]),
-            "tone": style.GOOD if on_time else style.WARNING,
+            "tone": style.GOOD,
             "note": f"arrives {pick['arrival']:%d %b %Y} ({pick['lead_days']:.0f} days)",
-        },
-        {
-            "label": "Landed cost",
-            "value": f"{pick['landed_eur_t']:,.0f} EUR/t",
-            "note": f"{pick['total_eur'] / 1e3:,.0f} thousand EUR for {view.quantity_t:,.0f} t",
-        },
-    ]
-    if reference is not None:
-        diff = (pick["landed_eur_t"] - reference) * view.quantity_t
+        }
+    else:
+        first = {
+            "label": "Recommended origin",
+            "value": "none",
+            "tone": style.WARNING,
+            "note": "sea freight has no sourced rate"
+            if not view.landed.freight_known
+            else "no origin known to arrive in time",
+        }
+    fastest = table[known].sort_values("lead_days")
+    values = [first]
+    if not fastest.empty:
+        row = fastest.iloc[0]
         values.append(
             {
-                "label": "vs. buying in Europe",
-                "value": f"{diff / 1e3:+,.0f} thousand EUR",
-                "note": f"{reference:,.0f} EUR/t, arrives {view.europe_arrival:%d %b}",
+                "label": "Shortest ship transit",
+                "value": f"{row['lead_days']:.0f} days",
+                "note": f"{row['exporter_name']}, arrives {row['arrival']:%d %b %Y}",
             }
         )
     values.append(
         {
             "label": "Suppliers in time",
-            "value": f"{int(table['on_time'].sum())} of {len(table)}",
-            "note": f"needed by {view.need_by:%d %b %Y}",
+            "value": f"{in_time} of {len(table)}",
+            "note": f"needed by {view.need_by:%d %b %Y}; "
+            f"{int((~known).sum())} without port data (n/a)",
         }
     )
     return values
 
 
 def scatter_figure(view: PlannerView) -> go.Figure:
-    table = view.table
+    table = view.table[view.table["arrival"].notna()]
     size = 10 + 30 * (table["qty_t"] / table["qty_t"].max()) ** 0.5
     colours = [
-        style.ORANGE if rec else (style.BLUE if ok else style.MUTED)
+        style.ORANGE if rec else (style.BLUE if ok is True else style.MUTED)
         for rec, ok in zip(table["recommended"], table["on_time"], strict=True)
     ]
     hover = [
-        f"<b>{r['exporter_name']}</b><br>{r['landed_eur_t']:,.0f} EUR/t<br>"
+        f"<b>{r['exporter_name']}</b><br>{r['landed_eur_t']:,.0f} EUR/t"
+        + ("" if view.landed.freight_known else " excl. freight")
+        + "<br>"
         f"arrives {r['arrival']:%d %b} ({r['lead_days']:.0f} days)"
         + ("<br>route through a disrupted chokepoint" if r.get("exposed") else "")
         + ("<br>storm on the route" if r["storm_on_route"] else "")
@@ -178,45 +189,27 @@ def scatter_figure(view: PlannerView) -> go.Figure:
             showlegend=False,
         )
     )
-    reference = view.landed.reference_eur_t
-    if reference is not None:
-        fig.add_trace(
-            go.Scatter(
-                x=[view.europe_arrival],
-                y=[reference],
-                mode="markers+text",
-                text=["Buy in Europe"],
-                textposition="bottom center",
-                marker={"size": 12, "symbol": "diamond", "color": style.INK_SECONDARY},
-                hovertemplate="Buy in Europe: %{y:,.0f} EUR/t<extra></extra>",
-                showlegend=False,
-            )
-        )
     fig.add_vline(
         x=view.need_by.timestamp() * 1000,
         line={"color": style.CRITICAL, "width": 1.5, "dash": "dash"},
         annotation_text="needed by",
         annotation_position="top",
     )
-    fig.update_yaxes(title={"text": "EUR per tonne, delivered", "font": {"color": style.MUTED}})
+    cost = (
+        "EUR per tonne, delivered" if view.landed.freight_known else "EUR per tonne, excl. freight"
+    )
+    fig.update_yaxes(title={"text": cost, "font": {"color": style.MUTED}})
     fig.update_layout(hovermode="closest")
     return charts.base_layout(
         fig,
         height=460,
-        title="Landed cost vs. arrival date if ordered today (orange = recommended)",
+        title="Cost vs. arrival of the ship if ordered today (origins with port data)",
     )
 
 
 def plan_table(view: PlannerView) -> html.Table:
-    header = [
-        "Country",
-        "Landed EUR/t",
-        "Sea days",
-        "Extra days",
-        "Lead days",
-        "Arrival",
-        "On time",
-    ]
+    cost = "EUR/t" if view.landed.freight_known else "EUR/t excl. freight"
+    header = ["Country", cost, "Port days", "Sea days", "Transit days", "Arrival", "On time"]
     cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
     rows = [html.Tr([html.Th(h, style={**cell, "color": style.MUTED}) for h in header])]
     for r in view.table.to_dict("records"):
@@ -224,18 +217,26 @@ def plan_table(view: PlannerView) -> html.Table:
         if r["congested"]:
             flags.append("port below normal")
         if r["storm_on_route"]:
-            flags.append("storm")
-        if r["overland_days"]:
-            flags.append(f"{r['overland_days']:.0f} days overland")
-        extra = r["buffer_days"] + r["overland_days"]
-        buffer = f"{extra:.0f}" + (f" ({', '.join(flags)})" if flags else "")
-        ok = "● yes" if r["on_time"] else "✕ late"
+            flags.append("storm on route")
+        known = not pd.isna(r["lead_days"])
+        port = (
+            f"{r['origin_port_days']:.1f} + {r['destination_port_days']:.1f}"
+            if known
+            else "n/a (no UNCTAD data)"
+        )
+        if r["on_time"] is None:
+            ok, colour = "n/a", style.MUTED
+        elif r["on_time"]:
+            ok, colour = "● yes", style.GOOD
+        else:
+            ok, colour = "✕ late", style.MUTED
         values = [
             f"{r['landed_eur_t']:,.0f}",
+            port,
             f"{r['sea_days']:.1f}",
-            buffer,
-            f"{r['lead_days']:.0f}",
-            f"{r['arrival']:%d %b}",
+            (f"{r['lead_days']:.0f}" if known else "n/a")
+            + (f" ({', '.join(flags)})" if flags else ""),
+            f"{r['arrival']:%d %b}" if known else "n/a",
         ]
         weight = "600" if r["recommended"] else "400"
         rows.append(
@@ -247,11 +248,7 @@ def plan_table(view: PlannerView) -> html.Table:
                     )
                 ]
                 + [html.Td(v, style=cell) for v in values]
-                + [
-                    html.Td(
-                        ok, style={**cell, "color": style.GOOD if r["on_time"] else style.MUTED}
-                    )
-                ]
+                + [html.Td(ok, style={**cell, "color": colour})]
             )
         )
     return html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"})

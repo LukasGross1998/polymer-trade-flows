@@ -1,7 +1,10 @@
 # Methodology
 
-Model assumptions, data treatment and known limitations. Every number that is an assumption
-lives in `config/` and is explained here. Generated figures and tables: [data_quality.md](data_quality.md). Every table and column:
+Data treatment, model inputs and known limitations. Since spec 015 the dashboard uses only
+values confirmed by a data source: every fact in `config/` carries source, url and read date,
+every other number is a setting of the user, and values without a source were removed (the
+views show "n/a"). The full list: [value_register.md](value_register.md). Sections below that
+describe earlier phases keep their historical numbers and say where they were removed. Generated figures and tables: [data_quality.md](data_quality.md). Every table and column:
 [data_dictionary.md](data_dictionary.md).
 
 ## 1. Data & cleaning
@@ -153,7 +156,7 @@ year, mirror gaps, source of the agreed quantity, outliers and an inter-regional
 
 ## 2. Regions
 
-source: assumption. Ten regions plus rest of world (`ROW`), grouped by supply economics
+setting (the user's grouping). Ten regions plus rest of world (`ROW`), grouped by supply economics
 and shipping geography. Representative ports are used for sea distances only.
 
 Each region has **reporters** (~30 in total; they only matter for the Comtrade check, BACI
@@ -183,6 +186,12 @@ not via the Baltic; Africa is represented by Durban although Egypt and North Afr
 the Mediterranean.
 
 ## 3. Transport model
+
+> **Switched off since spec 015.** Freight rates, utilisation and production costs have no
+> source, and capacities are sourced only for four regions (McKinsey Global Institute, 2026:
+> China 42, North America 34, Middle East 23, Western Europe 14 Mt/yr). `config/model.yaml`
+> has `enabled: false`; `ptf model` only writes the sea distances. The sections below
+> document the LP as built in phase 2 with its former, unsourced inputs.
 
 ### 3.1 Formulation
 
@@ -418,7 +427,7 @@ is parsed by Python into a landing file first.
 ## 6. Buyer view: situation, prices and sourcing exposure (spec 006)
 
 The app is organised around the questions of a polyethylene buyer in Europe. The logic sits
-in `src/ptf/insights/` (ADR-014); assumptions in `config/sourcing.yaml`.
+in `src/ptf/insights/` (ADR-014); settings and sourced values in `config/sourcing.yaml`.
 
 ### 6.1 Chokepoint exposure of imports
 
@@ -463,7 +472,7 @@ rise more than feedstock, producer margins widen; a buyer can tell "the market w
 from "the margin went up". There is no free polyethylene price series; the US PPIs for
 thermoplastic resins and for plastics material and resin manufacturing are the proxies.
 
-### 6.3 Traffic lights (`source: assumption`)
+### 6.3 Traffic lights (settings)
 
 | Light | Measure | Amber from | Red from |
 |---|---|---|---|
@@ -485,14 +494,19 @@ landed = price + freight + duty (USD/t, converted to EUR with the latest `DEXUSE
 - **price:** BACI unit value of the country's exports to Europe (value / tonnes, FOB) in the
   latest year; optionally × (resin index latest / its average in that year) with the US PPI
   for plastics resins (`PCU325211325211`) – a proxy for "today", not a quote;
-- **freight:** the transport model's assumption (40 USD/t + 7 USD/t per 1,000 nm,
-  `config/model.yaml`) for the sea distance from the region's port to Rotterdam, × a freight
-  factor (slider; Red Sea crisis rates were roughly 2–3× the pre-crisis level);
-- **duty:** EU duty rate × (price + freight), because the EU customs value is CIF
-  (insurance ignored). Rates in `config/sourcing.yaml`: 6.5 % third-country duty; 0 % for
-  the USA (from 2026-07-01), South Korea, Egypt and Israel; 5.2 % for Mercosur (phase-in).
-  Source: a TARIC mirror (tariffnumber.com), read 2026-11-13; to be checked in the official
-  TARIC consultation before relying on it.
+- **freight:** n/a since spec 015 – no free source gives a rate per tonne for these routes
+  (the Drewry WCI covers only lanes from Shanghai and may not be redistributed; the tonnes
+  per container are not documented). "Landed" is therefore price + duty, excluding freight,
+  and the tab says so; the former freight assumption and its slider were removed;
+- **duty:** EU duty rate × customs value. The customs value is CIF (insurance ignored), or
+  the price alone while freight is unknown (a lower bound). Third-country rate per grade from
+  WITS (§8.2), fallback 6.5 % from TARIC. Preferences from the official TARIC consultation
+  (CN 3901 10 10 90, read 14 Nov 2026) with their validity dates, applied only inside them:
+  0 % USA (from 1 Jul 2026), Canada, Mexico, Japan, Egypt, Israel, Algeria, South Africa;
+  0 % until 31 Dec 2026 South Korea, Singapore, Uzbekistan (GSP); 5.2 % until 31 Dec 2026
+  Brazil, Argentina, Uruguay, Paraguay. No preference: Saudi Arabia, Qatar, UAE, Kuwait,
+  Oman, China, India, Taiwan, Thailand, Malaysia. TARIC lists import controls (sanctions)
+  for Iran (Reg. 267/2012, from 30 Sep 2025) and Russia (Reg. 833/2014).
 
 **Red Sea closed:** a second distance table with Suez, Bab el-Mandeb and Panama blocked
 (`route_variants` in `config/model.yaml`). Panama has to be blocked as well, otherwise
@@ -569,10 +583,10 @@ is a raw file; dbt keeps the newest value per location and day (`mart_marine_wea
 newer forecast or the observed value replaces an older forecast. Points on land (some
 chokepoint centroids, inland port coordinates) have no wave data.
 
-**Storm warnings** (`config/shipping.yaml`): gale (amber) from 62 km/h gusts – Beaufort 8 –
-or 4 m waves; storm (red) from 89 km/h – Beaufort 10 – or 6 m. The wave thresholds are an
-assumption ("rough" and "very high" seas); container ships slow down or wait for weather
-well below them in exposed waters. The warnings show in the Chokepoints and Ports tabs and
+**Storm warnings** (`config/shipping.yaml`, settings on sourced scales): gale (amber) from
+63.0 km/h gusts – Beaufort 8, from 34 knots (Met Office) – or 4 m waves (WMO code table
+3700, "very rough"); storm (red) from 88.9 km/h – Beaufort 10, from 48 knots – or 6 m
+("high"). 1 knot = 1.852 km/h. The warnings show in the Chokepoints and Ports tabs and
 in "What changed" on the Situation page.
 
 ### 8.2 EU duties from World Bank WITS (no key)
@@ -582,8 +596,8 @@ PE grade, newest year first. WITS gives the simple average, minimum and maximum 
 EU's tariff lines behind the HS6 code. Result (2023): 6.5 % for all five grades as the
 highest line; HDPE (390120) and other ethylene polymers (390190) have a second line at 0 %
 (average 3.25 %). The landed cost uses the highest line, which applies to ordinary pellets;
-this confirms the 6.5 % taken earlier from the TARIC mirror. Preferential rates (USA 0 %,
-Korea 0 %, ...) are not in this WITS series and stay in `config/sourcing.yaml`.
+this matches the third-country duty in TARIC. Preferential rates are not in this WITS series;
+they come from TARIC (§6.4).
 
 ### 8.3 Nautical chart layer (OpenSeaMap)
 
@@ -597,26 +611,26 @@ the browser; without internet the maps show only the markers.
 
 *If I order today, what does a tonne cost delivered, and when does it arrive?*
 
-lead time = origin port days + sea days + destination port days + buffers + overland days:
+Since spec 015 only sourced parts are used:
+
+ship transit time = median time in port at origin + sea days + median time in port at the destination
 
 | Part | Value | Source |
 |---|---|---|
-| sea days | distance (nm) / (14 kn × 24 h), Red Sea open or closed (spec 007) | assumption: slow steaming |
-| port days | 4 at the origin (loading, export clearance), 4 at the destination (discharge, import clearance, delivery) | assumption |
-| congestion buffer | +3 days if a monitored port of the origin or destination region is below normal (port calls) | assumption |
-| storm buffer | +2 days if a chokepoint on the route has a storm (red) forecast | assumption |
-| overland | Uzbekistan +21 days (rail to the Baltic or Black Sea) | assumption |
-| buy in Europe | average price within Europe, 7 days | assumption |
+| sea days | searoute distance (nm) / (16.3 kn × 24 h) | Fourth IMO GHG Study 2020, Table 35: average speed at sea of 8,000–11,999 TEU container ships in 2018 (the ship size is a setting) |
+| port days | median time in port of container ships, e.g. USA 1.08, Korea 0.65, China 0.60, Netherlands 0.80 days | UNCTADstat US.PortCalls, 2023, 22 economies |
 
-Sea days at 14 kn (Red Sea open / closed): North America 15.0 / 15.0, Middle East 18.6 /
-32.9, Southeast Asia 24.9 / 35.3, China 31.4 / 41.3 days; Shanghai–Rotterdam takes about
-30–35 days in reality. The recommendation is the cheapest supplier that arrives by the
-need-by date, else the earliest arrival.
+Removed for lack of a source: 4 + 4 port days for loading, clearance and delivery, the
+congestion (+3) and storm (+2) buffers – both are now flags without days –, the 21 overland
+days for Uzbekistan and the 7 days for "buy in Europe". A country without UNCTAD port data
+(Saudi Arabia, Qatar, UAE, Iran, Egypt, Brazil, Uzbekistan, …) has no arrival date ("n/a").
+Because sea freight has no sourced rate, no origin is recommended: a ranking on price + duty
+would not say which origin is cheapest delivered.
 
-**Example (ordered 14 Nov 2026, 500 t, all grades):** needed by 29 Dec – Uzbekistan
-(961 EUR/t, 17 Dec, all ten suppliers in time); needed by 10 Dec – USA (1,201 EUR/t,
-7 Dec; only two suppliers in time). The Middle East currently gets +3 days because Jubail
-and Jebel Ali are below normal.
+**Result (ordered 14 Nov 2026, all grades, Red Sea open):** USA 14.8 days (29 Nov), Korea
+29.3 days (13 Dec), China 28.4 days (12 Dec); with the Red Sea closed Korea 37.8 and China
+36.9 days. These are ship transit times only; loading, clearance, waiting for a sailing and
+delivery come on top and have no source.
 
 **Limits:** planning estimates, not quotes; average transit times from one port per
 region; no sailing schedules or departure frequency; no real vessel ETAs (AIS, hosting
@@ -647,7 +661,7 @@ delay is not documented. Dalian trades (winter, CET) 02:00–04:30, 06:30–08:0
 
 ## 11. Situation page for European buyers (spec 013)
 
-**Traffic lights with four levels** (`config/sourcing.yaml`, assumptions): green, yellow
+**Traffic lights with four levels** (`config/sourcing.yaml`, settings): green, yellow
 ("watch"), orange ("elevated"), red ("critical"):
 
 | Light | Measure | Yellow | Orange | Red |
@@ -676,5 +690,5 @@ index); disruption events within 1,000 km of a relevant chokepoint or port.
 
 **Chokepoint details:** share of Europe's extra-regional PE imports whose route passes the
 chokepoint, and the volume-weighted extra sea days via the Cape if the Red Sea is closed
-(14 knots; e.g. Bab el-Mandeb 52 %, +13 days; Hormuz 40 %, +14 days for the cargo that
-then detours).
+(16.3 knots since spec 015; e.g. Bab el-Mandeb 52 %, +11 days. Hormuz still shows the
+Middle East's Cape detour, +12 days, although Hormuz has no sea detour – fixed by spec 014).

@@ -49,10 +49,14 @@ download_country_trade: false
 
 # Marine weather at the chokepoints and ports (Open-Meteo, no key; spec 009).
 # Storm warnings: amber from `amber`, red from `red` (inclusive), whichever variable is worse.
-# source: Beaufort scale (gale = force 8 from 62 km/h, storm = force 10 from 89 km/h); wave
-# heights: assumption (about "rough" and "very high" seas in the Douglas sea scale).
+# setting: which class of the sourced scales counts as amber or red. Boundaries (read 14 Nov 2026):
+# - waves: WMO code table 3700 (state of the sea), "very rough" 4-6 m, "high" 6-9 m
+#   (https://www.nodc.noaa.gov/OC5/WOD/CODES/s_18_sea_state.html);
+# - gusts: Met Office Beaufort scale, force 8 "gale" from 34 knots, force 10 "storm" from
+#   48 knots (https://weather.metoffice.gov.uk/guides/coast-and-sea/beaufort-scale);
+#   in km/h with 1 knot = 1.852 km/h: 63.0 and 88.9 km/h.
 weather:
   past_days: 7
   forecast_days: 7
   waves_m: {amber: 4.0, red: 6.0}
-  gusts_kmh: {amber: 62.0, red: 89.0}
+  gusts_kmh: {amber: 63.0, red: 88.9}

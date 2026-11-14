@@ -95,8 +95,8 @@ def _network_section(data: AppData) -> html.Div:
                 "Source: IMF PortWatch port-to-port network (snapshot, last updated May 2025), all "
                 "vessel types together. Line width = vessel capacity (deadweight tonnes) "
                 "travelling between the ports per day, not the cargo actually carried. Only links "
-                "with at "
-                "least 1,000 t of daily capacity are included.",
+                f"with at least {data.monitor_config.min_link_capacity:,.0f} t of daily capacity "
+                "are included.",
                 style=style.SMALL_NOTE,
             ),
         ],

@@ -39,10 +39,11 @@ def layout(data: AppData) -> html.Div:
             html.Div(
                 f"Imports of polyethylene (HS 3901) into Europe from outside the region, CEPII "
                 f"BACI {data.sourcing.year} (latest year available). Routes: shortest sea route "
-                "from one representative port per region (searoute), e.g. all Middle East exports "
-                "from Jebel Ali – Saudi exports leaving Yanbu on the Red Sea do not pass Hormuz, "
-                "so the exposure is an approximation. Red = the route passes a chokepoint that "
-                "the monitor flags as disrupted today (all vessels, below 70 % of normal).",
+                "from one representative port per region (searoute): every country ships like its "
+                "region's port (e.g. all Middle East exports from Jebel Ali), so the exposure is "
+                "an approximation. Red = the route passes a chokepoint that the monitor flags as "
+                "disrupted today (all vessels, below "
+                f"{data.monitor_config.disruption_threshold:.0%} of normal).",
                 style=style.SMALL_NOTE,
             ),
         ]
