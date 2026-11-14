@@ -5,30 +5,35 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
-### Changed
-- Situation page for European buyers (spec 013): four-level traffic lights (green, yellow,
-  orange, red) with new thresholds; a polyethylene card (Dalian LLDPE in EUR); action links
-  that open the right tab ("Review drivers →", "Check routes →", "View delays →", "See PE
-  prices →"); "What changed" with true 7-day moves of daily series; filter "Relevant for
-  Europe" (regions, chokepoints, ports, series, events) with a switch to all regions;
-  chokepoint entries with Europe's import share and the Red Sea detour days; method notes
-  in info icons instead of a footer; "Last updated" and data dates in the header.
+## 0.6.0 – 2026-11-14
+
+Ordering release: when to order from where, a daily Asian PE price, and a start page made
+for European buyers. Specs 010–013.
 
 ### Added
-- Isolated Docker service `asia` (spec 012): image `ptf:asia` (build argument `EXTRAS`),
-  step `ptf dce`, only `data/raw/dce` mounted, no `.env`, read-only file system, no
-  capabilities; CI builds it and checks the isolation.
-- Latest intraday quote of the Dalian LLDPE main contract (last trade, bid, ask, trading
-  day) in `mart_dce_quote`, shown on the Prices tab when newer than the daily close.
-- Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015) via AKShare as
-  optional extra `asia`: download in `ptf market`, series `DCE_LLDPE` in the market mart,
-  chart and KPI in USD or EUR on the Prices tab; CI job with the extra's tests and
-  `pip-audit`.
 - Order planner (spec 010): tab in the Buying section with landed cost against arrival date
   per supplier country, need-by date, quantity, grade and Red Sea switch; recommendation of
   the cheapest on-time supplier. Lead times from sea distances (14 kn), port days, buffers
   for congested ports and storms on the route, overland days for landlocked exporters;
   ports in `config/shipping.yaml` get a model region.
+- Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015) via AKShare as
+  optional extra `asia` (pinned): series `DCE_LLDPE` in the market mart, chart and KPI in
+  USD or EUR on the Prices tab; CI job with the extra's tests and `pip-audit`.
+- Isolated Docker service `asia` (spec 012): image `ptf:asia` (build argument `EXTRAS`),
+  step `ptf dce`, only `data/raw/dce` mounted, no `.env`, read-only file system, no
+  capabilities; CI builds it and checks the isolation.
+- Latest intraday quote of the Dalian LLDPE main contract (last trade, bid, ask, trading
+  day) in `mart_dce_quote`, shown on the Prices tab when newer than the daily close.
+- `ptf.insights.relevance`: what matters for European imports (regions, chokepoints, ports,
+  series, events) and each chokepoint's share of imports and Red Sea detour days.
+
+### Changed
+- Situation page for European buyers (spec 013): four-level traffic lights (green, yellow,
+  orange, red) with new thresholds; a polyethylene card (Dalian LLDPE in EUR); action links
+  that open the right tab; "What changed" with true 7-day moves of daily series; filter
+  "Relevant for Europe" with a switch to all regions; chokepoint entries with Europe's
+  import share and detour days; method notes in info icons instead of a footer; "Last
+  updated" and data dates in the header.
 
 ## 0.5.0 – 2026-11-14
 
