@@ -171,10 +171,10 @@ def test_wsgi_module_exposes_the_flask_server(
 def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None:
     raw, regions = warehouse_setup.settings.raw_dir, warehouse_setup.regions
     write_synthetic_distances(raw, regions)
-    write_synthetic_distances(raw, regions, "red_sea_closed", distance_nm=10000.0)
+    write_synthetic_distances(raw, regions, "babalmandab_closed+suez_closed", distance_nm=10000.0)
     data = load_app_data(warehouse_setup.settings)
 
-    kpis, bars, table = landed_cost.update(data, "open", "baci")
+    kpis, bars, table = landed_cost.update(data, "all_open", "baci")
     # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
     # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
     assert kpis[0].children[0].children == "Lowest cost origin, price + duty, excl. freight"
@@ -182,9 +182,22 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     assert [t.name for t in bars.data] == ["Price (FOB)", "EU duty"]
     assert table.children[1].children[4].children == "n/a"  # freight column
 
-    closed, *_ = landed_cost.update(data, "closed", "baci")
-    assert closed[0].children[1].children == "1,250 EUR/t"  # longer route, no freight cost
+    assert table.children[1].children[8].children == "open"  # route status
+
+    # Scenario "Red Sea closed" (spec 014): the variant table is 10,000 nm, so the US route
+    # is on a detour; the cost stays price + duty while freight has no source.
+    closed, _, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
+    assert closed[0].children[1].children == "1,250 EUR/t"
     assert closed[2].children[2].children == "n/a – no sourced freight rate"
+    assert closed_table.children[1].children[2].children == "10,000"  # nm
+    assert closed_table.children[1].children[8].children == "detour"
+
+
+def test_scenario_dropdown_in_the_header(data: AppData) -> None:
+    options = [o["value"] for o in data.scenario_options()]
+
+    assert options == ["live", "all_open", "red_sea_closed", "hormuz_closed"]
+    assert data.scenario("hormuz_closed").closed == {"chokepoint6"}
 
 
 def test_world_trade_by_class_tab(data: AppData) -> None:

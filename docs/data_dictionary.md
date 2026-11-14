@@ -49,7 +49,7 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | `mirror` (check) | `data/clean/mirror.parquet` | one trade relation: year, exporter, importer | `ptf.legacy.comtrade.mirror` |
 | `comtrade_flows` (check) | `data/clean/comtrade_flows.parquet` | one trade relation: year, exporter, importer | `ptf.legacy.comtrade.reconcile` |
 | `sea_distances` | `data/raw/distances/sea_distances_base.parquet` | one ordered pair of regions | `ptf.model.distances` |
-| `sea_distances` (variant) | `data/raw/distances/sea_distances_red_sea_closed.parquet` | same columns, Suez, Bab el-Mandeb and Panama blocked (`route_variants` in `config/model.yaml`) | `ptf.model.distances` |
+| `sea_distances` (variant) | `data/raw/distances/sea_distances_<variant>.parquet` | same columns, passages blocked per detour variant (`route_variants` in `config/model.yaml`: `babalmandab_closed`, `suez_closed`, `malacca_closed`, `gibraltar_closed`) and every combination (`a+b`, spec 014) | `ptf.model.distances` |
 | `observed_region_flows` | `data/model/{year}/observed_region_flows.parquet` | one region pair (incl. within a region) | `ptf.model.inputs` |
 | `region_balance` | `data/model/{year}/region_balance.parquet` | one model region | `ptf.model.inputs` |
 | `route_costs` | `data/model/{year}/route_costs.parquet` | one ordered pair of model regions | `ptf.model.inputs` |
@@ -121,16 +121,18 @@ e.g. HDPE 129,751 t for 220.3 m USD; `mart_bilateral_trade` sums them to 233,458
 
 ## `sea_distances`
 
-Base case (only the Northwest Passage blocked). Phase 3 computes scenario variants with
-further passages blocked (e.g. Suez).
+Base case (only the Northwest Passage blocked); the variants block further passages (spec
+014). Besides the region pairs, each table has one row per country export port and
+destination region for the countries in `country_routes` (`config/model.yaml`), with the
+origin key `ISO3:Port` (e.g. `SAU:Yanbu`).
 
 | Column | Meaning | Unit / type | Example |
 |---|---|---|---|
-| `origin_region` | region the cargo leaves | region code | MDE |
+| `origin_region` | region the cargo leaves, or `ISO3:Port` for a country's own export port | region code / str | MDE, SAU:Yanbu |
 | `dest_region` | region the cargo arrives in | region code | EUR |
 | `origin_port` | representative port of the origin region (`config/regions.yaml`) | str | Jebel Ali |
 | `dest_port` | representative port of the destination region | str | Rotterdam |
-| `distance_nm` | shortest sea route according to `searoute`; 0 within a region | nautical miles | 6,262 |
+| `distance_nm` | shortest sea route according to `searoute`; 0 within a region; NaN when the blocked passages leave no sea path (e.g. out of the Red Sea with Suez and Bab el-Mandeb closed) | nautical miles | 6,262 |
 | `passages` | passages the route traverses (searoute names, sorted); empty within a region; mapped to PortWatch chokepoints in `config/sourcing.yaml` | list of str | [babalmandab, gibraltar, ormuz, suez] |
 
 ---

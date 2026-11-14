@@ -537,3 +537,29 @@ for the occasion (a rail cost for Uzbekistan, a 50/50 port split for Saudi Arabi
 and part of the lead time until a free freight source is found (phase 5); the LP stays off.
 Static values carry a read date and go stale: tariff preferences expire (several on
 31 Dec 2026) and are applied only inside their validity.
+
+## ADR-017: One route scenario from the live status, risk read from the route tables
+
+- **Date:** 2026-11-14
+- **Status:** accepted (spec 014)
+
+**Context.** The tabs contradicted each other: the situation page called supply critical
+because Hormuz was closed, while the planner showed Gulf suppliers "on time" with a Red Sea
+switch of its own; Hormuz showed "+14 days via the Cape" although it has no sea detour.
+
+**Options.** A. a switch per tab; B. one scenario for all tabs with hand-written lists of
+affected origins; C. one scenario for all tabs, risk derived from the distance tables.
+
+**Decision: C.**
+- A header dropdown holds the scenario; default *Live status* from the monitor (closed at
+  ≥ 50 % below normal, reduced when flagged), plus presets in `config/sourcing.yaml`.
+- Each chokepoint names its own detour variant; `ptf ingest` writes every combination.
+- A route is *at risk* if it still passes a closed chokepoint in the scenario's table or has
+  no sea path; *delayed* if it got longer. No list of "affected countries" is maintained.
+- Countries with sourced own export ports get their own rows (`ISO3:Port`); several ports
+  without sourced shares give ranges, never a split (ADR-016).
+
+**Consequences.** Situation, sourcing, landed cost and the planner agree for every
+scenario. The routing depends on searoute's network and the region ports (settings); the
+variant tables grow with 2^n − 1 combinations of detour variants (15 today, seconds to
+compute).

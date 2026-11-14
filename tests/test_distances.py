@@ -93,3 +93,36 @@ def test_red_sea_closed_variant_goes_around_the_cape(tmp_path: Path) -> None:
     assert 10_500 < by_pair.loc[("MDE", "EUR"), "distance_nm"] < 11_500  # 6,262 nm via Suez
     assert "south_africa" in list(by_pair.loc[("MDE", "EUR"), "passages"])
     assert 4_500 < by_pair.loc[("NAM", "EUR"), "distance_nm"] < 5_500  # Atlantic, unchanged
+
+
+@pytest.mark.slow
+def test_country_ports_and_routes_without_a_sea_path() -> None:
+    from ptf.core.regions import RegionConfig as Regions
+
+    regions = Regions.model_validate(
+        {
+            "rest_of_world": "ROW",
+            "regions": {
+                "EUR": {"name": "Europe", "port": ROTTERDAM.model_dump(), "reporters": ["DEU"]},
+                "AFR": {
+                    "name": "Africa",
+                    "port": {"name": "Durban", "lon": 31.05, "lat": -29.9},
+                    "reporters": ["ZAF"],
+                },
+            },
+        }
+    )
+    alexandria = Port(name="Alexandria", lon=29.87, lat=31.19)
+    table = build_distance_table(regions, None, {"EGY": [alexandria]}).set_index(
+        ["origin_region", "dest_region"]
+    )
+
+    # Spec 014: Egypt ships from the Mediterranean, through Gibraltar, not around the Cape.
+    egypt = table.loc[("EGY:Alexandria", "EUR")]
+    assert "gibraltar" in egypt["passages"] and "south_africa" not in egypt["passages"]
+    assert egypt["distance_nm"] < table.loc[("AFR", "EUR"), "distance_nm"]
+
+    # Out of the Gulf with Hormuz blocked there is no sea path: NaN, not 0.
+    jebel_ali = Port(name="Jebel Ali", lon=55.0, lat=25.0)
+    distance, passages = sea_route(jebel_ali, ROTTERDAM, ["northwest", "ormuz"])
+    assert distance != distance and passages == []  # NaN

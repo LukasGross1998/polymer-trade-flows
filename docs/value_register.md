@@ -20,6 +20,7 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | File | Key | Value | Source (read) |
 |---|---|---|---|
 | model.yaml | `regions.*.capacity_mt` | NAM 34, EUR 14, MDE 23, CHN 42 Mt/yr | McKinsey Global Institute, "Polyethylene: Widely produced – but not one-size-fits-all" (30 Jun 2026; data S&P Global), installed capacity 2025 (14 Nov 2026). EUR = Western Europe only. |
+| model.yaml | `country_routes.*` | export ports of EGY (Alexandria), ISR (Haifa), SAU (Al Jubail, Yanbu) | EGY: Oil & Gas Journal on SIDPEC's Alexandria complex; ISR: Global Energy Monitor, Carmel Olefins at Haifa Bay; SAU: SABIC manufacturing affiliates (Kemya, Sharq at Al Jubail; Yansab, Yanpet at Yanbu) (14 Nov 2026). Port coordinates inside an entry are a setting (a point in the port). Shares per port are not published. |
 | sourcing.yaml | `landed_cost.duty.default_pct` | 6.5 % | EU TARIC, third-country duty, CN 3901 10 10 90 (14 Nov 2026). Fallback; the rate per grade comes from World Bank WITS in the pipeline. |
 | sourcing.yaml | `landed_cost.duty.preferential.*` | 0 % USA, CAN, MEX, KOR, JPN, SGP, EGY, ISR, DZA, ZAF, UZB; 5.2 % BRA, ARG, URY, PRY | EU TARIC tariff preferences with validity dates, CN 3901 10 10 90 (USA also 3901 20 90 00) (14 Nov 2026). |
 | sourcing.yaml | `lead_time.speed_knots` | 11.8–16.5 kn by ship size | Fourth IMO GHG Study 2020, Table 35: average speed over ground at sea, container ships by TEU size, 2018 (14 Nov 2026). |
@@ -52,6 +53,7 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | sourcing.yaml | `relevance.event_radius_km` | 1000 | relevance limit |
 | sourcing.yaml | `recent_days` | 7 | "what changed" window |
 | sourcing.yaml | `landed_cost.top_n` | 10 | number of suppliers shown |
+| sourcing.yaml | `scenarios.closed_below_pct` | 50 % | live status: a chokepoint counts as closed when its 7-day traffic is at least this far below normal |
 | sourcing.yaml | `lead_time.default_need_by_days` | 45 | planner default |
 | sourcing.yaml | `lead_time.default_quantity_t` | 500 | planner default |
 | trade.yaml | `baci.years[]` | 2019–2024 | years to download |

@@ -690,5 +690,51 @@ index); disruption events within 1,000 km of a relevant chokepoint or port.
 
 **Chokepoint details:** share of Europe's extra-regional PE imports whose route passes the
 chokepoint, and the volume-weighted extra sea days via the Cape if the Red Sea is closed
-(16.3 knots since spec 015; e.g. Bab el-Mandeb 52 %, +11 days. Hormuz still shows the
-Middle East's Cape detour, +12 days, although Hormuz has no sea detour – fixed by spec 014).
+(16.3 knots since spec 015). Since spec 014 each chokepoint uses its own detour (§12):
+e.g. Bab el-Mandeb 27–51 %, +11 days; Hormuz 16–39 %, "no sea detour – supply at risk".
+
+
+## 12. Route scenarios (spec 014)
+
+*Is a blocked chokepoint a matter of days or of tonnes?*
+
+**Two kinds of risk.** A closed chokepoint with a sea detour (Bab el-Mandeb, Suez,
+Gibraltar: around the Cape; Malacca: through the Sunda Strait) costs sea days; the cargo
+still arrives. A closed chokepoint without one (Hormuz: searoute finds no sea path out of
+the Gulf without it) leaves the volume behind it *at risk – availability uncertain*.
+`chokepoint_detours` in `config/sourcing.yaml` names the route variant that avoids each
+chokepoint (`config/model.yaml`); a chokepoint without an entry has no detour.
+
+**One scenario for all tabs** (dropdown in the page header): *Live status* (default),
+*All routes open*, *Red Sea closed* (Bab el-Mandeb and Suez), *Hormuz closed*. Live status
+reads the monitor: a chokepoint is *closed* when its 7-day traffic is at least 50 % below
+normal (`scenarios.closed_below_pct`, a setting) and *reduced* when it is only flagged
+(below 70 % of normal). The scenario picks one distance table: the variant that avoids all
+closed chokepoints with a detour (combinations are precomputed by `ptf ingest`).
+
+**Route risk is read from the tables, not assumed** (`insights.scenario.classify`):
+
+| Flag | Rule | Effect |
+|---|---|---|
+| at risk | the route still passes a closed chokepoint in the scenario's table, or has no sea path although it has one with all routes open | never on time, never recommended; counted in the supply light |
+| delayed | longer than with all routes open | sea days of the detour; counted in the supply light |
+| reduced | passes a chokepoint with reduced traffic | flag only (no sourced delay) |
+
+**Country routes** (`country_routes` in `config/model.yaml`, each with a source): Egypt
+ships from Alexandria (SIDPEC), Israel from Haifa (Carmel Olefins), Saudi Arabia from Al
+Jubail and Yanbu (SABIC affiliates). Saudi shares per port are not published, so Saudi
+tonnes count once and every sum over countries is a range: from "all from the least
+exposed port" to "all from the most exposed port". Other countries ship from their
+region's representative port (a setting); Oman, for example, is routed from Jebel Ali
+through Hormuz although it has ports outside the Gulf.
+
+**Result, live status of 14 Nov 2026** (Hormuz −95 %, Bab el-Mandeb −58 %, Bosporus −56 %
+closed; Suez −30 % reduced): of Europe's extra-regional PE imports 16–39 % are at risk (the
+Gulf behind Hormuz; the range is Saudi Arabia's two ports), 12 % are on a detour (Asia
+around the Cape); Saudi cargo from Yanbu leaves north through Suez (reduced traffic).
+Scenario *Red Sea closed*: 27–51 % on a detour and up to 24 % at risk (Yanbu has no exit
+with both ends of the Red Sea closed). *Hormuz closed*: 16–39 % at risk.
+
+**Limits:** one port per region except the sourced country routes; bypassability depends
+on searoute's network; pipelines (e.g. Saudi East-West to Yanbu) carry crude oil, not
+polyethylene, and are not modelled; a closure is all or nothing per chokepoint.

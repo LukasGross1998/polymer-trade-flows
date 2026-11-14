@@ -128,11 +128,18 @@ def test_price_supply_and_logistics_signals() -> None:
     )
 
     price = signals.price_signal(market, CONFIG.signals)
-    supply = signals.supply_signal(40.0, 6.8e6, 2024, CONFIG.signals)
+    supply = signals.supply_signal(
+        (40.0, 40.0), (30.0, 30.0), (10.0, 10.0), 6.8e6, 2024, "Live status", CONFIG.signals
+    )
+    ranged = signals.supply_signal(
+        (16.0, 39.0), (16.0, 39.0), (0.0, 0.0), 6.8e6, 2024, "Hormuz closed", CONFIG.signals
+    )
     logistics = signals.logistics_signal(market, CONFIG.signals)
 
     assert (price.value, price.level) == ("+14.3 %", signals.YELLOW)  # 80 / 70 - 1
     assert (supply.value, supply.level) == ("40 %", signals.ORANGE)
+    assert supply.note.startswith("at risk 30 % (no sea detour), on a detour 10 %")
+    assert (ranged.value, ranged.level) == ("16–39 %", signals.ORANGE)  # level: upper bound
     assert (logistics.value, logistics.level) == ("+0.70", signals.YELLOW)
 
 

@@ -110,6 +110,18 @@ class Relevance(BaseModel):
     series: list[str] = []
 
 
+class ScenarioPreset(BaseModel):
+    label: str
+    closed: list[str]  # chokepoint ids
+
+
+class ScenarioSettings(BaseModel):
+    """Route scenarios (spec 014). Settings: the live-status threshold and the presets."""
+
+    closed_below_pct: float = 50.0
+    presets: dict[str, ScenarioPreset] = {}
+
+
 class SourcingConfig(BaseModel):
     focus_region: str
     passage_chokepoints: dict[str, str]
@@ -118,6 +130,8 @@ class SourcingConfig(BaseModel):
     landed_cost: LandedCostSettings
     import_controls: dict[str, ImportControl] = {}
     lead_time: LeadTime
+    chokepoint_detours: dict[str, str] = {}
+    scenarios: ScenarioSettings = ScenarioSettings()
     relevance: Relevance = Relevance()
 
 

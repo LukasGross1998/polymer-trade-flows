@@ -50,13 +50,31 @@ def price_signal(market_eur: pd.DataFrame, signals: Signals) -> Signal:
     return Signal("Price", level(change, config), value, note)
 
 
-def supply_signal(share_pct: float, extra_t: float, year: int, signals: Signals) -> Signal:
-    """Share of extra-regional imports whose route passes a disrupted chokepoint."""
+def pct_range(low: float, high: float) -> str:
+    """'40 %' or '35–40 %' (a range where a country's export port is not known)."""
+    if round(low) == round(high):
+        return f"{high:.0f} %"
+    return f"{low:.0f}–{high:.0f} %"
+
+
+def supply_signal(
+    exposed: tuple[float, float],
+    at_risk: tuple[float, float],
+    delayed: tuple[float, float],
+    extra_t: float,
+    year: int,
+    scenario_label: str,
+    signals: Signals,
+) -> Signal:
+    """Share of extra-regional imports at risk (behind a closed chokepoint without a sea
+    detour) or delayed (on a detour), as ranges (spec 014). The level uses the upper bound of
+    the exposed share (at risk or delayed)."""
     note = (
-        f"of {extra_t / 1e6:,.1f} Mt imports from outside the region ({year}) "
-        "pass a disrupted chokepoint"
+        f"at risk {pct_range(*at_risk)} (no sea detour), on a detour {pct_range(*delayed)}; "
+        f"of {extra_t / 1e6:,.1f} Mt imports from outside the region ({year}); "
+        f"scenario: {scenario_label}"
     )
-    return Signal("Supply", level(share_pct, signals.supply), f"{share_pct:.0f} %", note)
+    return Signal("Supply", level(exposed[1], signals.supply), pct_range(*exposed), note)
 
 
 def logistics_signal(market: pd.DataFrame, signals: Signals) -> Signal:

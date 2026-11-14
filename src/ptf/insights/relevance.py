@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 from ptf.insights.config import Relevance as RelevanceConfig
+from ptf.insights.exposure import share_range
 from ptf.shipping.config import PortConfig
 
 EARTH_RADIUS_KM = 6371.0
@@ -29,10 +30,11 @@ class Relevance:
 
 def relevant_regions(routes: pd.DataFrame, focus_region: str, min_share_pct: float) -> set[str]:
     """Focus region plus exporter regions with at least `min_share_pct` of the tonnes."""
-    total = routes["qty_t"].sum()
+    countries = routes.drop_duplicates("exporter_iso3") if "exporter_iso3" in routes else routes
+    total = countries["qty_t"].sum()
     if total == 0:
         return {focus_region}
-    shares = routes.groupby("exporter_region")["qty_t"].sum() / total * 100
+    shares = countries.groupby("exporter_region")["qty_t"].sum() / total * 100
     return {focus_region} | set(shares[shares >= min_share_pct].index)
 
 
@@ -79,37 +81,55 @@ def near_any(events: pd.DataFrame, points: pd.DataFrame, radius_km: float) -> pd
 
 def chokepoint_dependency(
     routes: pd.DataFrame,
-    distances_open: pd.DataFrame,
-    distances_closed: pd.DataFrame | None,
+    tables: dict[str, pd.DataFrame],
+    detours: dict[str, str],
     focus_region: str,
     speed_knots: float,
 ) -> pd.DataFrame:
-    """Per chokepoint on the import routes: share of extra-regional tonnes passing it and the
-    volume-weighted extra sea days if the Red Sea route is closed (None without a detour).
+    """Per chokepoint on the import routes (all routes open): the share of extra-regional
+    tonnes passing it and, if it has a sea detour, the extra sea days via that detour.
 
-    Columns: chokepoint_id, share_pct, extra_days.
+    `routes` are the import routes with all routes open (route_key, chokepoint_ids, qty_t,
+    exporter_iso3); `tables` maps "base" and each detour variant to its distance table.
+    Extra days per country = the largest extra distance over its ports that pass the
+    chokepoint (ports' shares are unknown), volume-weighted over countries. Without a detour
+    (e.g. Hormuz) extra_days is None and has_detour False: the volume is at risk instead.
+
+    Columns: chokepoint_id, share_low_pct, share_pct, has_detour, extra_days.
     """
-    total = routes["qty_t"].sum()
-    by_region = routes.groupby("exporter_region")["qty_t"].sum()
-    extra = pd.Series(0.0, index=by_region.index)
-    if distances_closed is not None:
 
-        def to_focus(table: pd.DataFrame) -> pd.Series:
-            rows = table[table["dest_region"] == focus_region]
-            return rows.set_index("origin_region")["distance_nm"]
+    def to_focus(table: pd.DataFrame) -> pd.Series:
+        rows = table[table["dest_region"] == focus_region]
+        return rows.set_index("origin_region")["distance_nm"]
 
-        delta_nm = (to_focus(distances_closed) - to_focus(distances_open)).reindex(by_region.index)
-        extra = delta_nm.fillna(0.0) / (speed_knots * 24)
+    base = to_focus(tables["base"])
     rows = []
     for chokepoint in sorted({i for ids in routes["chokepoint_ids"] for i in ids}):
-        passing = routes[routes["chokepoint_ids"].apply(lambda ids, c=chokepoint: c in ids)]
-        tonnes = passing.groupby("exporter_region")["qty_t"].sum()
-        weighted = float((extra.reindex(tonnes.index) * tonnes).sum() / tonnes.sum())
+        passing = routes["chokepoint_ids"].apply(lambda ids, c=chokepoint: c in ids)
+        low, high = share_range(routes, passing)
+        variant = detours.get(chokepoint)
+        extra = None
+        if variant is not None and variant in tables:
+            delta_nm = to_focus(tables[variant]) - base
+            subset = routes[passing].copy()
+            subset["extra_days"] = subset["route_key"].map(delta_nm) / (speed_knots * 24)
+            per_country = subset.groupby("exporter_iso3").agg(
+                extra_days=("extra_days", "max"), qty_t=("qty_t", "first")
+            )
+            per_country = per_country[per_country["extra_days"].notna()]
+            if not per_country.empty and per_country["qty_t"].sum() > 0:
+                extra = float(
+                    (per_country["extra_days"] * per_country["qty_t"]).sum()
+                    / per_country["qty_t"].sum()
+                )
         rows.append(
             {
                 "chokepoint_id": chokepoint,
-                "share_pct": float(tonnes.sum() / total * 100) if total else 0.0,
-                "extra_days": weighted if weighted > 0.5 else None,
+                "share_low_pct": low,
+                "share_pct": high,
+                "has_detour": variant is not None,
+                "extra_days": extra,
             }
         )
-    return pd.DataFrame(rows, columns=["chokepoint_id", "share_pct", "extra_days"])
+    columns = ["chokepoint_id", "share_low_pct", "share_pct", "has_detour", "extra_days"]
+    return pd.DataFrame(rows, columns=columns)

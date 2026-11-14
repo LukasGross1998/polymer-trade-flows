@@ -14,11 +14,49 @@ penalty_usd_t: 5000  # setting: technical cost of one tonne of unmet demand, far
 # by `ptf ingest` as data/raw/distances/sea_distances_<name>.parquet. Settings: scenarios to
 # look at, used by the landed-cost and planner views.
 route_variants:
-  red_sea_closed:
+  babalmandab_closed:
     note: >-
-      Suez and Bab el-Mandeb closed. Panama is blocked as well: otherwise searoute routes
-      Asian cargo to Europe through Panama instead of around the Cape of Good Hope.
-    restrictions: [northwest, suez, babalmandab, panama]
+      Bab el-Mandeb closed: cargo from Asia and the Gulf goes around the Cape; the Red Sea
+      stays reachable from the north through Suez. Panama is blocked as well: otherwise
+      searoute routes Asian cargo to Europe through Panama instead of around the Cape.
+    restrictions: [northwest, babalmandab, panama]
+  suez_closed:
+    note: Suez closed, otherwise as above.
+    restrictions: [northwest, suez, panama]
+  malacca_closed:
+    note: >-
+      Malacca closed: Asian cargo goes through the Sunda Strait. Northwest Passage and Panama
+      blocked so that searoute does not send it through the Arctic or across the Pacific.
+    restrictions: [northwest, malacca, panama]
+  gibraltar_closed:
+    note: >-
+      Gibraltar closed: cargo from Asia and the Gulf goes around the Cape. Northwest Passage
+      and Panama blocked as above.
+    restrictions: [northwest, gibraltar, panama]
+# `ptf ingest` also writes every combination of variants (e.g. malacca_closed+red_sea_closed).
+
+# Countries that do not ship from their region's representative port (spec 014). Each entry
+# needs a source showing that the country's polyethylene is made at / leaves from the port;
+# port coordinates are a setting (a point in the port; searoute snaps it to the sea lane).
+# Several ports without sourced shares: the views show a range, never a split.
+country_routes:
+  EGY:
+    ports: [{name: Alexandria, lon: 29.87, lat: 31.19}]
+    source: "Oil & Gas Journal: Sidi Kerir Petrochemicals (SIDPEC), Egypt's largest PE producer, polyethylene at its Alexandria complex"
+    url: "https://www.ogj.com/refining-processing/petrochemicals/article/14197489/egypts-sidpec-advances-expansion-of-alexandria-petrochemicals-complex"
+    read: 2026-11-14
+  ISR:
+    ports: [{name: Haifa, lon: 35.01, lat: 32.83}]
+    source: "Global Energy Monitor: Carmel Olefins (BAZAN Group), polyethylene plant at Haifa Bay"
+    url: "https://www.gem.wiki/Carmel_Olefins_Haifa_Chemical_Plant"
+    read: 2026-11-14
+  SAU:
+    ports:
+      - {name: Al Jubail, lon: 49.70, lat: 27.05}
+      - {name: Yanbu, lon: 38.05, lat: 24.05}
+    source: "SABIC manufacturing affiliates: polyethylene at Kemya and Sharq (Al Jubail) and at Yansab and Yanpet (Yanbu); shares per port not published"
+    url: "https://www.sabic.com/en/about/locations/sabic-manufacturing-affiliates"
+    read: 2026-11-14
 
 # Sea freight: no source gives a rate per tonne for all routes (spec 015, research of
 # 14 Nov 2026): the Drewry WCI covers only lanes from Shanghai, its terms do not allow

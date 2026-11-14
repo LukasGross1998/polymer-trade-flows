@@ -5,6 +5,9 @@ and prices of the BACI year or indexed to today (spec 007). Spec 015: freight is
 with a sourced rate; until then the tab shows price + duty and says so.
 """
 
+from collections.abc import Hashable
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
@@ -33,18 +36,11 @@ def layout(data: AppData) -> html.Div:
             "No landed-cost data yet: run `uv run ptf clean` (trade marts) and "
             "`uv run ptf ingest` (sea routes)."
         )
-    route_options = [{"label": "Red Sea open", "value": "open"}]
-    if data.distances_closed is not None:
-        route_options.append({"label": "Red Sea closed (via the Cape)", "value": "closed"})
     return html.Div(
         [
             html.Div(
                 [
                     charts.control("Grade", grade_dropdown("lc-grade", data)),
-                    charts.control(
-                        "Route",
-                        radio("lc-route", route_options, "open"),
-                    ),
                     charts.control(
                         "Price basis",
                         radio(
@@ -80,19 +76,19 @@ def layout(data: AppData) -> html.Div:
     )
 
 
-def compute(data: AppData, route: str, basis: str, grade: str = ALL_GRADES) -> LandedView | None:
+def compute(data: AppData, scenario: str, basis: str, grade: str = ALL_GRADES) -> LandedView | None:
     sources = data.sources(grade)
-    if sources is None or sources.empty or data.distances is None:
+    tables = data.route_tables
+    if sources is None or sources.empty or tables is None:
         return None
     return landed_view(
         sources,
         data.market,
-        data.distances,
-        data.distances_closed,
+        tables,
+        data.chokepoints,
         data.model_config.freight,
         data.sourcing_config,
-        red_sea_closed=route == "closed",
-        freight_factor=1.0,
+        data.scenario(scenario),
         indexed_prices=basis == "indexed",
         mfn_pct=mfn_rate(
             data.eu_duty,
@@ -125,7 +121,7 @@ def kpi_values(view: LandedView) -> list[dict[str, str]]:
             else f"European average {view.reference_eur_t:,.0f} EUR/t",
         },
         {
-            "label": "Red Sea closure, Middle East",
+            "label": "Scenario vs. all routes open, Middle East",
             "value": "n/a"
             if view.closure_extra_eur_t is None
             else f"{view.closure_extra_eur_t:+,.0f} EUR/t",
@@ -144,7 +140,11 @@ def kpi_values(view: LandedView) -> list[dict[str, str]]:
 
 
 def bars_figure(view: LandedView) -> go.Figure:
-    table = view.table.iloc[::-1]  # cheapest on top in a horizontal bar chart
+    table = view.table.iloc[::-1].copy()  # cheapest on top in a horizontal bar chart
+    table["exporter_name"] = [
+        f"{name} ⚠" if risk else name
+        for name, risk in zip(table["exporter_name"], table["at_risk"], strict=True)
+    ]
     fig = go.Figure()
     for colour, part in zip(style.SERIES, COMPONENT_LABELS, strict=False):
         if table[f"{part}_eur_t"].isna().all():
@@ -179,8 +179,29 @@ def bars_figure(view: LandedView) -> go.Figure:
     return charts.base_layout(fig, height=440, title=title)
 
 
+def route_status(row: dict[Hashable, Any]) -> str:
+    """Route status in the scenario (spec 014)."""
+    if row.get("at_risk"):
+        return "⚠ availability uncertain"
+    if row.get("delayed"):
+        return "detour"
+    if row.get("reduced"):
+        return "reduced traffic"
+    return "open"
+
+
 def cost_table(view: LandedView) -> html.Table:
-    header = ["Country", "kt", "nm", "Price", "Freight", "Duty %", "Duty", "Landed EUR/t"]
+    header = [
+        "Country",
+        "kt",
+        "nm",
+        "Price",
+        "Freight",
+        "Duty %",
+        "Duty",
+        "Landed EUR/t",
+        "Route",
+    ]
     cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
     rows = [html.Tr([html.Th(h, style={**cell, "color": style.MUTED}) for h in header])]
     for row in view.table.to_dict("records"):
@@ -193,6 +214,7 @@ def cost_table(view: LandedView) -> html.Table:
             f"{row['duty_pct']:.1f}",
             f"{row['duty_eur_t']:,.0f}",
             f"{row['landed_eur_t']:,.0f}",
+            route_status(row),
         ]
         rows.append(
             html.Tr(
@@ -203,8 +225,8 @@ def cost_table(view: LandedView) -> html.Table:
     return html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"})
 
 
-def update(data: AppData, route: str, basis: str, grade: str = ALL_GRADES) -> charts.Outputs:
-    view = compute(data, route, basis, grade)
+def update(data: AppData, scenario: str, basis: str, grade: str = ALL_GRADES) -> charts.Outputs:
+    view = compute(data, scenario, basis, grade)
     if view is None or view.table.empty:
         return [], go.Figure(), charts.no_data("No suppliers with a sea route.")
     return charts.tiles(kpi_values(view)), bars_figure(view), cost_table(view)
@@ -218,10 +240,10 @@ def register(app: Dash, state: AppState) -> None:
         Output("lc-kpis", "children"),
         Output("lc-bars", "figure"),
         Output("lc-table", "children"),
-        Input("lc-route", "value"),
+        Input("scenario", "value"),
         Input("lc-basis", "value"),
         Input("lc-grade", "value"),
         Input("data-version", "data"),
     )
-    def _update(route: str, basis: str, grade: str, _version: int) -> charts.Outputs:
-        return update(state.data, route, basis, grade)
+    def _update(scenario: str, basis: str, grade: str, _version: int) -> charts.Outputs:
+        return update(state.data, scenario, basis, grade)
