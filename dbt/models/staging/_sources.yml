@@ -96,6 +96,10 @@ sources:
       - name: landing_dce
         meta:
           external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/dce/landing_dce.parquet')"
+      - name: landing_dce_quote
+        description: Newest intraday quote of the main contract (spec 012), empty before the first.
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/dce/landing_dce_quote.parquet')"
 
   - name: gscpi
     description: NY Fed GSCPI, parsed from the .xls by ptf.markets.gscpi.write_gscpi_landing.

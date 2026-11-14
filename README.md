@@ -142,6 +142,17 @@ docker compose down                         # stop the app (data stay)
 
 Without data the app shows a start page with the steps to run first.
 
+The Dalian LLDPE price (AKShare, unofficial, ADR-015) runs in its own isolated container:
+
+```bash
+docker compose build asia                   # image ptf:asia with the optional asia extra
+docker compose run --rm asia                # downloads into data/raw/dce only
+docker compose run --rm pipeline market     # builds the market marts, without AKShare
+```
+
+The `asia` container sees only `data/raw/dce`, gets no `.env` (no keys), runs with a
+read-only file system and without Linux capabilities.
+
 ### Data pipeline
 
 ```bash

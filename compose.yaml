@@ -2,6 +2,8 @@
 #
 #   docker compose up -d app                   # dashboard on http://localhost:8050
 #   docker compose run --rm pipeline portwatch # any `ptf` step, then the container ends
+#   docker compose run --rm asia               # Dalian price only, isolated (spec 012)
+#   docker compose run --rm pipeline market    # ... then build the market marts
 #   docker compose down                        # stop and remove the containers (data stay)
 
 services:
@@ -29,3 +31,24 @@ services:
       - path: .env
         required: false
     profiles: ["pipeline"]      # not started by `docker compose up`, only by `run`
+
+  # Dalian LLDPE price via AKShare (third-party code with ~160 packages, ADR-015), isolated:
+  # its own image with the asia extra, only data/raw/dce mounted, no .env (no keys), a
+  # read-only file system, no Linux capabilities. It only downloads; `pipeline market`
+  # builds the marts afterwards without AKShare.
+  asia:
+    image: ptf:asia
+    build:
+      context: .
+      args:
+        EXTRAS: "--extra asia"
+    command: ["ptf", "dce"]
+    volumes:
+      - ./data/raw/dce:/app/data/raw/dce
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    profiles: ["asia"]

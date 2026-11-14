@@ -71,7 +71,12 @@ def test_chokepoint_tab_returns_all_outputs(data: AppData) -> None:
 
 
 def test_prices_port_and_situation_tabs(data: AppData) -> None:
-    kpis, drivers, dce_fig, oil, *_ = prices.update(data, "5y", "USD")
+    kpis, drivers, dce_fig, quote, oil, *_ = prices.update(data, "5y", "USD")
+    # Fixture quote: trading day 16 Nov, newer than the last close (13 Nov) -> shown.
+    assert quote.startswith(
+        "Latest quote: 8,547 CNY/t (bid 8,547 / ask 8,551), last trade 23:00:00"
+    )
+    assert "fetched Sat 14 Nov 17:05" in quote  # 16:05 UTC = 17:05 CET
     # DCE price in the fixtures, but no CNY rate (DEXCHUS): the chart explains instead of failing.
     assert "not available" in dce_fig.layout.annotations[0].text
     assert kpis[0].children[1].children == "78.0"  # latest Brent in the FRED fixture

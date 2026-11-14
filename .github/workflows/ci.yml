@@ -39,11 +39,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Build image
-        run: docker build -t ptf:ci .
+      - name: Build images (normal and isolated asia image)
+        run: |
+          docker build -t ptf:ci .
+          docker build -t ptf:ci-asia --build-arg EXTRAS="--extra asia" .
 
-      - name: Smoke test (no data baked in, non-root, CLI, app healthy)
-        run: docker/smoke_test.sh ptf:ci
+      - name: Smoke test (no data baked in, non-root, CLI, app healthy, asia isolation)
+        run: ASIA_IMAGE=ptf:ci-asia docker/smoke_test.sh ptf:ci
 
   asia-extra:
     # Optional AKShare extra (spec 011, ADR-015): its tests and a vulnerability scan of all its

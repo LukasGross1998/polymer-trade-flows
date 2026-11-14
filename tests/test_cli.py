@@ -29,6 +29,8 @@ def test_single_steps() -> None:
     assert cli.steps_for("model") == [model_steps.run]
     assert cli.steps_for("ingest") == [trade_steps.ingest, model_steps.ingest]
     assert cli.steps_for("comtrade") == [comtrade_steps.run]
+    assert cli.steps_for("dce") == [markets_steps.download_dce]
+    assert markets_steps.download_dce not in cli.steps_for("all")
 
 
 def test_main_runs_the_selected_steps_with_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:

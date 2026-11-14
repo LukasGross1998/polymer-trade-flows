@@ -18,7 +18,7 @@ from ptf.core import warehouse
 from ptf.core.regions import RegionConfig
 from ptf.core.settings import Settings
 from ptf.markets.config import load_market_config
-from ptf.markets.dce import write_dce_landing
+from ptf.markets.dce import write_dce_landing, write_quote_landing
 from ptf.markets.reference import write_market_reference
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
@@ -243,6 +243,23 @@ def build_warehouse(setup: "PipelineSetup") -> None:
         }
     ).to_parquet(dce / "20261114T000000000000.parquet")
     write_dce_landing(raw)
+    (dce / "quotes").mkdir(exist_ok=True)
+    pd.DataFrame(
+        {
+            "symbol": ["L0"],
+            "last": [8547.0],
+            "bid": [8547.0],
+            "ask": [8551.0],
+            "prev_settle": [8442.0],
+            "open": [8539.0],
+            "high": [8601.0],
+            "low": [8524.0],
+            "tick_time": ["23:00:00"],
+            "trading_day": pd.to_datetime(["2026-11-16"]),
+            "fetched_at": pd.Timestamp("2026-11-14 16:05", tz="UTC"),
+        }
+    ).to_parquet(dce / "quotes" / "20261114T160500000000.parquet")
+    write_quote_landing(raw)
     warehouse.run_dbt(settings, ["build"])
 
 

@@ -636,3 +636,10 @@ and to EUR with DEXUSEU. Example: 8,000 CNY/t at 7.20 CNY/USD = 1,111 USD/t.
 offers to Europe, not a European price; domestic Chinese price with VAT, not an export
 price; unofficial source. It is shown on the Prices tab only and does not feed the landed
 cost or the order planner. Value on 13 Nov 2026: 8,578 CNY/t.
+
+**Latest quote (spec 012):** each download also stores the latest quote of the main
+contract (last trade, bid, ask, Sina's time of the last trade in Beijing time, trading
+day; a night session counts for the next trading day). The Prices tab shows it when its
+trading day is newer than the last daily close, with the download time, because Sina's
+delay is not documented. Dalian trades (winter, CET) 02:00–04:30, 06:30–08:00 and
+14:00–16:00; outside these hours the quote is the last trade of the previous session.

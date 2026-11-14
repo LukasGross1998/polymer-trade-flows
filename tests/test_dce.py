@@ -74,3 +74,48 @@ def test_cny_to_usd_with_the_same_or_previous_day_rate() -> None:
     usd = indicators.cny_to_usd(prices, rates)
 
     assert usd["value"].iloc[0] == pytest.approx(1111.11, abs=0.01)  # 8,000 / 7.20
+
+
+def quote_answer(last: float) -> pd.DataFrame:
+    """The shape of AKShare's futures_zh_realtime: one row per LLDPE contract."""
+    rows = [("L0", last), ("L2701", last)]
+    return pd.DataFrame(
+        {
+            "symbol": [r[0] for r in rows],
+            "trade": [r[1] for r in rows],
+            "bidprice1": [last, last],
+            "askprice1": [last + 4, last + 4],
+            "presettlement": [8442.0, 8442.0],
+            "open": [8539.0, 8539.0],
+            "high": [8601.0, 8601.0],
+            "low": [8524.0, 8524.0],
+            "ticktime": ["23:00:00", "23:00:00"],
+            "tradedate": ["2026-11-16", "2026-11-16"],
+            # also in the real answer, empty: must not clash with the renamed bid/ask
+            "bid": [0.0, 0.0],
+            "ask": [0.0, 0.0],
+        }
+    )
+
+
+def test_latest_quote_of_the_main_contract(tmp_path: Path) -> None:
+    dce.ingest_quote(tmp_path, "L0", fetch=lambda: quote_answer(8500.0), today=NOW)
+    later = datetime(2026, 11, 14, 15, 0, tzinfo=UTC)
+    dce.ingest_quote(tmp_path, "L0", fetch=lambda: quote_answer(8547.0), today=later)
+
+    landing = pd.read_parquet(dce.write_quote_landing(tmp_path))
+
+    assert len(landing) == 1  # only the newest quote
+    row = landing.iloc[0]
+    assert (row["symbol"], row["last"], row["bid"], row["ask"]) == ("L0", 8547.0, 8547.0, 8551.0)
+    assert row["tick_time"] == "23:00:00"
+    assert row["trading_day"] == pd.Timestamp("2026-11-16")
+
+
+def test_quote_failure_or_missing_contract_returns_none(tmp_path: Path) -> None:
+    def broken() -> pd.DataFrame:
+        raise ConnectionError("Sina unreachable")
+
+    assert dce.ingest_quote(tmp_path, "L0", fetch=broken, today=NOW) is None
+    assert dce.ingest_quote(tmp_path, "L9", fetch=lambda: quote_answer(1.0), today=NOW) is None
+    assert pd.read_parquet(dce.write_quote_landing(tmp_path)).empty

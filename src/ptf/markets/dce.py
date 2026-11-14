@@ -33,6 +33,34 @@ COLUMNS = {
 LANDING_COLUMNS = ["date", "open", "high", "low", "close", "volume", "open_interest", "settle"]
 
 Fetch = Callable[[str, str, str], pd.DataFrame]
+FetchQuote = Callable[[], pd.DataFrame]
+
+# Latest quote (spec 012): AKShare's real-time table, one row per LLDPE contract.
+QUOTE_COLUMNS = {
+    "symbol": "symbol",
+    "trade": "last",
+    "bidprice1": "bid",
+    "askprice1": "ask",
+    "presettlement": "prev_settle",
+    "open": "open",
+    "high": "high",
+    "low": "low",
+    "ticktime": "tick_time",
+    "tradedate": "trading_day",
+}
+QUOTE_LANDING = [
+    "symbol",
+    "last",
+    "bid",
+    "ask",
+    "prev_settle",
+    "open",
+    "high",
+    "low",
+    "tick_time",
+    "trading_day",
+    "fetched_at",
+]
 
 
 def dce_dir(raw_dir: Path) -> Path:
@@ -44,6 +72,13 @@ def akshare_fetch(symbol: str, start: str, end: str) -> pd.DataFrame:
     import akshare  # optional dependency (extra "asia"), imported only when used
 
     return akshare.futures_main_sina(symbol=symbol, start_date=start, end_date=end)
+
+
+def akshare_quote() -> pd.DataFrame:
+    """AKShare's real-time quotes of all LLDPE contracts ("塑料" = plastic, DCE code L)."""
+    import akshare  # optional dependency (extra "asia"), imported only when used
+
+    return akshare.futures_zh_realtime(symbol="塑料")
 
 
 def tidy(frame: pd.DataFrame) -> pd.DataFrame:
@@ -102,6 +137,74 @@ def write_dce_landing(raw_dir: Path) -> Path:
             }
         )
     path = dce_dir(raw_dir) / "landing_dce.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    landing.to_parquet(path, index=False)
+    return path
+
+
+def quote_dir(raw_dir: Path) -> Path:
+    return dce_dir(raw_dir) / "quotes"
+
+
+def ingest_quote(
+    raw_dir: Path,
+    symbol: str,
+    fetch: FetchQuote | None = None,
+    today: datetime | None = None,
+) -> Path | None:
+    """Store the latest quote of `symbol` (e.g. the main contract L0); None on any failure.
+
+    `tick_time` is Sina's time of the last trade (Beijing time); `trading_day` is the
+    exchange's trading day (a night session counts for the next day). How delayed Sina's
+    quote is, is not documented, so the download time is kept as well.
+    """
+    now = today or datetime.now(UTC)
+    try:
+        table = (fetch or akshare_quote)()
+    except ImportError:
+        return None
+    except Exception as error:  # unofficial source: never stop the download step
+        logger.warning("DCE quote failed: %s", error)
+        return None
+    rows = table[table["symbol"] == symbol]
+    if rows.empty:
+        logger.warning("DCE quote has no row for %s", symbol)
+        return None
+    # Select first, then rename: the answer also has (empty) columns "bid" and "ask", which
+    # would otherwise clash with the renamed "bidprice1" and "askprice1".
+    quote = rows.iloc[[0]][list(QUOTE_COLUMNS)].rename(columns=QUOTE_COLUMNS).copy()
+    for column in ["last", "bid", "ask", "prev_settle", "open", "high", "low"]:
+        quote[column] = pd.to_numeric(quote[column], errors="coerce")
+    quote["tick_time"] = quote["tick_time"].astype(str)
+    quote["trading_day"] = pd.to_datetime(quote["trading_day"], errors="coerce")
+    quote["fetched_at"] = pd.Timestamp(now)
+    path = quote_dir(raw_dir) / f"{now:%Y%m%dT%H%M%S%f}.parquet"
+    if path.exists():
+        raise FileExistsError(f"raw files are never overwritten: {path}")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    quote.to_parquet(path, index=False)
+    return path
+
+
+def write_quote_landing(raw_dir: Path) -> Path:
+    """The newest quote in `dce/landing_dce_quote.parquet` (empty before the first one)."""
+    files = sorted(quote_dir(raw_dir).glob("*.parquet"))
+    if files:
+        landing = pd.read_parquet(files[-1])[QUOTE_LANDING]
+    else:
+        landing = pd.DataFrame(
+            {
+                "symbol": pd.Series(dtype=str),
+                **{
+                    c: pd.Series(dtype=float)
+                    for c in ["last", "bid", "ask", "prev_settle", "open", "high", "low"]
+                },
+                "tick_time": pd.Series(dtype=str),
+                "trading_day": pd.Series(dtype="datetime64[ns]"),
+                "fetched_at": pd.Series(dtype="datetime64[ns, UTC]"),
+            }
+        )
+    path = dce_dir(raw_dir) / "landing_dce_quote.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     landing.to_parquet(path, index=False)
     return path
