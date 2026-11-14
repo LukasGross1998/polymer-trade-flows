@@ -1,6 +1,6 @@
 # 017 – One design: theme, KPI tile, global bar, number formats, method panels
 
-- **Status:** draft
+- **Status:** done
 - **Branch / PR:** `feat/design-system` / see PR
 - **SPEC.md sections:** 7 (app); phase 3 of the user's dashboard plan (14 Nov 2026)
 
@@ -91,3 +91,17 @@ explanations sit behind an info icon instead of footnotes. No developer text in 
   (`test_app.py`, new `test_theme.py`), README screenshots.
 - Open question for the user: keep the four-level traffic-light colours as they are
   (green / yellow / orange / red) – proposed yes.
+
+## Implementation notes (15 Nov 2026)
+
+- Palette: blue, aqua, violet, magenta, dark blue (`theme.SERIES`); validator (light
+  surface): all checks pass, worst adjacent colour-blind ΔE 19.9, normal vision 24.0; aqua
+  and magenta below 3:1 contrast, so charts with them carry legends. Status colours kept as
+  they were (green / yellow / orange / red).
+- Card titles: the tab callbacks still set the figure title; one small browser-side
+  callback per graph copies it into the card title above the plot, and the stylesheet hides
+  Plotly's own title. This kept the callbacks unchanged.
+- Method panels sit at the top of each tab ("ⓘ Method and sources", collapsed); notes inside
+  a card (Dalian chart, weather card) became panels in place.
+- Not done: README screenshots (criterion 8) – to be taken after phase 4, when the charts
+  change again.

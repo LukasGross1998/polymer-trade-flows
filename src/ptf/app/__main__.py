@@ -9,7 +9,7 @@ to functions in `src/ptf/` and `ptf.app.charts`.
 
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 
-from ptf.app import style
+from ptf.app import charts, theme
 from ptf.app.data import AppData, AppState, monitor_data_available
 from ptf.app.tabs import (
     chokepoints,
@@ -24,6 +24,7 @@ from ptf.app.tabs import (
 )
 from ptf.core.settings import Settings, get_settings
 from ptf.insights.scenario import LIVE
+from ptf.insights.view import ALL_GRADES
 
 # Two sections (spec 008): the buyer's questions first, market and logistics detail after.
 SECTIONS = [
@@ -65,28 +66,9 @@ def build_layout(state: AppState) -> html.Div:
                     ),
                     html.Div(
                         "For buyers in Europe: prices, sourcing risk, chokepoints and ports",
-                        style={"fontSize": "13px", "color": style.INK_SECONDARY},
+                        style={"fontSize": "13px", "color": theme.INK_SECONDARY},
                     ),
                 ]
-            ),
-            html.Div(
-                [
-                    html.Div("Route scenario", style={"fontSize": "12px", "color": style.MUTED}),
-                    dcc.Dropdown(
-                        id="scenario",
-                        options=state.data.scenario_options(),
-                        value=LIVE,
-                        clearable=False,
-                        persistence=True,
-                        style={"width": "220px", "fontSize": "13px"},
-                    ),
-                ],
-                title=(
-                    "Applies to all tabs. Live status: a chokepoint counts as closed when its "
-                    "7-day traffic is at least "
-                    f"{state.data.sourcing_config.scenarios.closed_below_pct:g} % below normal "
-                    "(IMF PortWatch), as reduced when the monitor flags it."
-                ),
             ),
             html.Div(
                 [
@@ -94,9 +76,9 @@ def build_layout(state: AppState) -> html.Div:
                     html.Div(
                         freshness(state.data),
                         id="last-updated",
-                        style={"fontSize": "12px", "color": style.MUTED, "marginTop": "4px"},
+                        style={"fontSize": "12px", "color": theme.MUTED, "marginTop": "4px"},
                     ),
-                    html.Div(id="refresh-status", style={"fontSize": "12px", "color": style.MUTED}),
+                    html.Div(id="refresh-status", style={"fontSize": "12px", "color": theme.MUTED}),
                 ],
                 style={"textAlign": "right"},
             ),
@@ -109,6 +91,7 @@ def build_layout(state: AppState) -> html.Div:
             "marginBottom": "12px",
         },
     )
+    bar = global_bar(state.data)
     sections = [
         dcc.Tab(
             label=section_label,
@@ -117,6 +100,7 @@ def build_layout(state: AppState) -> html.Div:
             selected_style=SECTION_TAB,
             children=dcc.Tabs(
                 id=f"tabs-{section_id}",
+                parent_className="ptf-subtabs",
                 children=[
                     dcc.Tab(
                         label=label,
@@ -132,7 +116,73 @@ def build_layout(state: AppState) -> html.Div:
         for section_id, section_label, tabs in SECTIONS
     ]
     tabs = dcc.Tabs(sections, id="section-tabs", value="buying")
-    return html.Div([header, tabs, dcc.Store(id="data-version", data=0)], style=style.PAGE)
+    return html.Div([header, bar, tabs, dcc.Store(id="data-version", data=0)], style=theme.PAGE)
+
+
+def global_bar(data: AppData) -> html.Div:
+    """Route scenario, PE grade and currency for all tabs (spec 017), kept per browser session."""
+    label = {"fontSize": "12px", "color": theme.MUTED}
+    closed = data.sourcing_config.scenarios.closed_below_pct
+    scenario_help = (
+        "Applies to all tabs. Live status: a chokepoint counts as closed when its 7-day "
+        f"traffic is at least {closed:g} % below normal (IMF PortWatch), as reduced when the "
+        "monitor flags it."
+    )
+    return html.Div(
+        [
+            html.Div(
+                [
+                    html.Div(["Route scenario", theme.info(scenario_help)], style=label),
+                    dcc.Dropdown(
+                        id="scenario",
+                        options=data.scenario_options(),
+                        value=LIVE,
+                        clearable=False,
+                        style={"width": "220px", "fontSize": "13px"},
+                        persistence=True,
+                        persistence_type="session",
+                    ),
+                ]
+            ),
+            html.Div(
+                [
+                    html.Div("Polyethylene grade", style=label),
+                    dcc.Dropdown(
+                        id="grade",
+                        options=data.grade_options(),
+                        value=ALL_GRADES,
+                        clearable=False,
+                        style={"width": "320px", "fontSize": "13px"},
+                        persistence=True,
+                        persistence_type="session",
+                    ),
+                ]
+            ),
+            html.Div(
+                [
+                    html.Div("Currency", style=label),
+                    dcc.RadioItems(
+                        id="currency",
+                        options=[{"label": c, "value": c} for c in ("EUR", "USD")],
+                        value="EUR",
+                        inline=True,
+                        inputStyle={"marginRight": "4px", "marginLeft": "8px"},
+                        persistence=True,
+                        persistence_type="session",
+                    ),
+                ]
+            ),
+        ],
+        style={
+            **theme.CARD,
+            "display": "flex",
+            "gap": "24px",
+            "flexWrap": "wrap",
+            "alignItems": "end",
+            "padding": "8px 16px",
+            "marginBottom": "12px",
+        },
+    )
 
 
 def no_data_layout() -> html.Div:
@@ -140,14 +190,13 @@ def no_data_layout() -> html.Div:
     return html.Div(
         [
             html.H1("Polyethylene supply chain monitor", style={"fontSize": "22px"}),
-            html.P("No data yet. Build the warehouse, then restart the app:"),
-            html.Pre(
-                "uv run ptf portwatch   # chokepoints, ports, events\n"
-                "uv run ptf market      # energy, freight and supply-chain series",
+            html.P(
+                "No data loaded yet. Load the shipping and market data (see the README, "
+                "section 'Quick start'), then reload this page."
             ),
         ],
         id="no-data",
-        style=style.PAGE,
+        style=theme.PAGE,
     )
 
 
@@ -221,6 +270,7 @@ def create_app(settings: Settings | None = None) -> Dash:
         module.register(app, state)
     register_refresh(app, state)
     register_navigation(app)
+    charts.register_graph_titles(app)
     return app
 
 

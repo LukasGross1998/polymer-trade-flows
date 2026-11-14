@@ -4,7 +4,7 @@ The app passes in what it loaded from the warehouse; these functions combine the
 and return plain values and tables, so the tabs only format and draw.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 
 import pandas as pd
@@ -184,6 +184,25 @@ class LandedView:
     scenario: Scenario | None = None
     interest: tuple[pd.Timestamp, float] | None = None  # date and % per year (spec 016)
     not_included: list[str] = field(default_factory=list)  # cost components left out
+    currency: str = "EUR"  # the *_eur_t columns hold this currency after `in_currency`
+
+    def in_currency(self, currency: str) -> "LandedView":
+        """The same view with all per-tonne money columns in `currency` (EUR or USD)."""
+        if currency == self.currency or currency not in ("EUR", "USD"):
+            return self
+        factor = self.usd_per_eur if currency == "USD" else 1 / self.usd_per_eur
+        table = self.table.copy()
+        money = [c for c in table.columns if c.endswith("_eur_t")]
+        table[money] = table[money] * factor
+        return replace(
+            self,
+            table=table,
+            reference_eur_t=None if self.reference_eur_t is None else self.reference_eur_t * factor,
+            closure_extra_eur_t=None
+            if self.closure_extra_eur_t is None
+            else self.closure_extra_eur_t * factor,
+            currency=currency,
+        )
 
 
 def port_label(name: str, port: str, n_ports: int) -> str:

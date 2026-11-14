@@ -79,7 +79,7 @@ def test_prices_port_and_situation_tabs(data: AppData) -> None:
     assert "fetched Sat 14 Nov 17:05" in quote  # 16:05 UTC = 17:05 CET
     # DCE price in the fixtures, but no CNY rate (DEXCHUS): the chart explains instead of failing.
     assert "not available" in dce_fig.layout.annotations[0].text
-    assert kpis[0].children[1].children == "78.0"  # latest Brent in the FRED fixture
+    assert kpis[0].children[1].children[0] == "78.0"  # latest Brent in the FRED fixture
     assert len(oil.data) == 1  # WTI missing in the fixtures: only Brent is drawn
     assert drivers.layout.title.text.startswith("Feedstock vs. resin prices in USD")
 
@@ -178,7 +178,7 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
     # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
     assert kpis[0].children[0].children == "Lowest cost sourceable origin, excl. freight"
-    assert kpis[0].children[1].children == "1,250 EUR/t"
+    assert kpis[0].children[1].children[0] == "1,250"
     assert [t.name for t in bars.data] == ["Price (FOB)", "EU duty"]
     rows = table.children[0].children
     assert rows[1].children[4].children == "n/a"  # freight column
@@ -189,7 +189,7 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     # Scenario "Red Sea closed" (spec 014): the variant table is 10,000 nm, so the US route
     # is on a detour; the cost stays price + duty while freight has no source.
     closed, _, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
-    assert closed[0].children[1].children == "1,250 EUR/t"
+    assert closed[0].children[1].children[0] == "1,250"
     assert closed[2].children[2].children == "n/a – no sourced freight rate"
     assert closed_table.children[0].children[1].children[9].children == "detour"
 
@@ -228,7 +228,7 @@ def test_grade_filter_in_sourcing_and_landed_cost(warehouse_setup: PipelineSetup
     assert kpis[0].children[1].children == "0.0 Mt"  # 1,000 t HDPE from the USA in 2023
     # HDPE only: 1.2 m USD for 1,000 t = 1,200 USD/t, US duty 0 %, freight not sourced.
     landed, *_ = landed_cost.update(data, "open", "baci", "390120")
-    assert landed[0].children[1].children == "1,200 EUR/t"
+    assert landed[0].children[1].children[0] == "1,200"
 
 
 def test_weather_card_and_seamark_layer(data: AppData) -> None:
@@ -281,7 +281,7 @@ def test_dce_price_converted_to_usd_and_eur(data: AppData) -> None:
     assert usd[pd.Timestamp("2026-11-13")] == pytest.approx(8578 / 7.20)  # 1,191.39 USD/t
     assert eur[pd.Timestamp("2026-11-13")] == pytest.approx(8578 / 7.20 / 1.10)
     kpis = prices.kpi_values(market, "USD")
-    assert kpis[-1]["label"] == "LLDPE Dalian, USD/t" and kpis[-1]["value"] == "1,191"
+    assert kpis[-1]["unit"] == "USD/t" and kpis[-1]["value"] == "1,191"
 
 
 def test_navigation_and_freshness(data: AppData) -> None:
@@ -315,3 +315,14 @@ def test_situation_europe_filter(warehouse_setup: PipelineSetup) -> None:
 def test_weather_text_leaves_out_missing_parts() -> None:
     assert situation.weather_text(1.4, 68.8) == "waves 1.4 m, gusts 69 km/h"
     assert situation.weather_text(float("nan"), 62.6) == "gusts 63 km/h"  # land point
+
+
+def test_global_bar_replaces_the_tab_filters(data: AppData) -> None:
+    from ptf.app.__main__ import global_bar
+
+    bar = str(global_bar(data))
+    for component_id in ("'scenario'", "'grade'", "'currency'"):
+        assert component_id in bar
+    for module in (sourcing, landed_cost, planner, prices):
+        layout = str(module.layout(data))
+        assert "-grade'" not in layout and "mkt-currency" not in layout

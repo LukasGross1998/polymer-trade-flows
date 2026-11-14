@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 from dash import Dash, Input, Output, dcc, html, no_update
 
-from ptf.app import charts, style, weather_card
+from ptf.app import charts, theme, weather_card
 from ptf.app.data import AppData, AppState, require
 from ptf.shipping.metrics import latest_status, port_table
 from ptf.shipping.overview import active_events
@@ -22,7 +22,7 @@ def _unit(metric: str) -> str:
 
 def layout(data: AppData) -> html.Div:
     if data.port_activity is None or data.ports is None:
-        return charts.no_data("No port data yet: run `uv run ptf portwatch`.")
+        return charts.no_data("No port data loaded yet – use Update data.")
     options = [{"label": f"{p.name} ({p.role})", "value": p.id} for p in data.monitor_config.ports]
     controls = html.Div(
         [
@@ -46,36 +46,35 @@ def layout(data: AppData) -> html.Div:
             charts.control("Period", charts.period_dropdown("port-period")),
             charts.control("Map", charts.seamark_switch("port-seamarks")),
         ],
-        style=style.ROW,
+        style=theme.ROW,
     )
     return html.Div(
         [
+            theme.method_panel(
+                "Source: IMF PortWatch. Port calls are counted from satellite AIS data; import and "
+                "export volumes are PortWatch estimates from vessel draught and capacity, not "
+                "customs statistics. Normal = same calendar week in 2019-2023.",
+            ),
             controls,
-            html.Div(id="port-kpis", style=style.ROW),
+            html.Div(id="port-kpis", style=theme.ROW),
             html.Div(
                 [
                     html.Div(
                         charts.graph("port-map"),
-                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
+                        style={**theme.CARD, "flex": "1", "minWidth": "420px"},
                     ),
                     html.Div(
                         [
-                            html.Div("All ports, latest week", style=style.SECTION_TITLE),
+                            html.Div("All ports, latest week", style=theme.SECTION_TITLE),
                             html.Div(id="port-table"),
                         ],
-                        style={**style.CARD, "flex": "1", "minWidth": "320px"},
+                        style={**theme.CARD, "flex": "1", "minWidth": "320px"},
                     ),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
-            html.Div(charts.graph("port-timeseries"), style=style.CARD),
+            html.Div(charts.graph("port-timeseries"), style=theme.CARD),
             weather_card.layout("port-weather", data.monitor_config.weather),
-            html.Div(
-                "Source: IMF PortWatch. Port calls are counted from satellite AIS data; import and "
-                "export volumes are PortWatch estimates from vessel draught and capacity, not "
-                "customs statistics. Normal = same calendar week in 2019-2023.",
-                style=style.SMALL_NOTE,
-            ),
         ]
     )
 
@@ -84,7 +83,7 @@ def status_table(status: pd.DataFrame, unit: str) -> html.Table:
     """Simple HTML table: port, 7-day value, deviation and status (icon + label)."""
     header = html.Tr(
         [
-            html.Th(t, style={"textAlign": "left", "fontSize": "12px", "color": style.MUTED})
+            html.Th(t, style={"textAlign": "left", "fontSize": "12px", "color": theme.MUTED})
             for t in ["Port", f"7-day avg ({unit})", "vs. normal", "Status"]
         ]
     )

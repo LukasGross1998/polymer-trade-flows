@@ -5,6 +5,20 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Changed
+- One design for all tabs (spec 017): central theme (`ptf.app.theme`) with status colours
+  only for status, a validated categorical palette without red, orange, yellow or green,
+  one route encoding (open / detour / at risk / not sourceable) and a Plotly template;
+  number formats in `ptf.app.fmt` (true minus sign, "€197k", ranges with an en dash).
+- Global bar under the header with route scenario, PE grade and currency for all tabs; the
+  per-tab grade dropdowns and the currency switch of the prices tab are gone; landed cost
+  and the planner show EUR or USD.
+- KPI tiles with unit, change against the standard period (30 days / previous month),
+  data date and sparkline; "Basis USD/EUR" moved to a footnote line.
+- Chart titles as card titles above the plot; underline tabs for the second level; one
+  period for all charts of the prices tab; footnotes in collapsible "Method and sources"
+  panels; no developer commands or config paths in the UI; region codes written out.
+
 ### Added
 - Recommendation logic (spec 016): origins with an EU import control in TARIC (Iran,
   Russia) or blocked by the user are greyed out and never recommended; minor origins

@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html, no_update
 from plotly.subplots import make_subplots
 
-from ptf.app import charts, style, weather_card
+from ptf.app import charts, theme, weather_card
 from ptf.app.data import AppData, AppState
 from ptf.markets.config import KeyEvent
 from ptf.shipping.metrics import (
@@ -59,60 +59,59 @@ def layout(data: AppData) -> html.Div:
             charts.control("Period", charts.period_dropdown("cp-period")),
             charts.control("Map", charts.seamark_switch("cp-seamarks")),
         ],
-        style=style.ROW,
+        style=theme.ROW,
     )
     return html.Div(
         [
-            controls,
-            html.Div(id="cp-kpis", style=style.ROW),
-            html.Div(charts.graph("cp-map"), style=style.CARD),
-            html.Div(
-                [
-                    html.Div(
-                        charts.graph("cp-timeseries"),
-                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
-                    ),
-                    html.Div(
-                        [
-                            html.Div(
-                                "Red Sea diversion: container ships between Asia and Europe",
-                                style=style.SECTION_TITLE,
-                            ),
-                            charts.graph("cp-diversion"),
-                        ],
-                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
-                    ),
-                ],
-                style={**style.ROW, "marginTop": "16px"},
-            ),
-            html.Div(
-                [
-                    html.Div(
-                        charts.graph("cp-classes"),
-                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
-                    ),
-                    html.Div(
-                        [
-                            html.Div(
-                                "Change by vessel class (last 7 days vs. normal)",
-                                style=style.SECTION_TITLE,
-                            ),
-                            html.Div(id="cp-class-table"),
-                        ],
-                        style={**style.CARD, "flex": "1", "minWidth": "420px"},
-                    ),
-                ],
-                style={**style.ROW, "marginTop": "16px"},
-            ),
-            weather_card.layout("cp-weather", data.monitor_config.weather),
-            html.Div(
+            theme.method_panel(
                 "Source: IMF PortWatch (daily transit counts from satellite AIS data). Not "
                 "real-time: data arrive a few days late and are updated about weekly. Normal = "
                 "average of the same calendar week in 2019-2023. Chokepoints with less than 2 "
                 "vessels a day of normal traffic are never flagged. AIS counts also drop when "
                 "ships switch off their transponders.",
-                style=style.SMALL_NOTE,
             ),
+            controls,
+            html.Div(id="cp-kpis", style=theme.ROW),
+            html.Div(charts.graph("cp-map"), style=theme.CARD),
+            html.Div(
+                [
+                    html.Div(
+                        charts.graph("cp-timeseries"),
+                        style={**theme.CARD, "flex": "1", "minWidth": "420px"},
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                "Red Sea diversion: container ships between Asia and Europe",
+                                style=theme.SECTION_TITLE,
+                            ),
+                            charts.graph("cp-diversion"),
+                        ],
+                        style={**theme.CARD, "flex": "1", "minWidth": "420px"},
+                    ),
+                ],
+                style={**theme.ROW, "marginTop": "16px"},
+            ),
+            html.Div(
+                [
+                    html.Div(
+                        charts.graph("cp-classes"),
+                        style={**theme.CARD, "flex": "1", "minWidth": "420px"},
+                    ),
+                    html.Div(
+                        [
+                            html.Div(
+                                "Change by vessel class (last 7 days vs. normal)",
+                                style=theme.SECTION_TITLE,
+                            ),
+                            html.Div(id="cp-class-table"),
+                        ],
+                        style={**theme.CARD, "flex": "1", "minWidth": "420px"},
+                    ),
+                ],
+                style={**theme.ROW, "marginTop": "16px"},
+            ),
+            weather_card.layout("cp-weather", data.monitor_config.weather),
         ]
     )
 
@@ -130,8 +129,8 @@ def diversion_figure(
         subplot_titles=("Container ships per day (7-day average)", "Share taking the Cape route"),
     )
     for name, column, colour in [
-        ("Bab el-Mandeb (Red Sea)", "red_sea_rolling", style.BLUE),
-        ("Cape of Good Hope", "cape_rolling", style.ORANGE),
+        ("Bab el-Mandeb (Red Sea)", "red_sea_rolling", theme.BLUE),
+        ("Cape of Good Hope", "cape_rolling", theme.AQUA),
     ]:
         fig.add_trace(
             go.Scatter(
@@ -148,7 +147,7 @@ def diversion_figure(
         go.Scatter(
             x=ratio["date"],
             y=ratio["cape_share"] * 100,
-            line={"color": style.INK_SECONDARY, "width": 2},
+            line={"color": theme.INK_SECONDARY, "width": 2},
             name="Cape share",
             showlegend=False,
             hovertemplate="%{y:.0f} %",
@@ -158,7 +157,7 @@ def diversion_figure(
     )
     fig.update_yaxes(rangemode="tozero", row=1, col=1)
     fig.update_yaxes(range=[0, 100], ticksuffix=" %", row=2, col=1)
-    fig.update_annotations(font={"color": style.INK, "size": 13})
+    fig.update_annotations(font={"color": theme.INK, "size": 13})
     charts.add_key_events(fig, key_events, start, end)
     return charts.base_layout(fig, height=460)
 
@@ -240,7 +239,7 @@ def classes_figure(data: AppData, chokepoint_id: str) -> go.Figure:
         ),
     ]
     fig = go.Figure()
-    colours = style.SERIES + [style.MUTED]
+    colours = theme.SERIES + [theme.MUTED]
     for colour, vessel_type in zip(colours, VESSEL_CLASSES, strict=False):
         fig.add_trace(
             go.Bar(
@@ -258,7 +257,7 @@ def classes_figure(data: AppData, chokepoint_id: str) -> go.Figure:
     fig.update_layout(barmode="stack", hovermode="closest", legend={"traceorder": "normal"})
     fig.update_yaxes(autorange="reversed")
     fig.update_xaxes(
-        title={"text": "% of transits", "font": {"color": style.MUTED}}, range=[0, 100]
+        title={"text": "% of transits", "font": {"color": theme.MUTED}}, range=[0, 100]
     )
     names = dict(
         zip(data.chokepoints["chokepoint_id"], data.chokepoints["chokepoint"], strict=True)
@@ -273,7 +272,7 @@ def class_table(data: AppData, chokepoint_id: str) -> html.Div:
     status = class_status(data.transits, chokepoint_id, data.monitor_config)
     cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
     header = ["Vessel class", "Last 7 days / day", "Normal / day", "Change", "Status"]
-    rows = [html.Tr([html.Th(h, style={**cell, "color": style.MUTED}) for h in header])]
+    rows = [html.Tr([html.Th(h, style={**cell, "color": theme.MUTED}) for h in header])]
     for row in status.to_dict("records"):
         flag = charts.status_value(bool(row["is_disrupted"]))
         rows.append(
@@ -296,7 +295,7 @@ def class_table(data: AppData, chokepoint_id: str) -> html.Div:
     return html.Div(
         [
             html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"}),
-            html.Div(f"By carrying capacity, last 12 months: {parts}.", style=style.SMALL_NOTE),
+            html.Div(f"By carrying capacity, last 12 months: {parts}.", style=theme.SMALL_NOTE),
         ]
     )
 
