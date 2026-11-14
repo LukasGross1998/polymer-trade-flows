@@ -16,6 +16,7 @@ from ptf.app.tabs import (
     classes,
     flows,
     landed_cost,
+    planner,
     ports,
     prices,
     situation,
@@ -33,6 +34,7 @@ SECTIONS = [
             ("prices", "Prices & drivers", prices),
             ("sourcing", "Sourcing", sourcing),
             ("landed", "Landed cost", landed_cost),
+            ("planner", "Order planner", planner),
         ],
     ),
     (

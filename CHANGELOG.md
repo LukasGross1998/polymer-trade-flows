@@ -5,6 +5,13 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Added
+- Order planner (spec 010): tab in the Buying section with landed cost against arrival date
+  per supplier country, need-by date, quantity, grade and Red Sea switch; recommendation of
+  the cheapest on-time supplier. Lead times from sea distances (14 kn), port days, buffers
+  for congested ports and storms on the route, overland days for landlocked exporters;
+  ports in `config/shipping.yaml` get a model region.
+
 ## 0.5.0 – 2026-11-14
 
 Buyer release: the app answers the questions of a polyethylene buyer in Europe and places

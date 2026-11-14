@@ -16,3 +16,4 @@ increments.
 | 007 | [Landed cost by supplier country](007-landed-cost.md) | done |
 | 008 | [Breakdown by class: commodities, vessels, PE grades](008-class-breakdown.md) | done |
 | 009 | [Marine weather, official EU duties, nautical chart layer](009-weather-duties-seamap.md) | done |
+| 010 | [Order planner: landed cost against arrival date](010-order-planner.md) | done |

@@ -591,3 +591,33 @@ The chokepoint and port maps are tile maps (MapLibre, Carto base map). A switch 
 OpenSeaMap seamark layer (buoys, lights, traffic separation schemes) and zooms to the
 selected location, because seamarks only appear from about zoom 8. The tiles are loaded by
 the browser; without internet the maps show only the markers.
+
+
+## 9. Order planner (spec 010)
+
+*If I order today, what does a tonne cost delivered, and when does it arrive?*
+
+lead time = origin port days + sea days + destination port days + buffers + overland days:
+
+| Part | Value | Source |
+|---|---|---|
+| sea days | distance (nm) / (14 kn × 24 h), Red Sea open or closed (spec 007) | assumption: slow steaming |
+| port days | 4 at the origin (loading, export clearance), 4 at the destination (discharge, import clearance, delivery) | assumption |
+| congestion buffer | +3 days if a monitored port of the origin or destination region is below normal (port calls) | assumption |
+| storm buffer | +2 days if a chokepoint on the route has a storm (red) forecast | assumption |
+| overland | Uzbekistan +21 days (rail to the Baltic or Black Sea) | assumption |
+| buy in Europe | average price within Europe, 7 days | assumption |
+
+Sea days at 14 kn (Red Sea open / closed): North America 15.0 / 15.0, Middle East 18.6 /
+32.9, Southeast Asia 24.9 / 35.3, China 31.4 / 41.3 days; Shanghai–Rotterdam takes about
+30–35 days in reality. The recommendation is the cheapest supplier that arrives by the
+need-by date, else the earliest arrival.
+
+**Example (ordered 14 Nov 2026, 500 t, all grades):** needed by 29 Dec – Uzbekistan
+(961 EUR/t, 17 Dec, all ten suppliers in time); needed by 10 Dec – USA (1,201 EUR/t,
+7 Dec; only two suppliers in time). The Middle East currently gets +3 days because Jubail
+and Jebel Ali are below normal.
+
+**Limits:** planning estimates, not quotes; average transit times from one port per
+region; no sailing schedules or departure frequency; no real vessel ETAs (AIS, hosting
+phase); landed cost from annual BACI prices (spec 007).
