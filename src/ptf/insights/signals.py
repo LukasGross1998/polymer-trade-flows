@@ -12,7 +12,7 @@ import pandas as pd
 from ptf.insights.config import Signals, Threshold
 from ptf.markets import indicators
 
-GREEN, AMBER, RED = "green", "amber", "red"
+GREEN, YELLOW, ORANGE, RED = "green", "yellow", "orange", "red"
 
 
 @dataclass
@@ -24,13 +24,15 @@ class Signal:
 
 
 def level(value: float | None, threshold: Threshold) -> str:
-    """'red' from `red`, 'amber' from `amber`, else 'green'; unknown values count as green."""
+    """Highest level whose threshold `value` reaches; unknown values count as green."""
     if value is None:
         return GREEN
     if value >= threshold.red:
         return RED
-    if value >= threshold.amber:
-        return AMBER
+    if value >= threshold.orange:
+        return ORANGE
+    if value >= threshold.yellow:
+        return YELLOW
     return GREEN
 
 
@@ -86,14 +88,36 @@ def new_events(events: pd.DataFrame, as_of: pd.Timestamp, days: int) -> pd.DataF
     return events[recent & severe & (events["from_date"] <= as_of)].reset_index(drop=True)
 
 
-def largest_moves(market: pd.DataFrame, days: int = 30, n: int = 3) -> pd.DataFrame:
-    """The `n` market series with the largest absolute change over `days` days, in %."""
+# A comparison value may be a few days older than `days` (weekends, holidays), not more.
+MAX_GAP_DAYS = 4
+
+
+def largest_moves(
+    market: pd.DataFrame, days: int = 7, n: int = 3, series_ids: list[str] | None = None
+) -> pd.DataFrame:
+    """The `n` daily series with the largest absolute change over `days` days, in %.
+
+    Only daily series: a monthly series has no change over a week. The comparison value is
+    the last one at least `days` before the newest, but at most `days` + 4 days before it,
+    so a sparse series never reports a 30-day move as a 7-day move (spec 013).
+    """
+    if "frequency" in market.columns:
+        market = market[market["frequency"] == "daily"]
+    if series_ids is not None:
+        market = market[market["series_id"].isin(series_ids)]
     rows = []
     for series_id in market["series_id"].unique():
-        change = indicators.change_pct(market, str(series_id), days)
-        if change is not None:
-            name = market.loc[market["series_id"] == series_id, "name"].iloc[0]
-            rows.append({"series_id": series_id, "name": name, "change_pct": change})
+        one = indicators.series(market, str(series_id))
+        newest = one.iloc[-1]
+        window = one[
+            (one["date"] <= newest["date"] - pd.Timedelta(days=days))
+            & (one["date"] >= newest["date"] - pd.Timedelta(days=days + MAX_GAP_DAYS))
+        ]
+        if window.empty or window.iloc[-1]["value"] == 0:
+            continue
+        change = float((newest["value"] / window.iloc[-1]["value"] - 1) * 100)
+        name = market.loc[market["series_id"] == series_id, "name"].iloc[0]
+        rows.append({"series_id": series_id, "name": name, "change_pct": change})
     moves = pd.DataFrame(rows, columns=["series_id", "name", "change_pct"])
     if moves.empty:
         return moves

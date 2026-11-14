@@ -12,8 +12,8 @@ from functools import cached_property
 import pandas as pd
 
 from ptf.core.settings import Settings
-from ptf.core.warehouse import read_tables, table_exists
-from ptf.insights import view
+from ptf.core.warehouse import read_tables, table_exists, warehouse_path
+from ptf.insights import relevance, view
 from ptf.insights.config import SourcingConfig, load_sourcing_config
 from ptf.markets import steps as markets_steps
 from ptf.markets.config import MarketConfig, load_market_config
@@ -47,6 +47,7 @@ class AppData:
     eu_duty: pd.DataFrame | None = None
     weather: pd.DataFrame | None = None
     dce_quote: pd.DataFrame | None = None
+    updated_at: pd.Timestamp | None = None  # last warehouse build (file time), spec 013
 
     @property
     def latest_date(self) -> pd.Timestamp:
@@ -68,6 +69,31 @@ class AppData:
             self.chokepoints,
             self.chokepoint_history,
             self.sourcing_config,
+        )
+
+    @cached_property
+    def relevance(self) -> relevance.Relevance | None:
+        """What matters for the focus region's buyer (spec 013); None without sourcing data."""
+        if self.sourcing is None:
+            return None
+        return relevance.build(
+            self.sourcing.routes,
+            self.sourcing_config.focus_region,
+            self.monitor_config.ports,
+            self.sourcing_config.relevance,
+        )
+
+    @cached_property
+    def chokepoint_dependency(self) -> pd.DataFrame | None:
+        """Share of the focus region's imports per chokepoint and the Red Sea detour days."""
+        if self.sourcing is None or self.distances is None:
+            return None
+        return relevance.chokepoint_dependency(
+            self.sourcing.routes,
+            self.distances,
+            self.distances_closed,
+            self.sourcing_config.focus_region,
+            self.sourcing_config.lead_time.speed_knots,
         )
 
     def grade_options(self) -> list[dict[str, str]]:
@@ -145,6 +171,8 @@ def monitor_data_available(settings: Settings) -> bool:
 
 def load_app_data(settings: Settings) -> AppData:
     tables = read_tables(settings, APP_TABLES)
+    path = warehouse_path(settings)
+    updated_at = pd.Timestamp(path.stat().st_mtime, unit="s", tz="UTC") if path.exists() else None
     return AppData(
         monitor_config=load_monitor_config(settings.config_dir / "shipping.yaml"),
         market_config=load_market_config(settings.config_dir / "markets.yaml"),
@@ -166,6 +194,7 @@ def load_app_data(settings: Settings) -> AppData:
         eu_duty=tables["eu_duty"],
         weather=tables["weather"],
         dce_quote=tables["dce_quote"],
+        updated_at=updated_at,
         distances=read_distance_table(settings.raw_dir),
         distances_closed=read_distance_table(settings.raw_dir, "red_sea_closed"),
     )

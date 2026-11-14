@@ -96,13 +96,23 @@ def test_exposure_share_of_extra_regional_imports() -> None:
 
 
 def test_traffic_light_levels_on_both_sides_of_each_threshold() -> None:
-    supply = CONFIG.signals.supply  # amber 10, red 25
+    supply = CONFIG.signals.supply  # yellow 10, orange 25, red 50
 
     assert signals.level(9.9, supply) == signals.GREEN
-    assert signals.level(10.0, supply) == signals.AMBER
-    assert signals.level(24.9, supply) == signals.AMBER
-    assert signals.level(25.0, supply) == signals.RED
+    assert signals.level(10.0, supply) == signals.YELLOW
+    assert signals.level(24.9, supply) == signals.YELLOW
+    assert signals.level(25.0, supply) == signals.ORANGE
+    assert signals.level(49.9, supply) == signals.ORANGE
+    assert signals.level(50.0, supply) == signals.RED
     assert signals.level(None, supply) == signals.GREEN
+
+    # Today's data (spec 013): price +27 %, exposure 52 %, GSCPI 1.26 -> not three times red.
+    levels = [
+        signals.level(27.0, CONFIG.signals.price),
+        signals.level(52.0, supply),
+        signals.level(1.26, CONFIG.signals.logistics),
+    ]
+    assert levels == [signals.ORANGE, signals.RED, signals.ORANGE]
 
 
 def test_price_supply_and_logistics_signals() -> None:
@@ -121,9 +131,9 @@ def test_price_supply_and_logistics_signals() -> None:
     supply = signals.supply_signal(40.0, 6.8e6, 2024, CONFIG.signals)
     logistics = signals.logistics_signal(market, CONFIG.signals)
 
-    assert (price.value, price.level) == ("+14.3 %", signals.RED)  # 80 / 70 - 1
-    assert (supply.value, supply.level) == ("40 %", signals.RED)
-    assert (logistics.value, logistics.level) == ("+0.70", signals.AMBER)
+    assert (price.value, price.level) == ("+14.3 %", signals.YELLOW)  # 80 / 70 - 1
+    assert (supply.value, supply.level) == ("40 %", signals.ORANGE)
+    assert (logistics.value, logistics.level) == ("+0.70", signals.YELLOW)
 
 
 def test_what_changed_lists() -> None:
@@ -143,16 +153,23 @@ def test_what_changed_lists() -> None:
     )
     market = pd.DataFrame(
         {
-            "date": pd.to_datetime(["2026-10-01", "2026-11-01"] * 2),
-            "series_id": ["X", "X", "Y", "Y"],
-            "name": ["X", "X", "Y", "Y"],
-            "value": [100.0, 110.0, 100.0, 70.0],
+            "date": pd.to_datetime(
+                ["2026-10-25", "2026-11-01", "2026-10-25", "2026-11-01", "2026-10-01", "2026-11-01"]
+            ),
+            "series_id": ["X", "X", "Y", "Y", "Z", "Z"],
+            "name": ["X", "X", "Y", "Y", "Z", "Z"],
+            "frequency": "daily",
+            "value": [100.0, 110.0, 100.0, 70.0, 100.0, 200.0],
         }
     )
 
     assert signals.newly_disrupted(history, 7)["location_id"].tolist() == ["a"]
     assert len(signals.new_events(events, pd.Timestamp("2026-11-08"), 7)) == 1
-    assert signals.largest_moves(market)["series_id"].tolist() == ["Y", "X"]  # -30 % before +10 %
+    # 7-day moves only: Z has no value 7-11 days back (its +100 % is a 31-day move).
+    assert signals.largest_moves(market)["series_id"].tolist() == ["Y", "X"]  # -30 %, +10 %
+    assert signals.largest_moves(market, series_ids=["X"])["series_id"].tolist() == ["X"]
+    monthly = market.assign(frequency="monthly")
+    assert signals.largest_moves(monthly).empty
 
 
 def test_sources_for_one_grade() -> None:
