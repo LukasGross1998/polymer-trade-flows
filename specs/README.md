@@ -20,3 +20,4 @@ increments.
 | 011 | [Daily LLDPE price from the Dalian futures exchange (AKShare)](011-dce-lldpe-futures.md) | done |
 | 012 | [Isolated container for the AKShare download, latest intraday quote](012-asia-container-intraday.md) | done |
 | 013 | [Situation page for European PE buyers](013-situation-redesign.md) | done |
+| 014 | [Route scenarios: availability vs. transit risk, one scenario for all tabs](014-route-scenarios.md) | draft |
