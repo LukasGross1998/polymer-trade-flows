@@ -18,6 +18,7 @@ from ptf.core import warehouse
 from ptf.core.regions import RegionConfig
 from ptf.core.settings import Settings
 from ptf.markets.config import load_market_config
+from ptf.markets.dce import write_dce_landing
 from ptf.markets.reference import write_market_reference
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
@@ -225,6 +226,23 @@ def build_warehouse(setup: "PipelineSetup") -> None:
     pd.DataFrame(
         {"date": pd.to_datetime(["2026-09-30", "2026-10-31"]), "value": [1.36, 1.26]}
     ).to_parquet(gscpi / "landing_gscpi.parquet")
+    # DCE LLDPE (spec 011): one download of two trading days, as AKShare would deliver it.
+    dce = raw / "dce"
+    dce.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-11-12", "2026-11-13"]),
+            "open": [8444.0, 8342.0],
+            "high": [8460.0, 8591.0],
+            "low": [8269.0, 8301.0],
+            "close": [8368.0, 8578.0],
+            "volume": [722178.0, 836619.0],
+            "open_interest": [387446.0, 387872.0],
+            "settle": [8367.0, 8442.0],
+            "fetched_at": pd.Timestamp("2026-11-14", tz="UTC"),
+        }
+    ).to_parquet(dce / "20261114T000000000000.parquet")
+    write_dce_landing(raw)
     warehouse.run_dbt(settings, ["build"])
 
 

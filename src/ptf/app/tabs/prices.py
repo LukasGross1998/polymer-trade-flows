@@ -50,6 +50,22 @@ def layout(data: AppData) -> html.Div:
             html.Div(charts.graph("mkt-drivers"), style={**style.CARD, "marginBottom": "16px"}),
             html.Div(
                 [
+                    charts.graph("mkt-dce"),
+                    html.Div(
+                        "Source: Dalian Commodity Exchange, LLDPE main contract (closing price), "
+                        "via Sina Finance and the AKShare library – an unofficial source, by "
+                        "AKShare's own statement for research only. Price for delivery in China in "
+                        "CNY per tonne including VAT, converted with FRED DEXCHUS (and DEXUSEU); "
+                        "an indicator of the Asian market, not comparable 1:1 with export or "
+                        "European contract prices. Optional: `uv sync --extra asia`, then "
+                        "`uv run ptf market`.",
+                        style=style.SMALL_NOTE,
+                    ),
+                ],
+                style={**style.CARD, "marginBottom": "16px"},
+            ),
+            html.Div(
+                [
                     html.Div(charts.graph("mkt-oil"), style=card),
                     html.Div(charts.graph("mkt-gas"), style=card),
                 ],
@@ -88,7 +104,7 @@ def kpi_values(market: pd.DataFrame, currency: str = "USD") -> list[dict[str, st
     gscpi = indicators.latest(market, "GSCPI")
     freight_yoy = indicators.change_pct(market, "PCU483111483111", 365)
     brent_change = indicators.change_pct(market, "DCOILBRENTEU", 30)
-    return [
+    values = [
         {
             "label": f"Brent, {currency}/bbl",
             "value": charts.number(brent[1] if brent else None),
@@ -114,6 +130,20 @@ def kpi_values(market: pd.DataFrame, currency: str = "USD") -> list[dict[str, st
             "note": "vs. 12 months earlier (US PPI, proxy)",
         },
     ]
+    dce = dce_in_currency(market, currency)
+    if not dce.empty:
+        last = dce.iloc[-1]
+        earlier = dce[dce["date"] <= last["date"] - pd.Timedelta(days=30)]
+        change = None if earlier.empty else (last["value"] / earlier.iloc[-1]["value"] - 1) * 100
+        values.append(
+            {
+                "label": f"LLDPE Dalian, {currency}/t",
+                "value": charts.number(last["value"], ",.0f"),
+                "note": f"{charts.signed_pct(change)} vs. 30 days earlier · {last['date']:%d %b %Y}"
+                " · unofficial",
+            }
+        )
+    return values
 
 
 def drivers_figure(market: pd.DataFrame, currency: str, key_events: list[KeyEvent]) -> go.Figure:
@@ -136,6 +166,42 @@ def drivers_figure(market: pd.DataFrame, currency: str, key_events: list[KeyEven
     )
     end = monthly["date"].max() if len(monthly) else DRIVER_BASE
     return charts.add_key_events(fig, key_events, DRIVER_BASE, end)
+
+
+DCE_SERIES = "DCE_LLDPE"
+
+
+def dce_in_currency(market: pd.DataFrame, currency: str) -> pd.DataFrame:
+    """The DCE LLDPE price converted from CNY to USD, and to EUR if chosen; empty if missing."""
+    cny = indicators.series(market, DCE_SERIES)
+    rates = indicators.series(market, "DEXCHUS")
+    if cny.empty or rates.empty:
+        return cny.iloc[0:0]
+    usd = indicators.cny_to_usd(cny, rates)
+    if currency == "EUR":
+        return indicators.usd_to_eur(usd, indicators.series(market, "DEXUSEU"))
+    return usd
+
+
+def dce_figure(market: pd.DataFrame, start: pd.Timestamp, currency: str) -> go.Figure:
+    converted = dce_in_currency(market, currency)
+    if converted.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="DCE price not available: optional extra not installed (uv sync --extra asia) "
+            "or no download yet (uv run ptf market).",
+            showarrow=False,
+            font={"color": style.MUTED},
+        )
+        fig.update_xaxes(visible=False)
+        fig.update_yaxes(visible=False)
+        return charts.base_layout(fig, height=200, title="LLDPE futures, Dalian")
+    frame = converted[converted["date"] >= start]
+    return charts.line_chart(
+        [(f"LLDPE Dalian, {currency}/t", frame)],
+        f"LLDPE futures, Dalian main contract, in {currency} per tonne (daily)",
+        f"{currency} per tonne",
+    )
 
 
 def oil_figure(
@@ -214,6 +280,7 @@ def update(data: AppData, period: str, currency: str = "EUR") -> charts.Outputs:
     return (
         charts.tiles(kpi_values(market, currency)),
         drivers_figure(market, currency, events),
+        dce_figure(market, start, currency),
         oil_figure(market, start, latest, events, currency),
         gas_figure(market, start, latest, events, currency),
         indexed_figure(market, start, latest, events),
@@ -228,6 +295,7 @@ def register(app: Dash, state: AppState) -> None:
     @app.callback(
         Output("mkt-kpis", "children"),
         Output("mkt-drivers", "figure"),
+        Output("mkt-dce", "figure"),
         Output("mkt-oil", "figure"),
         Output("mkt-gas", "figure"),
         Output("mkt-indexed", "figure"),

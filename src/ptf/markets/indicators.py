@@ -140,3 +140,14 @@ def monthly_table(market: pd.DataFrame, series_ids: list[str]) -> pd.DataFrame:
     if not frames:
         return pd.DataFrame(columns=["date", "series_id", "value"])
     return pd.concat(frames, ignore_index=True)[["date", "series_id", "value"]]
+
+
+def cny_to_usd(values: pd.DataFrame, cny_per_usd: pd.DataFrame) -> pd.DataFrame:
+    """Convert a date/value series from CNY to USD with the same-day (or last earlier) rate.
+
+    FRED's DEXCHUS is Chinese yuan per US dollar, so USD = CNY / rate.
+    """
+    rates = cny_per_usd.sort_values("date")[["date", "value"]].rename(columns={"value": "rate"})
+    merged = pd.merge_asof(values.sort_values("date"), rates, on="date", direction="backward")
+    merged = merged.dropna(subset=["rate"])
+    return merged.assign(value=merged["value"] / merged["rate"])[["date", "value"]]

@@ -53,8 +53,17 @@ def test_market_series_long_table_with_metadata(warehouse_setup: PipelineSetup) 
     brent = market[market["series_id"] == "DCOILBRENTEU"]
 
     assert len(brent) == 4  # the empty and the "." day of the FRED file are dropped
-    assert set(market["series_id"]) == {"DCOILBRENTEU", "DHHNGSP", "PNGASEUUSDM", "GSCPI"}
+    assert set(market["series_id"]) == {
+        "DCOILBRENTEU",
+        "DHHNGSP",
+        "PNGASEUUSDM",
+        "GSCPI",
+        "DCE_LLDPE",
+    }
     assert brent["unit"].iloc[0] == "USD/bbl"
+    dce = market[market["series_id"] == "DCE_LLDPE"].set_index("date")
+    assert dce.loc[pd.Timestamp("2026-11-13"), "value"] == 8578.0  # closing price, CNY/t
+    assert dce["group"].iloc[0] == "china_futures"
 
 
 def test_brent_annual_averages(warehouse_setup: PipelineSetup) -> None:

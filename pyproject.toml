@@ -27,6 +27,11 @@ dependencies = [
 [project.scripts]
 ptf = "ptf.cli:main"
 
+[project.optional-dependencies]
+asia = [
+    "akshare==1.20.42",
+]
+
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
 build-backend = "uv_build"
@@ -74,7 +79,7 @@ strict = true
 warn_return_any = false
 # Libraries without type information: treat their objects as Any instead of failing.
 [[tool.mypy.overrides]]
-module = ["pyomo.*", "searoute.*", "plotly.*", "highspy.*"]
+module = ["pyomo.*", "searoute.*", "plotly.*", "highspy.*", "akshare.*"]
 ignore_missing_imports = true
 
 # Dependency rules between the packages (ADR-012), checked with `uv run lint-imports`.

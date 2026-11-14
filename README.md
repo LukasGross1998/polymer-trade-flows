@@ -77,6 +77,7 @@ The full specification is in [SPEC.md](SPEC.md); design decisions are in
 | IMF PortWatch | chokepoint transits, ports, events, port network | no | in use |
 | FRED (St. Louis Fed) | oil, gas, freight and resin price indices, FX | no | in use |
 | NY Fed GSCPI | supply chain pressure | no | in use |
+| Dalian LLDPE futures (Sina via AKShare) | daily Asian PE price, Prices tab | no; optional extra `uv sync --extra asia` | in use, unofficial (ADR-015) |
 | Open-Meteo | marine weather at chokepoints and ports | no | in use |
 | World Bank WITS | EU third-country duty per PE grade | no | in use |
 | OpenSeaMap | nautical chart layer on the maps (browser) | no | in use |

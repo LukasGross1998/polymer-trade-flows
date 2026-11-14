@@ -62,6 +62,17 @@ fred_series:
     frequency: daily
     group: fx
 
+# Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015): main contract
+# via Sina Finance through AKShare – unofficial, "for academic research" by AKShare's own
+# statement. Downloaded only when the optional extra is installed: `uv sync --extra asia`.
+# Prices in China in CNY per tonne, including 13 % VAT; not comparable 1:1 with export prices.
+dce:
+  series_id: DCE_LLDPE
+  symbol: L0                  # LLDPE ("plastic", DCE code L), main contract, continuous
+  name: LLDPE futures, Dalian (main contract)
+  unit: CNY/t
+  start_date: "2019-01-01"
+
 # New York Fed Global Supply Chain Pressure Index (monthly, standard deviations from the
 # historical average). The file is an old-format .xls despite its .xlsx extension.
 gscpi_url: https://www.newyorkfed.org/medialibrary/research/interactives/gscpi/downloads/gscpi_data.xlsx
