@@ -9,7 +9,7 @@ from dash import Dash, Input, Output, dcc, html
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
-from ptf.insights import exposure, signals
+from ptf.insights import exposure, signals, sourceable
 from ptf.insights.scenario import LIVE
 from ptf.insights.view import ALL_GRADES, SourcingView
 
@@ -136,9 +136,17 @@ def sankey_figure(view: SourcingView) -> go.Figure:
     )
 
 
-def treemap_figure(view: SourcingView) -> go.Figure:
-    """Supplier countries grouped by region; red = at risk or on a detour in the scenario."""
+def not_sourceable(view: SourcingView, data: AppData) -> set[str]:
+    countries = exposure.country_tonnes(view.routes).rename("qty_t").reset_index()
+    table = sourceable.classify(countries, data.sourcing_config)
+    return set(table.loc[~table["sourceable"], "exporter_iso3"])
+
+
+def treemap_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Figure:
+    """Supplier countries grouped by region; red = at risk or on a detour in the scenario;
+    grey = not sourceable (EU import control or blocked, spec 016)."""
     routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
+    blocked = blocked or set()
     regions = routes.groupby("exporter_region", as_index=False).agg(
         qty_t=("qty_t", "sum"), exposed=("exposed", "max")
     )
@@ -148,6 +156,15 @@ def treemap_figure(view: SourcingView) -> go.Figure:
     parents = [""] * len(regions) + [f"region:{r}" for r in routes["exporter_region"]]
     values = list(regions["qty_t"]) + list(routes["qty_t"])
     flags = list(regions["exposed"]) + list(routes["exposed"])
+    labels = list(regions["exporter_region"]) + [
+        f"{name} (not sourceable)" if iso3 in blocked else name
+        for name, iso3 in zip(routes["exporter_name"], routes["exporter_iso3"], strict=True)
+    ]
+    colours = [EXPOSED_COLOUR if f else SAFE_COLOUR for f in flags]
+    offset = len(regions)
+    for i, iso3 in enumerate(routes["exporter_iso3"]):
+        if iso3 in blocked:
+            colours[offset + i] = style.GRID
     share = [v / view.extra_t * 100 for v in values]
     fig = go.Figure(
         go.Treemap(
@@ -157,7 +174,7 @@ def treemap_figure(view: SourcingView) -> go.Figure:
             values=values,
             branchvalues="total",
             customdata=share,
-            marker={"colors": [EXPOSED_COLOUR if f else SAFE_COLOUR for f in flags]},
+            marker={"colors": colours},
             texttemplate="%{label}<br>%{customdata:.0f} %",
             hovertemplate="%{label}: %{value:,.0f} t (%{customdata:.1f} %)<extra></extra>",
         )
@@ -185,7 +202,7 @@ def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> char
     return (
         charts.tiles(kpi_values(view, data)),
         sankey_figure(view),
-        treemap_figure(view),
+        treemap_figure(view, not_sourceable(view, data)),
     )
 
 

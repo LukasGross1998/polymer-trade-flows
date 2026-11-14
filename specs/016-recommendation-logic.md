@@ -1,6 +1,6 @@
 # 016 – Recommendation logic: sourceable origins, confidence, price ranges, order timing
 
-- **Status:** draft
+- **Status:** done
 - **Branch / PR:** `feat/recommendation-logic` / see PR
 - **SPEC.md sections:** 7 (app); builds on specs 007, 010, 014, 015 (ADR-016: only sourced
   values)
@@ -103,3 +103,13 @@ source, the buyer enters it, and the app shows it as the buyer's input.
 - Open questions for the user: the proposed settings (min volume 10,000 t, grade share
   10 %, confidence thresholds 5 / 15 % and 2 / 3 years); whether company-policy blocks
   are needed beyond the TARIC import controls.
+
+## Implementation notes (14 Nov 2026)
+
+- Sources checked: container payload from Hapag-Lloyd's 40' Standard page (28,750 kg max
+  payload, 32,500 kg max gross; "values vary by manufacturer"), read in the browser because
+  the page refuses automated fetches; the euro rate from FRED `IR3TIB01EZM156N` (OECD,
+  monthly, newest value January 2026: 2.03 %). Both in the value register.
+- Spec 016's example payload (26.5 t) is only the test's input; the config uses 28.75 t.
+- The settings `sourceable` and `confidence` carry `review: true` until the user confirms
+  them.

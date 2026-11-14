@@ -83,6 +83,7 @@ landed_cost:
   top_n: 10                    # setting: largest supplier countries by volume shown
   fx_series: DEXUSEU           # US dollars per euro (FRED)
   resin_index: PCU325211325211 # US PPI plastics resins (FRED), scales the BACI-year unit value
+  interest_series: IR3TIB01EZM156N  # euro 3-month interbank rate (OECD via FRED): capital in transit
   duty:
     # The third-country rate per grade comes from World Bank WITS (pipeline); this value is
     # the fallback when WITS has none.
@@ -207,6 +208,21 @@ import_controls:
     url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=RU"
     read: 2026-11-14
 
+# Recommendation logic (spec 016). Settings marked `review: true` wait for the user's OK.
+sourceable:
+  review: true
+  min_volume_t: 10000      # setting: below this, an origin is "minor" (shown, marked)
+  blocked: {}              # setting: ISO3 -> reason, e.g. company policy; TARIC import
+                           # controls (import_controls above) always block
+price_range:
+  min_grade_share: 10      # setting: grades with >= 10 % of a country's tonnes span the range
+confidence:
+  review: true
+  mix_medium_pct: 5        # setting: |product-mix effect| in % of the unit value
+  mix_low_pct: 15
+  age_medium_years: 2      # setting: years between the BACI year and today
+  age_low_years: 3
+
 # Order planner (spec 010, revised by spec 015): ship transit time =
 #   median time in port at origin + sea days + median time in port at destination.
 # Sea days = searoute distance / average speed at sea of container ships. Not included
@@ -256,6 +272,11 @@ lead_time:
       TUR: 0.6528
       GBR: 0.6812
       USA: 1.084
+  container_payload_t:
+    value: 28.75
+    source: "Hapag-Lloyd, 40' Standard container: max payload 28,750 kg (max gross 32,500 kg); values vary by manufacturer"
+    url: "https://www.hapag-lloyd.com/en/services-information/cargo-fleet/container/40-standard.html"
+    read: 2026-11-14
   destination_country: NLD    # setting: country of the focus region's representative port (Rotterdam)
   default_need_by_days: 45    # setting
   default_quantity_t: 500     # setting

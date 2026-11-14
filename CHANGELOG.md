@@ -6,6 +6,16 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Recommendation logic (spec 016): origins with an EU import control in TARIC (Iran,
+  Russia) or blocked by the user are greyed out and never recommended; minor origins
+  marked. Price range per origin from its grades, mix-adjusted price and mix effect;
+  confidence (high / medium / low) from volume, product mix and data age; "vs. buying in
+  Europe" as a per-grade range.
+- Order planner: latest order date, the buyer's own days before departure and after
+  arrival, arrival at the plant, at least N 40-foot containers (Hapag-Lloyd payload).
+- Landed cost: capital tied up in transit with the euro 3-month interbank rate (new FRED
+  series `IR3TIB01EZM156N`, group `rates`), the buyer's own quotes for insurance, port
+  handling and on-carriage, a total column and the list of components not included.
 - Route scenarios (spec 014, ADR-017): one scenario for all tabs in the page header – live
   status (closed at ≥ 50 % below normal, reduced when flagged), all routes open, Red Sea
   closed, Hormuz closed. Routes are *at risk* (closed chokepoint without a sea detour, e.g.
