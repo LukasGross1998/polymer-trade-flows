@@ -61,6 +61,11 @@ fred_series:
     unit: index
     frequency: daily
     group: fx
+  - id: IR3TIB01EZM156N        # OECD via FRED; capital tied up in transit (spec 016)
+    name: Euro area 3-month interbank rate
+    unit: "%"
+    frequency: monthly
+    group: rates
 
 # Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015): main contract
 # via Sina Finance through AKShare – unofficial, "for academic research" by AKShare's own

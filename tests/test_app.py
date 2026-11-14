@@ -177,20 +177,21 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     kpis, bars, table = landed_cost.update(data, "all_open", "baci")
     # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
     # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
-    assert kpis[0].children[0].children == "Lowest cost origin, price + duty, excl. freight"
+    assert kpis[0].children[0].children == "Lowest cost sourceable origin, excl. freight"
     assert kpis[0].children[1].children == "1,250 EUR/t"
     assert [t.name for t in bars.data] == ["Price (FOB)", "EU duty"]
-    assert table.children[1].children[4].children == "n/a"  # freight column
+    rows = table.children[0].children
+    assert rows[1].children[4].children == "n/a"  # freight column
+    assert table.children[1].children.startswith("Not included: sea freight (no sourced rate)")
 
-    assert table.children[1].children[8].children == "open"  # route status
+    assert rows[1].children[9].children == "open"  # route status
 
     # Scenario "Red Sea closed" (spec 014): the variant table is 10,000 nm, so the US route
     # is on a detour; the cost stays price + duty while freight has no source.
     closed, _, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
     assert closed[0].children[1].children == "1,250 EUR/t"
     assert closed[2].children[2].children == "n/a – no sourced freight rate"
-    assert closed_table.children[1].children[2].children == "10,000"  # nm
-    assert closed_table.children[1].children[8].children == "detour"
+    assert closed_table.children[0].children[1].children[9].children == "detour"
 
 
 def test_scenario_dropdown_in_the_header(data: AppData) -> None:
@@ -257,7 +258,7 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
     assert kpis[0].children[1].children == "none"
     assert kpis[0].children[2].children == "sea freight has no sourced rate"
     assert kpis[1].children[1].children == "15 days"
-    assert kpis[1].children[2].children == "USA, arrives 29 Nov 2026"
+    assert kpis[1].children[2].children.startswith("USA, order by 16 Jan 2027")
     assert scatter.data[0].x[0] == pd.Timestamp("2026-11-29")
 
     late, *_ = planner.update(data, "2026-11-20", 500, order_date=order)

@@ -738,3 +738,41 @@ with both ends of the Red Sea closed). *Hormuz closed*: 16–39 % at risk.
 **Limits:** one port per region except the sourced country routes; bypassability depends
 on searoute's network; pipelines (e.g. Saudi East-West to Yanbu) carry crude oil, not
 polyethylene, and are not modelled; a closure is all or nothing per chokepoint.
+
+
+## 13. Recommendation logic (spec 016)
+
+*Which origins can I actually use, how far can I trust the price, and when must I order?*
+
+**Sourceable.** An origin with an EU import control under sanctions in TARIC (Iran: Reg.
+267/2012; Russia: Reg. 833/2014) or blocked by the user (`sourceable.blocked`) is greyed
+out with the reason and never recommended; the app does not judge the regulation's
+conditions. Origins below 10,000 t to Europe in the BACI year are marked *minor*.
+
+**Price range and product mix.** BACI has one unit value per country and grade (HS6). The
+range spans the grades with at least 10 % of the country's tonnes. The *mix-adjusted* price
+re-weights the country's grade prices with Europe's import mix of grades (the same basket
+for everyone); the difference to the unit value is the mix effect. Example (2024): Korea's
+main grades range from 1,227 USD/t (HS 390120, density ≥ 0.94) to 1,532 USD/t (390110,
+density < 0.94) – an average over them says as much about the mix as about the price.
+
+**Confidence** = the lowest of three checks (settings, `review: true`): volume (low below
+10,000 t), |mix effect| (medium from 5 %, low from 15 %), data age (medium from 2, low from
+3 years after the BACI year).
+
+**vs. buying in Europe** is a range over the country's main grades: grade price × (1 +
+EU duty) minus the price of the same grade within Europe (BACI, annual unit values), excl.
+freight while freight has no source.
+
+**Planner:** the buyer's own days before departure (production, booking) and after the
+ship's arrival (customs, delivery) are inputs (default 0, no free source per country).
+latest order date = need-by − (own days + ship transit); on time compares the arrival at
+the plant with the need-by date. Containers = quantity ÷ 28.75 t, the maximum payload of a
+40-foot standard box (Hapag-Lloyd), rounded up – a lower bound, since boxes rarely carry
+their maximum.
+
+**Landed cost components:** capital tied up in transit = price × euro 3-month interbank
+rate (OECD via FRED, `IR3TIB01EZM156N`, monthly; 2.03 % in January 2026) × ship transit
+days / 365 – n/a where the transit time is n/a. Insurance (% of the price), port handling
+and on-carriage (EUR/t) enter only as the buyer's quotes; everything left out is listed
+under the table.

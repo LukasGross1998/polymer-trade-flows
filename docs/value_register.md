@@ -24,6 +24,7 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | sourcing.yaml | `landed_cost.duty.default_pct` | 6.5 % | EU TARIC, third-country duty, CN 3901 10 10 90 (14 Nov 2026). Fallback; the rate per grade comes from World Bank WITS in the pipeline. |
 | sourcing.yaml | `landed_cost.duty.preferential.*` | 0 % USA, CAN, MEX, KOR, JPN, SGP, EGY, ISR, DZA, ZAF, UZB; 5.2 % BRA, ARG, URY, PRY | EU TARIC tariff preferences with validity dates, CN 3901 10 10 90 (USA also 3901 20 90 00) (14 Nov 2026). |
 | sourcing.yaml | `lead_time.speed_knots` | 11.8–16.5 kn by ship size | Fourth IMO GHG Study 2020, Table 35: average speed over ground at sea, container ships by TEU size, 2018 (14 Nov 2026). |
+| sourcing.yaml | `lead_time.container_payload_t` | 28.75 t | Hapag-Lloyd, 40' Standard container: max payload 28,750 kg; values vary by manufacturer (14 Nov 2026). Used as a lower bound for the number of containers (spec 016). |
 | sourcing.yaml | `lead_time.port_days` | 0.30–1.56 days, 22 economies | UNCTADstat US.PortCalls, median time in port of container ships, 2023 (bulk file of March 2024) (14 Nov 2026). Ship's time in port, not cargo handling. |
 
 ## Settings
@@ -53,6 +54,10 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | sourcing.yaml | `relevance.event_radius_km` | 1000 | relevance limit |
 | sourcing.yaml | `recent_days` | 7 | "what changed" window |
 | sourcing.yaml | `landed_cost.top_n` | 10 | number of suppliers shown |
+| sourcing.yaml | `sourceable.min_volume_t` | 10,000 t | below this an origin is "minor" and has low confidence (spec 016, `review: true`) |
+| sourcing.yaml | `price_range.min_grade_share` | 10 % | grades with at least this share of a country's tonnes span its price range |
+| sourcing.yaml | `confidence.mix_medium_pct`, `confidence.mix_low_pct` | 5, 15 % | product-mix effect for medium / low confidence (`review: true`) |
+| sourcing.yaml | `confidence.age_medium_years`, `confidence.age_low_years` | 2, 3 years | data age for medium / low confidence (`review: true`) |
 | sourcing.yaml | `scenarios.closed_below_pct` | 50 % | live status: a chokepoint counts as closed when its 7-day traffic is at least this far below normal |
 | sourcing.yaml | `lead_time.default_need_by_days` | 45 | planner default |
 | sourcing.yaml | `lead_time.default_quantity_t` | 500 | planner default |

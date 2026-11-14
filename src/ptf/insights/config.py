@@ -70,6 +70,7 @@ class LandedCostSettings(BaseModel):
     fx_series: str
     resin_index: str
     duty: Duty
+    interest_series: str | None = None  # % per year, for capital tied up in transit
 
 
 class LeadTime(BaseModel):
@@ -83,6 +84,7 @@ class LeadTime(BaseModel):
     vessel_size: str
     speed_knots: SourcedTable  # average speed at sea by container ship size (TEU)
     port_days: SourcedTable  # median time in port of container ships by country (ISO3)
+    container_payload_t: Sourced | None = None  # max payload of a 40-foot box (spec 016)
     destination_country: str
     default_need_by_days: int
     default_quantity_t: float
@@ -110,6 +112,26 @@ class Relevance(BaseModel):
     series: list[str] = []
 
 
+class SourceableSettings(BaseModel):
+    """Which origins a buyer can use (spec 016). Settings; TARIC import controls always block."""
+
+    review: bool = True
+    min_volume_t: float = 10_000
+    blocked: dict[str, str] = {}
+
+
+class PriceRangeSettings(BaseModel):
+    min_grade_share: float = 10.0
+
+
+class ConfidenceSettings(BaseModel):
+    review: bool = True
+    mix_medium_pct: float = 5.0
+    mix_low_pct: float = 15.0
+    age_medium_years: int = 2
+    age_low_years: int = 3
+
+
 class ScenarioPreset(BaseModel):
     label: str
     closed: list[str]  # chokepoint ids
@@ -132,6 +154,9 @@ class SourcingConfig(BaseModel):
     lead_time: LeadTime
     chokepoint_detours: dict[str, str] = {}
     scenarios: ScenarioSettings = ScenarioSettings()
+    sourceable: SourceableSettings = SourceableSettings()
+    price_range: PriceRangeSettings = PriceRangeSettings()
+    confidence: ConfidenceSettings = ConfidenceSettings()
     relevance: Relevance = Relevance()
 
 

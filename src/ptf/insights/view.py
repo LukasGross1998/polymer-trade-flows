@@ -9,9 +9,9 @@ from datetime import date
 
 import pandas as pd
 
-from ptf.insights import exposure, landed_cost, planner, signals
+from ptf.insights import confidence, exposure, landed_cost, planner, signals, sourceable
 from ptf.insights import scenario as scenario_mod
-from ptf.insights.config import SourcingConfig
+from ptf.insights.config import LeadTime, SourcingConfig
 from ptf.insights.scenario import Scenario
 from ptf.markets import indicators
 from ptf.model.config import FreightAssumption
@@ -163,6 +163,15 @@ def traffic_lights(
 
 
 @dataclass
+class CostQuotes:
+    """The buyer's own cost quotes (spec 016); None = not entered, not included."""
+
+    insurance_pct: float | None = None  # % of the price
+    handling_eur_t: float | None = None  # port handling
+    oncarriage_eur_t: float | None = None  # delivery from the port to the plant
+
+
+@dataclass
 class LandedView:
     year: int
     table: pd.DataFrame  # top suppliers per export port, cheapest first, with risk flags
@@ -173,6 +182,8 @@ class LandedView:
     duty_source: str  # where the third-country rate comes from
     freight_known: bool = False  # a sourced freight rate exists (spec 015)
     scenario: Scenario | None = None
+    interest: tuple[pd.Timestamp, float] | None = None  # date and % per year (spec 016)
+    not_included: list[str] = field(default_factory=list)  # cost components left out
 
 
 def port_label(name: str, port: str, n_ports: int) -> str:
@@ -192,6 +203,8 @@ def landed_view(
     mfn_pct: float | None = None,
     on: date | None = None,
     freight_factor: float = 1.0,
+    by_product: pd.DataFrame | None = None,
+    quotes: CostQuotes | None = None,
 ) -> LandedView:
     """Landed cost of the largest supplier countries in the route scenario (spec 014).
 
@@ -251,10 +264,26 @@ def landed_view(
         port_label(n, p, k)
         for n, p, k in zip(table["exporter_name"], table["port"], table["n_ports"], strict=True)
     ]
+    interest = None
+    if settings.interest_series and market is not None:
+        interest = indicators.latest(market, settings.interest_series)
+    countries = exposure.country_tonnes(prices).rename("qty_t").reset_index()
+    table, not_included = enrich(
+        table,
+        countries,
+        by_product,
+        config,
+        year,
+        scale / usd_per_eur,
+        interest[1] if interest is not None else None,
+        quotes or CostQuotes(),
+        freight is not None,
+        on or date.today(),
+    )
     reference = landed_cost.reference_price(sources, region, year)
     return LandedView(
         year=year,
-        table=table.sort_values("landed_usd_t").reset_index(drop=True),
+        table=table.sort_values("total_eur_t").reset_index(drop=True),
         reference_eur_t=None if reference is None else reference * scale / usd_per_eur,
         usd_per_eur=usd_per_eur,
         price_scale=scale,
@@ -266,7 +295,100 @@ def landed_view(
         ),
         freight_known=freight is not None,
         scenario=scenario,
+        interest=interest,
+        not_included=not_included,
     )
+
+
+def transit_days(table: pd.DataFrame, lead: LeadTime) -> pd.Series:
+    """Ship transit time (spec 015): port days at both ends + sea days; NaN if unknown."""
+    sea = table["distance_nm"] / (lead.speed * planner.HOURS_PER_DAY)
+    origin = table["exporter_iso3"].map(lead.port_days.get)
+    destination = lead.port_days.get(lead.destination_country)
+    return (origin + sea + (destination if destination is not None else float("nan"))).astype(float)
+
+
+def enrich(
+    table: pd.DataFrame,
+    countries: pd.DataFrame,
+    by_product: pd.DataFrame | None,
+    config: SourcingConfig,
+    year: int,
+    usd_to_eur: float,
+    interest_pct: float | None,
+    quotes: CostQuotes,
+    freight_known: bool,
+    today: date,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Spec 016 columns: sourceable, price range, confidence, vs. Europe, cost components."""
+    region = config.focus_region
+    table = table.merge(sourceable.classify(countries, config), on="exporter_iso3", how="left")
+    if by_product is not None and not by_product.empty:
+        ranges = confidence.price_ranges(
+            by_product, region, year, config.price_range.min_grade_share
+        )
+        table = table.merge(ranges, on="exporter_iso3", how="left")
+        prices = confidence.grade_prices(by_product, region, year)
+        reference = confidence.reference_grade_prices(by_product, region, year)
+        diffs = [
+            confidence.europe_difference(
+                prices, reference, iso3, pct, config.price_range.min_grade_share
+            )
+            for iso3, pct in zip(table["exporter_iso3"], table["duty_pct"], strict=True)
+        ]
+        table["vs_europe_low_eur_t"] = [None if d is None else d[0] * usd_to_eur for d in diffs]
+        table["vs_europe_high_eur_t"] = [None if d is None else d[1] * usd_to_eur for d in diffs]
+    else:
+        for column in ["price_low", "price_high", "mix_effect_pct"]:
+            table[column] = float("nan")
+        table["vs_europe_low_eur_t"] = None
+        table["vs_europe_high_eur_t"] = None
+    table["price_low_eur_t"] = table["price_low"] * usd_to_eur
+    table["price_high_eur_t"] = table["price_high"] * usd_to_eur
+    age = today.year - year
+    graded = [
+        confidence.level(q, m, age, config.sourceable.min_volume_t, config.confidence)
+        for q, m in zip(table["qty_t"], table["mix_effect_pct"], strict=True)
+    ]
+    table["confidence"] = [g[0] for g in graded]
+    table["confidence_reason"] = [g[1] for g in graded]
+
+    table["transit_days"] = transit_days(table, config.lead_time)
+    if interest_pct is not None:
+        table["capital_eur_t"] = (
+            table["price_eur_t"] * interest_pct / 100 * table["transit_days"] / 365
+        )
+    else:
+        table["capital_eur_t"] = float("nan")
+    table["insurance_eur_t"] = (
+        table["price_eur_t"] * quotes.insurance_pct / 100
+        if quotes.insurance_pct is not None
+        else float("nan")
+    )
+    table["handling_eur_t"] = (
+        quotes.handling_eur_t if quotes.handling_eur_t is not None else float("nan")
+    )
+    table["oncarriage_eur_t"] = (
+        quotes.oncarriage_eur_t if quotes.oncarriage_eur_t is not None else float("nan")
+    )
+    extras = ["capital_eur_t", "insurance_eur_t", "handling_eur_t", "oncarriage_eur_t"]
+    table["total_eur_t"] = table["landed_eur_t"] + table[extras].fillna(0.0).sum(axis=1)
+
+    not_included = []
+    if not freight_known:
+        not_included.append("sea freight (no sourced rate)")
+    if interest_pct is None:
+        not_included.append("capital in transit (no interest rate)")
+    elif table["capital_eur_t"].isna().any():
+        not_included.append("capital in transit where the transit time is n/a")
+    for label, value in [
+        ("insurance", quotes.insurance_pct),
+        ("port handling", quotes.handling_eur_t),
+        ("on-carriage", quotes.oncarriage_eur_t),
+    ]:
+        if value is None:
+            not_included.append(f"{label} (no quote entered)")
+    return table, not_included
 
 
 ALL_GRADES = "all"
@@ -329,6 +451,7 @@ class PlannerView:
     order_date: pd.Timestamp
     need_by: pd.Timestamp
     quantity_t: float
+    payload_label: str = ""  # sourced container payload, spec 016
 
 
 def congested_regions(port_activity: pd.DataFrame | None, config: MonitorConfig) -> set[str]:
@@ -361,6 +484,8 @@ def planner_view(
     order_date: pd.Timestamp,
     need_by: pd.Timestamp,
     quantity_t: float,
+    own_before_days: float = 0.0,
+    own_after_days: float = 0.0,
 ) -> PlannerView:
     """Lead times in the landed view's scenario and the plan for its suppliers."""
     region = config.focus_region
@@ -376,7 +501,11 @@ def planner_view(
         quantity_t,
         config.lead_time,
         landed.freight_known,
+        own_before_days,
+        own_after_days,
     )
     # Congestion by the exporter's region (country ports have keys like 'SAU:Yanbu').
     table["congested"] = (region in congested) | table["exporter_region"].isin(congested)
-    return PlannerView(table, landed, order_date, need_by, quantity_t)
+    payload = config.lead_time.container_payload_t
+    label = "" if payload is None else f"{payload.value:g} t, {payload.label()}"
+    return PlannerView(table, landed, order_date, need_by, quantity_t, label)

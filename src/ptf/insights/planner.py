@@ -13,6 +13,8 @@ Combines model (distances), shipping (port status, weather) and the landed cost,
 lives in the insights layer (ADR-014).
 """
 
+import math
+
 import pandas as pd
 
 from ptf.insights.config import LeadTime
@@ -62,6 +64,8 @@ def plan(
     quantity_t: float,
     config: LeadTime,
     freight_known: bool,
+    own_before_days: float = 0.0,
+    own_after_days: float = 0.0,
 ) -> pd.DataFrame:
     """Transit time, arrival and on-time flag per supplier; cheapest first.
 
@@ -70,7 +74,14 @@ def plan(
     origin has no sourced port time), on_time (True / False / None = unknown), total_eur and
     recommended: the cheapest on-time supplier, but only when freight is known – a ranking
     without freight would not say which origin is cheapest delivered. Rows flagged at_risk
-    (spec 014) are never on time and never recommended.
+    (spec 014) or not sourceable (spec 016) are never recommended; at-risk rows are never
+    on time.
+
+    Spec 016: the buyer's own lead days come before departure (`own_before_days`, production
+    and booking) and after the ship's arrival (`own_after_days`, customs and delivery).
+    arrival is the ship's arrival; at_site = arrival + own_after_days is compared with the
+    need-by date; latest_order = need_by − all days; containers = quantity / the sourced
+    maximum payload of a 40-foot box, rounded up (a lower bound).
     """
     if "route_key" not in landed.columns:
         landed = landed.assign(route_key=landed["exporter_region"])
@@ -86,22 +97,37 @@ def plan(
         table["origin_port_days"] + table["sea_days"] + table["destination_port_days"]
     ).astype(float)
     known = table["lead_days"].notna()
+    table["total_days"] = own_before_days + table["lead_days"] + own_after_days
     table["arrival"] = pd.NaT
-    table.loc[known, "arrival"] = order_date + pd.to_timedelta(
-        table.loc[known, "lead_days"].round(), unit="D"
+    table["at_site"] = pd.NaT
+    table["latest_order"] = pd.NaT
+    days = pd.to_timedelta((own_before_days + table.loc[known, "lead_days"]).round(), unit="D")
+    table.loc[known, "arrival"] = order_date + days
+    table.loc[known, "at_site"] = order_date + pd.to_timedelta(
+        table.loc[known, "total_days"].round(), unit="D"
     )
-    table["arrival"] = pd.to_datetime(table["arrival"])
+    table.loc[known, "latest_order"] = need_by - pd.to_timedelta(
+        table.loc[known, "total_days"].round(), unit="D"
+    )
+    for column in ["arrival", "at_site", "latest_order"]:
+        table[column] = pd.to_datetime(table[column])
     at_risk = table["at_risk"] if "at_risk" in table.columns else pd.Series(False, table.index)
     # At risk (behind a closed chokepoint without a sea detour, spec 014): never on time.
     table["on_time"] = [
-        False if risk else (bool(arrival <= need_by) if ok else None)
-        for arrival, ok, risk in zip(table["arrival"], known, at_risk, strict=True)
+        False if risk else (bool(at_site <= need_by) if ok else None)
+        for at_site, ok, risk in zip(table["at_site"], known, at_risk, strict=True)
     ]
-    table["total_eur"] = table["landed_eur_t"] * quantity_t
-    table = table.sort_values("landed_eur_t").reset_index(drop=True)
+    cost = "total_eur_t" if "total_eur_t" in table.columns else "landed_eur_t"
+    table["total_eur"] = table[cost] * quantity_t
+    payload = config.container_payload_t
+    table["containers"] = (
+        math.ceil(quantity_t / payload.value) if payload is not None and payload.value > 0 else None
+    )
+    table = table.sort_values(cost).reset_index(drop=True)
     table["recommended"] = False
+    usable = table["sourceable"] if "sourceable" in table.columns else True
     if freight_known:
-        on_time = table[table["on_time"] == True]  # noqa: E712 (None means unknown)
+        on_time = table[(table["on_time"] == True) & usable]  # noqa: E712 (None = unknown)
         if not on_time.empty:
             table.loc[on_time.index[0], "recommended"] = True
     return table

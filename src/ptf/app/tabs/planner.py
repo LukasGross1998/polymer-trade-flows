@@ -62,6 +62,18 @@ def layout(data: AppData) -> html.Div:
                 ],
                 style=style.ROW,
             ),
+            html.Div(
+                [
+                    charts.control(
+                        "Your days before departure (production, booking)",
+                        own_days("pl-before"),
+                    ),
+                    charts.control("Your days for customs clearance", own_days("pl-customs")),
+                    charts.control("Your days for delivery to the plant", own_days("pl-delivery")),
+                ],
+                style=style.ROW,
+                title="Your own estimates (no free source gives these per country); default 0.",
+            ),
             html.Div(id="pl-kpis", style=style.ROW),
             html.Div(charts.graph("pl-scatter"), style={**style.CARD, "marginBottom": "16px"}),
             html.Div(id="pl-table", style={**style.CARD, "marginBottom": "16px"}),
@@ -83,6 +95,18 @@ def layout(data: AppData) -> html.Div:
     )
 
 
+def own_days(component_id: str) -> dcc.Input:
+    return dcc.Input(
+        id=component_id,
+        type="number",
+        min=0,
+        step=1,
+        value=0,
+        debounce=True,
+        style={"width": "90px"},
+    )
+
+
 def compute(
     data: AppData,
     need_by: pd.Timestamp,
@@ -90,6 +114,8 @@ def compute(
     grade: str = ALL_GRADES,
     scenario: str = LIVE,
     order_date: pd.Timestamp | None = None,
+    own_before_days: float = 0.0,
+    own_after_days: float = 0.0,
 ) -> PlannerView | None:
     landed = compute_landed(data, scenario, "baci", grade)
     tables = data.route_tables
@@ -106,6 +132,8 @@ def compute(
         start,
         need_by,
         quantity_t,
+        own_before_days,
+        own_after_days,
     )
 
 
@@ -131,7 +159,7 @@ def kpi_values(view: PlannerView) -> list[dict[str, str]]:
             if not view.landed.freight_known
             else "no origin known to arrive in time",
         }
-    fastest = table[known].sort_values("lead_days")
+    fastest = table[known & table["sourceable"].fillna(True)].sort_values("lead_days")
     values = [first]
     if not fastest.empty:
         row = fastest.iloc[0]
@@ -139,7 +167,8 @@ def kpi_values(view: PlannerView) -> list[dict[str, str]]:
             {
                 "label": "Shortest ship transit",
                 "value": f"{row['lead_days']:.0f} days",
-                "note": f"{row['exporter_name']}, arrives {row['arrival']:%d %b %Y}",
+                "note": f"{row['exporter_name']}, order by {row['latest_order']:%d %b %Y} "
+                f"at the latest (incl. your {row['total_days'] - row['lead_days']:.0f} days)",
             }
         )
     values.append(
@@ -149,6 +178,17 @@ def kpi_values(view: PlannerView) -> list[dict[str, str]]:
             "note": f"needed by {view.need_by:%d %b %Y}; "
             f"{int(table['at_risk'].sum())} at risk, "
             f"{int((~known & ~table['at_risk']).sum())} without port data (n/a)",
+        }
+    )
+    payload = view.payload_label
+    containers = table["containers"].iloc[0] if "containers" in table and len(table) else None
+    values.append(
+        {
+            "label": "40-foot containers",
+            "value": "n/a" if containers is None or pd.isna(containers) else f"≥ {containers:.0f}",
+            "note": f"{view.quantity_t:,.0f} t at the maximum payload per box"
+            + (f" ({payload})" if payload else "")
+            + "; a lower bound",
         }
     )
     return values
@@ -204,7 +244,16 @@ def scatter_figure(view: PlannerView) -> go.Figure:
 
 def plan_table(view: PlannerView) -> html.Table:
     cost = "EUR/t" if view.landed.freight_known else "EUR/t excl. freight"
-    header = ["Country", cost, "Port days", "Sea days", "Transit days", "Arrival", "On time"]
+    header = [
+        "Country",
+        cost,
+        "Port days",
+        "Sea days",
+        "Transit days",
+        "Ship arrives",
+        "Order by",
+        "On time",
+    ]
     cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
     rows = [html.Tr([html.Th(h, style={**cell, "color": style.MUTED}) for h in header])]
     for r in view.table.to_dict("records"):
@@ -223,7 +272,10 @@ def plan_table(view: PlannerView) -> html.Table:
             if known
             else "n/a (no UNCTAD data)"
         )
-        if r.get("at_risk"):
+        usable = bool(r.get("sourceable", True))
+        if not usable:
+            ok, colour = "not sourceable", style.MUTED
+        elif r.get("at_risk"):
             ok, colour = "⚠ at risk", style.CRITICAL
         elif r["on_time"] is None:
             ok, colour = "n/a", style.MUTED
@@ -238,6 +290,7 @@ def plan_table(view: PlannerView) -> html.Table:
             (f"{r['lead_days']:.0f}" if known else "n/a")
             + (f" ({', '.join(flags)})" if flags else ""),
             f"{r['arrival']:%d %b}" if known else "n/a",
+            f"{r['latest_order']:%d %b}" if known else "n/a",
         ]
         weight = "600" if r["recommended"] else "400"
         rows.append(
@@ -245,10 +298,19 @@ def plan_table(view: PlannerView) -> html.Table:
                 [
                     html.Td(
                         r["exporter_name"],
-                        style={**cell, "textAlign": "left", "fontWeight": weight},
+                        title=r.get("sourceable_reason") or "",
+                        style={
+                            **cell,
+                            "textAlign": "left",
+                            "fontWeight": weight,
+                            "color": style.INK if usable else style.MUTED,
+                        },
                     )
                 ]
-                + [html.Td(v, style=cell) for v in values]
+                + [
+                    html.Td(v, style={**cell, "color": style.INK if usable else style.MUTED})
+                    for v in values
+                ]
                 + [html.Td(ok, style={**cell, "color": colour})]
             )
         )
@@ -262,11 +324,22 @@ def update(
     grade: str = ALL_GRADES,
     scenario: str = LIVE,
     order_date: pd.Timestamp | None = None,
+    own_before_days: float | None = 0.0,
+    own_after_days: float | None = 0.0,
 ) -> charts.Outputs:
     quantity = (
         float(quantity_t) if quantity_t else data.sourcing_config.lead_time.default_quantity_t
     )
-    view = compute(data, pd.Timestamp(need_by), quantity, grade, scenario, order_date)
+    view = compute(
+        data,
+        pd.Timestamp(need_by),
+        quantity,
+        grade,
+        scenario,
+        order_date,
+        float(own_before_days or 0),
+        float(own_after_days or 0),
+    )
     if view is None:
         return [], go.Figure(), charts.no_data("No suppliers with a sea route for this grade.")
     return charts.tiles(kpi_values(view)), scatter_figure(view), plan_table(view)
@@ -284,9 +357,20 @@ def register(app: Dash, state: AppState) -> None:
         Input("pl-quantity", "value"),
         Input("pl-grade", "value"),
         Input("scenario", "value"),
+        Input("pl-before", "value"),
+        Input("pl-customs", "value"),
+        Input("pl-delivery", "value"),
         Input("data-version", "data"),
     )
     def _update(
-        need_by: str, quantity: float | None, grade: str, scenario: str, _version: int
+        need_by: str,
+        quantity: float | None,
+        grade: str,
+        scenario: str,
+        before: float | None,
+        customs: float | None,
+        delivery: float | None,
+        _version: int,
     ) -> charts.Outputs:
-        return update(state.data, need_by, quantity, grade, scenario)
+        after = float(customs or 0) + float(delivery or 0)
+        return update(state.data, need_by, quantity, grade, scenario, None, before, after)
