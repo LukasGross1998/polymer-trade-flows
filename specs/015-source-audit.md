@@ -97,3 +97,16 @@ used them show "n/a" with the reason instead of an estimate.
 - Expected result if little can be sourced: landed cost shows price and duty, the planner
   shows routes and flags without dates, the LP is off. That is the intended behaviour of the
   rule, not a failure; phase 5 sources (freight indices) can fill the gaps later.
+
+## Research results (14 Nov 2026, criterion 3)
+
+| Value | Finding | Source (read 14 Nov 2026) |
+|---|---|---|
+| Freight | Drewry WCI 12 Nov 2026: Shanghai–Rotterdam 3,504 USD/40ft, Shanghai–Genoa 4,168; other lanes only as an image; no Middle East or US Gulf lane. Terms: personal use allowed, no commercial use or redistribution without a licence. Tonnes per box: only the maximum payload of a 40ft box is documented, not a typical PE load → freight per tonne only as a lower bound. | drewry.co.uk WCI page and /terms |
+| Ship speed | Fourth IMO GHG Study 2020 has speeds by ship size; the full PDF is 140 MB, not readable by the fetch tool. | imo.org |
+| Port days | UNCTADstat US.PortCalls (bulk CSV, free): median time in port of container ships 2018–2023, only 22 economies (no Gulf state, no Egypt); measures the ship's time in port, not loading, clearance and delivery of cargo. World 2023: 0.71 days. | unctadstat-api.unctad.org/bulkdownload/US.PortCalls |
+| LP capacity | McKinsey Global Institute, 30 Jun 2026 (data S&P Global): installed PE capacity 2025 China 42, North America 34, Middle East 23, Western Europe 14 Mt/yr; no other regions. Config values EUR 17 and CHN 38 contain unsourced adjustments. | mckinsey.com/mgi/our-research/polyethylene-widely-produced-but-not-one-size-fits-all |
+| LP cost | Same page: levelized cost of a new 400 kt HDPE plant (incl. capex) Saudi Arabia 660, USA 690, China 1,135, Germany 1,305 USD/t – a greenfield cost, not the cash cost of existing plants the LP uses. No utilisation by region. | same |
+| EU duty | TARIC, CN 3901 10 10 90, reference date 14 Nov 2026: third-country duty 6.50 %; preference 0 % for US (from 1 Jul 2026), KR (until 31 Dec 2026), EG, IL (from 16 May 2023), UZ (until 31 Dec 2026, not in the config yet); BR 5.20 % (1 May–31 Dec 2026); SA none. Import control for IR (R0267/12, from 30 Sep 2025) and RU (R0833/14, 19 Dec 2023–31 Dec 2027). | ec.europa.eu/taxation_customs/dds2/taric |
+| Wave levels | WMO code table 3700: very rough 4–6 m, high 6–9 m (upper bound in the lower class). Matches amber 4 / red 6. | NOAA NCEI copy of WMO code 3700 |
+| Port coordinates | UN/LOCODE pages refuse automated access (HTTP 403). | service.unece.org |
