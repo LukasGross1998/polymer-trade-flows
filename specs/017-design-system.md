@@ -51,7 +51,7 @@ explanations sit behind an info icon instead of footnotes. No developer text in 
    - numbers: true minus sign (U+2212), thousands separator, compact money with the
      currency symbol ("€197k", "$1.2m"), units after the number with a thin space, percent
      with one decimal where below 10 %, ranges with an en dash.
-   Test: `fmt.money(-197_400, "EUR")` = "−€197k"; `fmt.pct(3.25)` = "+3.3 %"; signed numbers
+   Test: `fmt.money(-197_400, "EUR")` = "−€197k"; `fmt.pct(3.26)` = "+3.3 %"; signed numbers
    use U+2212.
 
 6. **One period per tab:** where a tab has a period choice, it applies to all of its time
