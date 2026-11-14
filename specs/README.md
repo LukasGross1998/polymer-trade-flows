@@ -22,3 +22,4 @@ increments.
 | 013 | [Situation page for European PE buyers](013-situation-redesign.md) | done |
 | 014 | [Route scenarios: availability vs. transit risk, one scenario for all tabs](014-route-scenarios.md) | done |
 | 015 | [Source audit: every number about the world has a source](015-source-audit.md) | done |
+| 016 | [Recommendation logic: sourceable origins, confidence, price ranges, order timing](016-recommendation-logic.md) | draft |
