@@ -77,7 +77,9 @@ def landed_cost(
     to_focus = distances.loc[
         distances["dest_region"] == focus_region, ["origin_region", "distance_nm"]
     ]
-    table = prices.merge(to_focus, left_on="exporter_region", right_on="origin_region", how="inner")
+    if "route_key" not in prices.columns:  # one port per region (spec 014: or per country)
+        prices = prices.assign(route_key=prices["exporter_region"])
+    table = prices.merge(to_focus, left_on="route_key", right_on="origin_region", how="inner")
     table = table.drop(columns=["origin_region"])
     table["price_usd_t"] = table["price_usd_t"] * price_scale
     if freight is not None:
@@ -94,7 +96,9 @@ def landed_cost(
 
 
 def weighted_landed(table: pd.DataFrame, region: str, column: str = "landed_eur_t") -> float | None:
-    """Volume-weighted landed cost of the suppliers in one exporter region."""
+    """Volume-weighted landed cost of the suppliers in one exporter region (countries with
+    several ports count with their cheapest port)."""
     rows = table[table["exporter_region"] == region]
+    rows = rows.sort_values(column).drop_duplicates("exporter_iso3")
     qty = rows["qty_t"].sum()
     return float((rows[column] * rows["qty_t"]).sum() / qty) if qty > 0 else None

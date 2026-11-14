@@ -9,7 +9,8 @@ from dash import Dash, Input, Output, dcc, html
 
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
-from ptf.insights import signals
+from ptf.insights import exposure, signals
+from ptf.insights.scenario import LIVE
 from ptf.insights.view import ALL_GRADES, SourcingView
 
 EXPOSED_COLOUR = style.RED
@@ -39,11 +40,12 @@ def layout(data: AppData) -> html.Div:
             html.Div(
                 f"Imports of polyethylene (HS 3901) into Europe from outside the region, CEPII "
                 f"BACI {data.sourcing.year} (latest year available). Routes: shortest sea route "
-                "from one representative port per region (searoute): every country ships like its "
-                "region's port (e.g. all Middle East exports from Jebel Ali), so the exposure is "
-                "an approximation. Red = the route passes a chokepoint that the monitor flags as "
-                "disrupted today (all vessels, below "
-                f"{data.monitor_config.disruption_threshold:.0%} of normal).",
+                "from one representative port per region (searoute), or from the country's own "
+                "export ports where a source names them (Egypt, Israel, Saudi Arabia: "
+                "config/model.yaml). Red = in the route scenario chosen above the route is at "
+                "risk (it passes a closed chokepoint without a sea detour, e.g. Hormuz) or on a "
+                "detour (e.g. around the Cape). Saudi Arabia ships from Al Jubail and Yanbu with "
+                "unknown shares: its tonnes count once, shares are ranges.",
                 style=style.SMALL_NOTE,
             ),
         ]
@@ -52,7 +54,9 @@ def layout(data: AppData) -> html.Div:
 
 def kpi_values(view: SourcingView, data: AppData) -> list[dict[str, str]]:
     level = signals.level(view.exposure_pct, data.sourcing_config.signals.supply)
-    top = view.routes.nlargest(3, "qty_t")["exporter_name"].tolist()
+    countries = exposure.country_tonnes(view.routes)
+    names = view.routes.drop_duplicates("exporter_iso3").set_index("exporter_iso3")["exporter_name"]
+    top = [str(names[i]) for i in countries.nlargest(3).index]
     return [
         {
             "label": "Imports from outside Europe",
@@ -65,10 +69,12 @@ def kpi_values(view: SourcingView, data: AppData) -> list[dict[str, str]]:
             "note": "of all imports of European countries",
         },
         {
-            "label": "Through a disrupted chokepoint",
-            "value": f"{view.exposure_pct:.0f} %",
+            "label": "At risk or on a detour",
+            "value": signals.pct_range(view.exposure_low_pct, view.exposure_pct),
             "tone": LEVEL_TONES[level],
-            "note": ", ".join(view.disrupted) or "no disrupted chokepoint on the routes",
+            "note": f"at risk {signals.pct_range(*view.at_risk)}, on a detour "
+            f"{signals.pct_range(*view.delayed)}; closed: "
+            + (", ".join(view.disrupted) or "none on the routes"),
         },
         {
             "label": "Top-3 supplier countries",
@@ -79,8 +85,9 @@ def kpi_values(view: SourcingView, data: AppData) -> list[dict[str, str]]:
 
 
 def sankey_figure(view: SourcingView) -> go.Figure:
-    """Exporter region -> route -> Europe; links through disrupted chokepoints in red."""
-    routes = view.routes.assign(exposed=view.exposed)
+    """Exporter region -> route -> Europe; links at risk or on a detour in red. A country
+    with several export ports counts once, its route reads "A or B (port shares unknown)"."""
+    routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
     grouped = routes.groupby(["exporter_region", "route", "exposed"], as_index=False)
     by_route = grouped.agg(qty_t=("qty_t", "sum")).sort_values("qty_t", ascending=False)
     regions = list(dict.fromkeys(by_route["exporter_region"]))
@@ -130,8 +137,8 @@ def sankey_figure(view: SourcingView) -> go.Figure:
 
 
 def treemap_figure(view: SourcingView) -> go.Figure:
-    """Supplier countries grouped by region; red = route passes a disrupted chokepoint."""
-    routes = view.routes.assign(exposed=view.exposed)
+    """Supplier countries grouped by region; red = at risk or on a detour in the scenario."""
+    routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
     regions = routes.groupby("exporter_region", as_index=False).agg(
         qty_t=("qty_t", "sum"), exposed=("exposed", "max")
     )
@@ -167,8 +174,8 @@ def grade_dropdown(component_id: str, data: AppData) -> dcc.Dropdown:
     )
 
 
-def update(data: AppData, grade: str = ALL_GRADES) -> charts.Outputs:
-    view = data.sourcing_for(grade)
+def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> charts.Outputs:
+    view = data.sourcing_for(grade, scenario)
     if view is None or view.routes.empty:
         return (
             [charts.no_data("No imports of this grade from outside Europe.")],
@@ -191,7 +198,8 @@ def register(app: Dash, state: AppState) -> None:
         Output("src-sankey", "figure"),
         Output("src-treemap", "figure"),
         Input("src-grade", "value"),
+        Input("scenario", "value"),
         Input("data-version", "data"),
     )
-    def _update(grade: str, _version: int) -> charts.Outputs:
-        return update(state.data, grade)
+    def _update(grade: str, scenario: str, _version: int) -> charts.Outputs:
+        return update(state.data, grade, scenario)

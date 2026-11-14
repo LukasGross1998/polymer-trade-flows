@@ -47,21 +47,60 @@ def test_events_near_relevant_points() -> None:
     assert relevance.distance_km(0, 0, 0, 1) == pytest.approx(111.19, abs=0.01)
 
 
-def test_chokepoint_dependency_share_and_detour_days() -> None:
-    open_routes = pd.DataFrame(
+def test_chokepoint_dependency_uses_each_chokepoints_own_detour() -> None:
+    # Spec 014: region A (100 t) passes Hormuz and Bab el-Mandeb, 6,000 nm open and 10,032 nm
+    # with Bab el-Mandeb closed; region B (100 t) passes only Bab el-Mandeb, 8,000 / 12,032 nm.
+    routes = pd.DataFrame(
         {
-            "origin_region": ["MDE", "NAM", "SEA"],
-            "dest_region": "EUR",
-            "distance_nm": [6262.0, 5038.0, 8367.0],
+            "exporter_iso3": ["AAA", "BBB"],
+            "exporter_region": ["A", "B"],
+            "route_key": ["A", "B"],
+            "qty_t": [100.0, 100.0],
+            "chokepoint_ids": [["chokepoint6", "chokepoint4"], ["chokepoint4"]],
         }
     )
-    closed = open_routes.assign(distance_nm=[11045.0, 5038.0, 11855.0])
+    base = pd.DataFrame(
+        {"origin_region": ["A", "B"], "dest_region": "EUR", "distance_nm": [6000.0, 8000.0]}
+    )
+    detour = base.assign(distance_nm=[10032.0, 12032.0])
+    tables = {"base": base, "babalmandab_closed": detour}
 
-    table = relevance.chokepoint_dependency(ROUTES, open_routes, closed, "EUR", 14).set_index(
+    table = relevance.chokepoint_dependency(
+        routes, tables, {"chokepoint4": "babalmandab_closed"}, "EUR", 14
+    ).set_index("chokepoint_id")
+
+    # 4,032 nm / (14 kn x 24 h = 336 nm a day) = 12.0 extra days for both regions.
+    assert table.loc["chokepoint4", "extra_days"] == pytest.approx(12.0)
+    assert table.loc["chokepoint4", "share_pct"] == pytest.approx(100.0)
+    # Hormuz has no sea detour: no extra days (the Red Sea detour is not its own).
+    assert not table.loc["chokepoint6", "has_detour"]
+    assert pd.isna(table.loc["chokepoint6", "extra_days"])
+    assert table.loc["chokepoint6", "share_pct"] == pytest.approx(50.0)
+
+
+def test_chokepoint_share_is_a_range_for_countries_with_several_ports() -> None:
+    routes = pd.DataFrame(
+        {
+            "exporter_iso3": ["SAU", "SAU", "USA"],
+            "exporter_region": ["MDE", "MDE", "NAM"],
+            "route_key": ["SAU:Al Jubail", "SAU:Yanbu", "NAM"],
+            "qty_t": [40.0, 40.0, 60.0],  # Saudi tonnes appear once per port
+            "chokepoint_ids": [["chokepoint6", "chokepoint4"], ["chokepoint4"], []],
+        }
+    )
+    base = pd.DataFrame(
+        {
+            "origin_region": ["SAU:Al Jubail", "SAU:Yanbu", "NAM"],
+            "dest_region": "EUR",
+            "distance_nm": [6300.0, 3500.0, 5000.0],
+        }
+    )
+
+    table = relevance.chokepoint_dependency(routes, {"base": base}, {}, "EUR", 14).set_index(
         "chokepoint_id"
     )
 
-    assert table.loc["chokepoint4", "share_pct"] == pytest.approx(44.0)  # 40 + 4 of 100 t
-    # Detour days at 14 kn: MDE (11,045 - 6,262) / 336 = 14.2; SEA 10.4; weighted 13.9.
-    assert table.loc["chokepoint4", "extra_days"] == pytest.approx(13.9, abs=0.05)
-    assert table.loc["chokepoint5", "share_pct"] == pytest.approx(4.0)
+    # Hormuz: 0 t if all Saudi PE leaves from Yanbu, 40 of 100 t if all from Al Jubail.
+    assert table.loc["chokepoint6", "share_low_pct"] == 0.0
+    assert table.loc["chokepoint6", "share_pct"] == pytest.approx(40.0)
+    assert table.loc["chokepoint4", "share_low_pct"] == pytest.approx(40.0)  # both ports

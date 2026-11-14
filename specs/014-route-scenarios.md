@@ -1,6 +1,6 @@
 # 014 – Route scenarios: availability vs. transit risk, one scenario for all tabs
 
-- **Status:** draft
+- **Status:** done
 - **Branch / PR:** `feat/route-scenarios` / see PR
 - **SPEC.md sections:** 5 (scenarios), 7 (app); revises the route switch of specs 007 and 010
   and the chokepoint details of spec 013
@@ -134,3 +134,26 @@ Saudi Arabia, Uzbekistan).
 - Other unsourced values the scenario depends on (freight rates, ship speed, port days, the
   congestion and storm buffers, "buy in Europe" days) are handled in the source audit (spec
   015), which runs before this spec is implemented.
+
+## Implementation notes (14 Nov 2026)
+
+- Country routes live in `config/model.yaml` (`country_routes`), next to the route variants,
+  because the model domain computes the distances; each entry has source, url and read date.
+  Implemented with sources: Egypt (Alexandria, SIDPEC), Israel (Haifa, Carmel Olefins),
+  Saudi Arabia (Al Jubail and Yanbu, SABIC affiliates; shares not published -> ranges).
+  Algeria, Libya, Tunisia, Morocco: not researched, they stay on the region's port.
+  Uzbekistan: no sourced overland leg, stays on the CIS port with "n/a" transit time
+  (spec 015, no UNCTAD port data).
+- Detours per chokepoint, not per group: `babalmandab_closed` and `suez_closed` are separate
+  variants, so with only Bab el-Mandeb closed the Red Sea is still reachable through Suez
+  (Yanbu ships north). Gibraltar got a detour variant too (searoute routes Gulf and Asian
+  cargo around the Cape); the spec's "Gibraltar not bypassable" was wrong for these routes.
+  `ptf ingest` writes every combination of variants (15 tables, a few seconds).
+- At risk and delayed are read from the distance tables: a route that still passes a closed
+  chokepoint in the scenario's variant, or has no sea path although it has one with all
+  routes open, is at risk; a route that got longer is on a detour. Hormuz has no variant:
+  searoute finds no path out of the Gulf without it.
+- Reduced chokepoints add no days (spec 015: no source for a delay); they are a flag.
+- Result with the live status of 14 Nov 2026 (Hormuz -95 %, Bab el-Mandeb -58 %, Bosporus
+  -56 % closed; Suez reduced): at risk 16-39 % of Europe's extra-regional PE imports (the
+  Gulf; the range is Saudi Arabia's two ports), on a detour 12 % (Asia around the Cape).

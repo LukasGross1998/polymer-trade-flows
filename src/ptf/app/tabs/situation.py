@@ -16,7 +16,8 @@ from ptf.app.data import AppData, AppState
 from ptf.app.tabs import prices
 from ptf.insights import relevance, signals
 from ptf.insights.config import Threshold
-from ptf.insights.view import traffic_lights
+from ptf.insights.scenario import LIVE
+from ptf.insights.view import ALL_GRADES, traffic_lights
 from ptf.markets import indicators
 from ptf.shipping.metrics import latest_status
 from ptf.shipping.overview import active_events, furthest_below_normal
@@ -94,10 +95,13 @@ def layout(data: AppData) -> html.Div:
                                 "Chokepoints furthest below normal (all vessels)",
                                 "7-day average of all transits against the same calendar week "
                                 "2019-2023 (IMF PortWatch). Second line: share of Europe's PE "
-                                "imports from outside Europe whose sea route passes it, and the "
-                                "extra days at sea if the Red Sea is closed (route via the "
-                                f"Cape, {data.sourcing_config.lead_time.speed:g} knots: average "
-                                "speed at sea of container ships, Fourth IMO GHG Study 2020).",
+                                "imports from outside Europe whose sea route passes it (a "
+                                "range where a country's export port is not known), and what a "
+                                "closure would mean: extra days at sea on the chokepoint's own "
+                                "detour (searoute, "
+                                f"{data.sourcing_config.lead_time.speed:g} knots: average speed "
+                                "at sea of container ships, Fourth IMO GHG Study 2020), or no "
+                                "sea detour (e.g. Hormuz) – then the supply is at risk.",
                             ),
                             html.Div(id="sit-chokepoints"),
                         ],
@@ -362,10 +366,13 @@ def chokepoint_list(data: AppData, scope: str) -> Component:
         if detail is None:
             text = "no European PE imports on this route"
         else:
-            text = f"{detail['share_pct']:.0f} % of Europe's PE imports from outside Europe"
+            share = signals.pct_range(detail["share_low_pct"], detail["share_pct"])
+            text = f"{share} of Europe's PE imports from outside Europe"
             extra = detail["extra_days"]
-            if extra is not None and not pd.isna(extra):
-                text += f" · Red Sea closed: +{extra:.0f} days via the Cape"
+            if not detail["has_detour"]:
+                text += " · no sea detour – supply at risk if closed"
+            elif extra is not None and not pd.isna(extra):
+                text += f" · if closed: +{extra:.0f} days at sea on the detour"
         items.append(
             html.Li(
                 [
@@ -401,8 +408,15 @@ def _event_list(events: pd.DataFrame) -> Component:
     return _bullets(items)
 
 
-def update(data: AppData, scope: str = EUROPE, today: pd.Timestamp | None = None) -> charts.Outputs:
-    lights = traffic_lights(data.market, data.sourcing, data.sourcing_config)
+def update(
+    data: AppData,
+    scope: str = EUROPE,
+    today: pd.Timestamp | None = None,
+    scenario: str = LIVE,
+) -> charts.Outputs:
+    lights = traffic_lights(
+        data.market, data.sourcing_for(ALL_GRADES, scenario), data.sourcing_config
+    )
     notes = light_notes(data)
     trends: list[pd.DataFrame | None] = [None, None, None]
     if data.market is not None:
@@ -430,7 +444,8 @@ def register(app: Dash, state: AppState) -> None:
         Output("sit-chokepoints", "children"),
         Output("sit-events", "children"),
         Input("sit-scope", "value"),
+        Input("scenario", "value"),
         Input("data-version", "data"),
     )
-    def _update(scope: str, _version: int) -> charts.Outputs:
-        return update(state.data, scope)
+    def _update(scope: str, scenario: str, _version: int) -> charts.Outputs:
+        return update(state.data, scope, scenario=scenario)

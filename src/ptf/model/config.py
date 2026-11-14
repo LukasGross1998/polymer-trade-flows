@@ -5,11 +5,13 @@ A fact without a source is left out; the transport LP then cannot run and stays 
 (`enabled: false`) until all its inputs are sourced.
 """
 
+from datetime import date
 from pathlib import Path
 
 import yaml
 from pydantic import BaseModel, Field, model_validator
 
+from ptf.core.regions import Port
 from ptf.core.sourced import Sourced
 
 
@@ -68,6 +70,20 @@ class RouteVariant(BaseModel):
     restrictions: list[str]
 
 
+class CountryRoute(BaseModel):
+    """A country that does not ship from its region's representative port (spec 014).
+
+    `source` shows where the country's polyethylene is made / leaves from; the coordinates of
+    each port are a setting (a point in the port that searoute snaps to the sea lane). With
+    several ports and no sourced shares, views show a range instead of splitting the volume.
+    """
+
+    ports: list[Port] = Field(min_length=1)
+    source: str = Field(min_length=3)
+    url: str = Field(pattern=r"^https?://")
+    read: date
+
+
 class ModelConfig(BaseModel):
     enabled: bool = False  # setting: run the transport LP (needs all inputs sourced)
     base_year: int  # setting
@@ -75,6 +91,10 @@ class ModelConfig(BaseModel):
     freight: FreightAssumption | None = None
     regions: dict[str, RegionAssumption]
     route_variants: dict[str, RouteVariant] = {}
+    country_routes: dict[str, CountryRoute] = {}
+
+    def country_ports(self) -> dict[str, list[Port]]:
+        return {iso3: route.ports for iso3, route in self.country_routes.items()}
 
     def missing_inputs(self) -> list[str]:
         """Inputs the LP needs that have no sourced value, e.g. ['freight', 'SAM.capacity_mt']."""

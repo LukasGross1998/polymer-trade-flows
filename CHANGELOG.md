@@ -5,7 +5,22 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Added
+- Route scenarios (spec 014, ADR-017): one scenario for all tabs in the page header – live
+  status (closed at ≥ 50 % below normal, reduced when flagged), all routes open, Red Sea
+  closed, Hormuz closed. Routes are *at risk* (closed chokepoint without a sea detour, e.g.
+  Hormuz) or *delayed* (on a detour); the supply light, sourcing, landed cost and the
+  planner use the same flags. At-risk origins are never on time or recommended.
+- Country export ports with sources (`country_routes`): Egypt via Alexandria, Israel via
+  Haifa, Saudi Arabia via Al Jubail and Yanbu (shares unknown: ranges).
+- Detour variants per chokepoint (Bab el-Mandeb, Suez, Malacca, Gibraltar) and all their
+  combinations in `ptf ingest`.
+
 ### Changed
+- Chokepoint details on the situation page use each chokepoint's own detour; Hormuz shows
+  "no sea detour – supply at risk" instead of the Middle East's Cape detour.
+- The "Red Sea open/closed" switches of landed cost and the planner are replaced by the
+  header scenario.
 - Only sourced values (spec 015, ADR-016): every fact in `config/` has source, url and read
   date (`ptf.core.sourced`); thresholds and windows are named settings; unsourced values were
   removed. Value register `docs/value_register.md` with a completeness test, and a test

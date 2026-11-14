@@ -21,6 +21,22 @@ passage_chokepoints:
   panama: chokepoint2        # Panama Canal
   bering: chokepoint26       # Bering Strait
 
+# Route scenarios (spec 014), settings. A chokepoint listed here has a sea detour: the route
+# variant of config/model.yaml that avoids it (searoute confirms the detour exists). A
+# chokepoint not listed (e.g. Hormuz: searoute finds no path out of the Gulf without it) has
+# none: closing it puts the volume behind it at risk.
+chokepoint_detours:
+  chokepoint4: babalmandab_closed   # Bab el-Mandeb -> around the Cape
+  chokepoint1: suez_closed          # Suez -> around the Cape
+  chokepoint5: malacca_closed   # Malacca -> Sunda Strait
+  chokepoint8: gibraltar_closed # Gibraltar -> around the Cape
+scenarios:
+  closed_below_pct: 50          # live status: closed when 7-day traffic is >= 50 % below normal
+  presets:
+    all_open: {label: "All routes open", closed: []}
+    red_sea_closed: {label: "Red Sea closed", closed: [chokepoint4, chokepoint1]}
+    hormuz_closed: {label: "Hormuz closed", closed: [chokepoint6]}
+
 # Traffic lights on the situation page, four levels (spec 013): yellow from `yellow`, orange
 # from `orange`, red from `red` (inclusive), green below. Red is meant for real exceptions.
 # setting: all thresholds below are the user's choice (GSCPI in standard deviations).

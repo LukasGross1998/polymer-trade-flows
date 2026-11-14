@@ -13,8 +13,8 @@ from dash import Dash, Input, Output, dcc, html
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs.landed_cost import compute as compute_landed
-from ptf.app.tabs.landed_cost import radio
 from ptf.app.tabs.sourcing import grade_dropdown
+from ptf.insights.scenario import LIVE
 from ptf.insights.view import (
     ALL_GRADES,
     PlannerView,
@@ -35,9 +35,6 @@ def layout(data: AppData) -> html.Div:
         )
     lead = data.sourcing_config.lead_time
     need_by = today() + pd.Timedelta(days=lead.default_need_by_days)
-    route_options = [{"label": "Red Sea open", "value": "open"}]
-    if data.distances_closed is not None:
-        route_options.append({"label": "Red Sea closed", "value": "closed"})
     return html.Div(
         [
             html.Div(
@@ -62,7 +59,6 @@ def layout(data: AppData) -> html.Div:
                         ),
                     ),
                     charts.control("Grade", grade_dropdown("pl-grade", data)),
-                    charts.control("Route", radio("pl-route", route_options, "open")),
                 ],
                 style=style.ROW,
             ),
@@ -92,19 +88,17 @@ def compute(
     need_by: pd.Timestamp,
     quantity_t: float,
     grade: str = ALL_GRADES,
-    route: str = "open",
+    scenario: str = LIVE,
     order_date: pd.Timestamp | None = None,
 ) -> PlannerView | None:
-    landed = compute_landed(data, route, "baci", grade)
-    if landed is None or landed.table.empty or data.distances is None:
+    landed = compute_landed(data, scenario, "baci", grade)
+    tables = data.route_tables
+    if landed is None or landed.table.empty or tables is None:
         return None
-    closed = route == "closed" and data.distances_closed is not None
-    distances = data.distances_closed if closed else data.distances
-    assert distances is not None
     start = order_date if order_date is not None else today()
     return planner_view(
         landed,
-        distances,
+        tables,
         data.chokepoints,
         data.sourcing_config,
         congested_regions(data.port_activity, data.monitor_config),
@@ -153,7 +147,8 @@ def kpi_values(view: PlannerView) -> list[dict[str, str]]:
             "label": "Suppliers in time",
             "value": f"{in_time} of {len(table)}",
             "note": f"needed by {view.need_by:%d %b %Y}; "
-            f"{int((~known).sum())} without port data (n/a)",
+            f"{int(table['at_risk'].sum())} at risk, "
+            f"{int((~known & ~table['at_risk']).sum())} without port data (n/a)",
         }
     )
     return values
@@ -218,13 +213,19 @@ def plan_table(view: PlannerView) -> html.Table:
             flags.append("port below normal")
         if r["storm_on_route"]:
             flags.append("storm on route")
+        if r.get("delayed"):
+            flags.append("detour")
+        if r.get("reduced"):
+            flags.append("reduced traffic")
         known = not pd.isna(r["lead_days"])
         port = (
             f"{r['origin_port_days']:.1f} + {r['destination_port_days']:.1f}"
             if known
             else "n/a (no UNCTAD data)"
         )
-        if r["on_time"] is None:
+        if r.get("at_risk"):
+            ok, colour = "⚠ at risk", style.CRITICAL
+        elif r["on_time"] is None:
             ok, colour = "n/a", style.MUTED
         elif r["on_time"]:
             ok, colour = "● yes", style.GOOD
@@ -259,13 +260,13 @@ def update(
     need_by: str | pd.Timestamp,
     quantity_t: float | None,
     grade: str = ALL_GRADES,
-    route: str = "open",
+    scenario: str = LIVE,
     order_date: pd.Timestamp | None = None,
 ) -> charts.Outputs:
     quantity = (
         float(quantity_t) if quantity_t else data.sourcing_config.lead_time.default_quantity_t
     )
-    view = compute(data, pd.Timestamp(need_by), quantity, grade, route, order_date)
+    view = compute(data, pd.Timestamp(need_by), quantity, grade, scenario, order_date)
     if view is None:
         return [], go.Figure(), charts.no_data("No suppliers with a sea route for this grade.")
     return charts.tiles(kpi_values(view)), scatter_figure(view), plan_table(view)
@@ -282,10 +283,10 @@ def register(app: Dash, state: AppState) -> None:
         Input("pl-need-by", "date"),
         Input("pl-quantity", "value"),
         Input("pl-grade", "value"),
-        Input("pl-route", "value"),
+        Input("scenario", "value"),
         Input("data-version", "data"),
     )
     def _update(
-        need_by: str, quantity: float | None, grade: str, route: str, _version: int
+        need_by: str, quantity: float | None, grade: str, scenario: str, _version: int
     ) -> charts.Outputs:
-        return update(state.data, need_by, quantity, grade, route)
+        return update(state.data, need_by, quantity, grade, scenario)

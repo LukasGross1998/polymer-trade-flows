@@ -23,6 +23,7 @@ from ptf.app.tabs import (
     sourcing,
 )
 from ptf.core.settings import Settings, get_settings
+from ptf.insights.scenario import LIVE
 
 # Two sections (spec 008): the buyer's questions first, market and logistics detail after.
 SECTIONS = [
@@ -70,6 +71,25 @@ def build_layout(state: AppState) -> html.Div:
             ),
             html.Div(
                 [
+                    html.Div("Route scenario", style={"fontSize": "12px", "color": style.MUTED}),
+                    dcc.Dropdown(
+                        id="scenario",
+                        options=state.data.scenario_options(),
+                        value=LIVE,
+                        clearable=False,
+                        persistence=True,
+                        style={"width": "220px", "fontSize": "13px"},
+                    ),
+                ],
+                title=(
+                    "Applies to all tabs. Live status: a chokepoint counts as closed when its "
+                    "7-day traffic is at least "
+                    f"{state.data.sourcing_config.scenarios.closed_below_pct:g} % below normal "
+                    "(IMF PortWatch), as reduced when the monitor flags it."
+                ),
+            ),
+            html.Div(
+                [
                     html.Button("Update data", id="refresh", n_clicks=0),
                     html.Div(
                         freshness(state.data),
@@ -85,6 +105,7 @@ def build_layout(state: AppState) -> html.Div:
             "display": "flex",
             "justifyContent": "space-between",
             "alignItems": "start",
+            "gap": "16px",
             "marginBottom": "12px",
         },
     )

@@ -28,11 +28,15 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
   share passes a chokepoint that is disrupted today: currently about half, mainly Middle
   East and Asian supplies through Hormuz, Bab el-Mandeb and Suez.
 - **Landed cost:** price and EU duty (TARIC preferences with validity) per supplier country
-  in EUR/t, with the Red Sea open or closed; sea freight shows "n/a" until a sourced rate
+  in EUR/t in the chosen route scenario; sea freight shows "n/a" until a sourced rate
   exists.
 - **Order planner:** cost against the ship's arrival date if ordered today (UNCTAD time in
   port + sea days at the IMO average container ship speed); no recommendation without
   freight.
+
+A route scenario in the page header (live status from the monitor, all routes open, Red Sea
+closed, Hormuz closed) applies to all tabs: origins behind a closed chokepoint without a sea
+detour are *at risk*, others may be *on a detour* (ADR-017).
 
 Only values confirmed by a data source are used (ADR-016); every config number is listed in
 [docs/value_register.md](docs/value_register.md).

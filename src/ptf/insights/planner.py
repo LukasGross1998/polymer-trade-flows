@@ -69,11 +69,14 @@ def plan(
     Adds origin_port_days, destination_port_days, lead_days and arrival (NaN / NaT when the
     origin has no sourced port time), on_time (True / False / None = unknown), total_eur and
     recommended: the cheapest on-time supplier, but only when freight is known – a ranking
-    without freight would not say which origin is cheapest delivered.
+    without freight would not say which origin is cheapest delivered. Rows flagged at_risk
+    (spec 014) are never on time and never recommended.
     """
+    if "route_key" not in landed.columns:
+        landed = landed.assign(route_key=landed["exporter_region"])
     table = landed.merge(
         leads.drop(columns=["distance_nm"]),
-        left_on="exporter_region",
+        left_on="route_key",
         right_on="origin_region",
         how="inner",
     ).drop(columns=["origin_region"])
@@ -88,9 +91,11 @@ def plan(
         table.loc[known, "lead_days"].round(), unit="D"
     )
     table["arrival"] = pd.to_datetime(table["arrival"])
+    at_risk = table["at_risk"] if "at_risk" in table.columns else pd.Series(False, table.index)
+    # At risk (behind a closed chokepoint without a sea detour, spec 014): never on time.
     table["on_time"] = [
-        bool(arrival <= need_by) if ok else None
-        for arrival, ok in zip(table["arrival"], known, strict=True)
+        False if risk else (bool(arrival <= need_by) if ok else None)
+        for arrival, ok, risk in zip(table["arrival"], known, at_risk, strict=True)
     ]
     table["total_eur"] = table["landed_eur_t"] * quantity_t
     table = table.sort_values("landed_eur_t").reset_index(drop=True)
