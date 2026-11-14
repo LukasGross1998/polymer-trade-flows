@@ -468,3 +468,36 @@ only format and draw.
   hand-checkable unit tests; domains stay independent.
 - *Negative:* one more layer to understand; the line between "domain logic" and "insight"
   needs judgement (rule: if it needs two domains, it is an insight).
+
+## ADR-015: Unofficial Asian price source behind an optional dependency
+
+- **Date:** 2026-11-14
+- **Status:** accepted (spec 011, user decision: option A)
+
+**Context.** The only free near-real-time polyethylene price is the LLDPE future of the
+Dalian Commodity Exchange. The exchange blocks automated access (HTTP 412); the price is
+available through Sina Finance, which the open-source library AKShare reads. AKShare is MIT
+licensed and widely used, but by its own statement "just for academic research purpose",
+its interfaces "may be removed", it releases very often and brings a V8 JavaScript engine
+(`mini-racer`) and browser-imitating requests (`curl_cffi`) with about 160 packages in total.
+
+**Options.** A. AKShare as an optional dependency; B. own `requests` call of the Sina
+endpoint (smaller attack surface, but we maintain the parser); C. no Asian price.
+
+**Decision: A, isolated.**
+- `[project.optional-dependencies] asia = ["akshare==1.20.42"]`: exact version, hashes in
+  `uv.lock`; updates only deliberately after reading the changelog.
+- The core pipeline, the tests and the Docker image do not need it; `ptf market` downloads
+  the price only when AKShare can be imported, and a failing source logs a warning.
+- Raw files are kept, so stored prices survive a broken source; the landing is always
+  written so dbt builds.
+- Tests replace AKShare with a fake; a separate CI job runs the DCE tests with the extra and
+  `pip-audit` over all its packages (no known vulnerabilities on 2026-11-14).
+- The price is shown as an indicator with a visible "unofficial" note; it does not feed the
+  landed cost or the order planner.
+
+**Consequences.** A daily Asian PE price at low cost. Risks: the source can change or
+disappear (then switch to option B or drop it); third-party code runs in the market step,
+so in a hosted setup that step should run in its own container without secrets. To remove
+it: delete the `asia` extra, `ptf.markets.dce`, the `dce` block in `config/markets.yaml`,
+the dbt staging model and the chart.

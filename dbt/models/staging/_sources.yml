@@ -88,6 +88,15 @@ sources:
             filename = true, header = true, names = ['observation_date', 'value'],
             nullstr = ['.', ''], all_varchar = true)
 
+  - name: dce
+    description: >
+      Dalian Commodity Exchange LLDPE main contract via AKShare (Sina Finance), newest value
+      per day, written by ptf.markets.dce.write_dce_landing (empty without the asia extra).
+    tables:
+      - name: landing_dce
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/dce/landing_dce.parquet')"
+
   - name: gscpi
     description: NY Fed GSCPI, parsed from the .xls by ptf.markets.gscpi.write_gscpi_landing.
     tables:

@@ -44,3 +44,25 @@ jobs:
 
       - name: Smoke test (no data baked in, non-root, CLI, app healthy)
         run: docker/smoke_test.sh ptf:ci
+
+  asia-extra:
+    # Optional AKShare extra (spec 011, ADR-015): its tests and a vulnerability scan of all its
+    # packages. A separate job, so a finding here does not block the core pipeline.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+
+      - name: Install dependencies with the asia extra
+        run: uv sync --locked --extra asia
+
+      - name: DCE tests (AKShare is replaced by a fake, no network)
+        run: uv run pytest -q tests/test_dce.py
+
+      - name: Known vulnerabilities (pip-audit) of the asia extra
+        run: |
+          uv export --locked --extra asia --no-dev --no-hashes --no-emit-project \
+            --format requirements-txt -o requirements-asia.txt
+          uvx pip-audit -r requirements-asia.txt --no-deps --disable-pip

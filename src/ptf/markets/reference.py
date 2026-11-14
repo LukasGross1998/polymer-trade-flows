@@ -20,6 +20,16 @@ def write_market_reference(config: MarketConfig, raw_dir: Path) -> Path:
             "group": "supply_chain",
         }
     )
+    if config.dce is not None:
+        rows.append(
+            {
+                "id": config.dce.series_id,
+                "name": config.dce.name,
+                "unit": config.dce.unit,
+                "frequency": "daily",
+                "group": "china_futures",
+            }
+        )
     path = reference_dir(raw_dir) / "market_series.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).rename(columns={"id": "series_id"}).to_parquet(path, index=False)

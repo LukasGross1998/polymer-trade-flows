@@ -6,6 +6,10 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015) via AKShare as
+  optional extra `asia`: download in `ptf market`, series `DCE_LLDPE` in the market mart,
+  chart and KPI in USD or EUR on the Prices tab; CI job with the extra's tests and
+  `pip-audit`.
 - Order planner (spec 010): tab in the Buying section with landed cost against arrival date
   per supplier country, need-by date, quantity, grade and Red Sea switch; recommendation of
   the cheapest on-time supplier. Lead times from sea distances (14 kn), port days, buffers

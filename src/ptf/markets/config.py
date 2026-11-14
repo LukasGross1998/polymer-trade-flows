@@ -21,11 +21,22 @@ class KeyEvent(BaseModel):
     source: str
 
 
+class DceConfig(BaseModel):
+    """Daily futures price from the Dalian Commodity Exchange via AKShare (spec 011)."""
+
+    series_id: str
+    symbol: str
+    name: str
+    unit: str
+    start_date: date
+
+
 class MarketConfig(BaseModel):
     max_age_days: float = Field(gt=0)
     fred_series: list[SeriesConfig]
     gscpi_url: str
     key_events: list[KeyEvent]
+    dce: DceConfig | None = None
 
 
 def load_market_config(path: Path) -> MarketConfig:

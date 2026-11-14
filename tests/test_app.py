@@ -71,7 +71,9 @@ def test_chokepoint_tab_returns_all_outputs(data: AppData) -> None:
 
 
 def test_prices_port_and_situation_tabs(data: AppData) -> None:
-    kpis, drivers, oil, *_ = prices.update(data, "5y", "USD")
+    kpis, drivers, dce_fig, oil, *_ = prices.update(data, "5y", "USD")
+    # DCE price in the fixtures, but no CNY rate (DEXCHUS): the chart explains instead of failing.
+    assert "not available" in dce_fig.layout.annotations[0].text
     assert kpis[0].children[1].children == "78.0"  # latest Brent in the FRED fixture
     assert len(oil.data) == 1  # WTI missing in the fixtures: only Brent is drawn
     assert drivers.layout.title.text.startswith("Feedstock vs. resin prices in USD")
@@ -229,3 +231,22 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
 
     late, *_ = planner.update(data, "2026-11-30", 500, order_date=order)
     assert late[0].children[0].children == "No origin in time – earliest"
+
+
+def test_dce_price_converted_to_usd_and_eur(data: AppData) -> None:
+    rates = pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-11-12", "2026-11-12"]),
+            "series_id": ["DEXCHUS", "DEXUSEU"],
+            "value": [7.20, 1.10],
+        }
+    )
+    market = pd.concat([data.market, rates], ignore_index=True)
+
+    usd = prices.dce_in_currency(market, "USD").set_index("date")["value"]
+    eur = prices.dce_in_currency(market, "EUR").set_index("date")["value"]
+
+    assert usd[pd.Timestamp("2026-11-13")] == pytest.approx(8578 / 7.20)  # 1,191.39 USD/t
+    assert eur[pd.Timestamp("2026-11-13")] == pytest.approx(8578 / 7.20 / 1.10)
+    kpis = prices.kpi_values(market, "USD")
+    assert kpis[-1]["label"] == "LLDPE Dalian, USD/t" and kpis[-1]["value"] == "1,191"

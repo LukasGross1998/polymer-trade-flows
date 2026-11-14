@@ -621,3 +621,18 @@ and Jebel Ali are below normal.
 **Limits:** planning estimates, not quotes; average transit times from one port per
 region; no sailing schedules or departure frequency; no real vessel ETAs (AIS, hosting
 phase); landed cost from annual BACI prices (spec 007).
+
+
+## 10. Daily LLDPE price from Dalian (spec 011)
+
+Polyethylene has no free price series in Europe; regional prices come from paid price
+agencies (ICIS, Platts, Argus). The LLDPE future of the Dalian Commodity Exchange is the
+only free, exchange-based PE price: main contract, closing price in CNY per tonne for
+delivery in China (including 13 % VAT), read from Sina Finance with AKShare (optional extra
+`asia`, ADR-015). It is converted to USD with FRED DEXCHUS (same day or last earlier rate)
+and to EUR with DEXUSEU. Example: 8,000 CNY/t at 7.20 CNY/USD = 1,111 USD/t.
+
+**Use and limits:** an indicator of the Asian market mood and a leading signal for import
+offers to Europe, not a European price; domestic Chinese price with VAT, not an export
+price; unofficial source. It is shown on the Prices tab only and does not feed the landed
+cost or the order planner. Value on 13 Nov 2026: 8,578 CNY/t.
