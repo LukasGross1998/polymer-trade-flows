@@ -90,10 +90,10 @@ Saudi Arabia, Uzbekistan).
 8. **One scenario for all tabs:** a scenario dropdown in the page header (stored in a
    `dcc.Store`, kept when switching tabs) replaces the "Red Sea open/closed" radio items of
    landed cost and the order planner. Situation, sourcing, landed cost and the planner read
-   it. The full global bar (grade, currency) follows in spec 016.
+   it. The full global bar (grade, currency) follows in the design spec (phase 3).
 
 9. Quality gates as usual; methodology §6–10 updated (two risk kinds, scenario resolution,
-   country routes); data dictionary for the new raw files; ADR-016 "route scenario from live
+   country routes); data dictionary for the new raw files; ADR-017 "route scenario from live
    status".
 
 ## Out of scope
@@ -102,7 +102,7 @@ Saudi Arabia, Uzbekistan).
 - A Hormuz bypass by pipeline (Saudi East-West pipeline to Yanbu, UAE Habshan–Fujairah): it
   carries crude oil, not polyethylene; noted in the methodology.
 - A full country-level routing of all exporters; only the listed exceptions.
-- The global grade and currency bar, colours and tiles (spec 016).
+- The global grade and currency bar, colours and tiles (design spec, phase 3).
 
 ## Design notes
 
