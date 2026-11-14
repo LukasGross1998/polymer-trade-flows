@@ -505,3 +505,35 @@ pipeline container without AKShare (least privilege). Open for hosting: restrict
 container's network to Sina's hosts (needs a proxy) and polling during trading hours. To remove
 it: delete the `asia` extra, `ptf.markets.dce`, the `dce` block in `config/markets.yaml`,
 the dbt staging model and the chart.
+
+## ADR-016: Only sourced values
+
+- **Date:** 2026-11-14
+- **Status:** accepted (spec 015, user rule "nur Daten, die durch die Datenquellen bestätigt
+  sind, ohne Ausnahme")
+
+**Context.** The configs held estimates labelled `source: assumption`: freight per tonne,
+ship speed, port days, buffers, overland days, LP capacities, utilisation and costs. Shown
+in a dashboard next to measured data, they look just as reliable, and some were invented
+for the occasion (a rail cost for Uzbekistan, a 50/50 port split for Saudi Arabia).
+
+**Options.** A. keep estimates, labelled; B. only sourced values, missing ones shown as
+"n/a"; C. estimates as ranges.
+
+**Decision: B.**
+- Facts in `config/` are `{value, source, url, read}` (`ptf.core.sourced.Sourced`,
+  `SourcedTable`, `SourcedRate` with validity); they do not load without source, url and date.
+- Settings (thresholds, windows, years, the representative port of a region) are plain
+  numbers and named as settings.
+- `docs/value_register.md` lists every config number with its class; a test checks it is
+  complete and current. A second test rejects numbers with units in app texts.
+- Views degrade instead of estimating: landed cost without freight is "price + duty, excl.
+  freight"; the planner shows ship transit time from sourced parts and recommends nothing
+  without freight; the transport LP is switched off (`enabled: false`) while inputs are
+  missing, and refuses to be switched on until they are sourced.
+- Tests that need the LP use a synthetic config marked as a test fixture.
+
+**Consequences.** Fewer numbers, each traceable. Landed cost and the planner lose freight
+and part of the lead time until a free freight source is found (phase 5); the LP stays off.
+Static values carry a read date and go stale: tariff preferences expire (several on
+31 Dec 2026) and are applied only inside their validity.

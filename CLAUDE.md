@@ -44,7 +44,7 @@ Die fachliche Spezifikation steht in `SPEC.md`. **Lies sie vor jeder neuen Phase
 - `uv run pytest --cov=ptf --cov-fail-under=85` grün; neue Logik hat eigene Tests mit nachrechenbaren Werten
 - neue oder geänderte Tabellen stehen in `docs/data_dictionary.md` (Dateien) bzw. in den dbt-YAML-Dateien (Warehouse); der Datenkatalog-Test prüft beides
 - Warehouse-Modelle haben dbt-Tests (Schlüssel, Beziehungen, Wertebereiche)
-- neue Annahmen stehen in `config/` mit Quelle und in `docs/methodology.md`
+- neue Werte stehen in `config/` mit Quelle, URL und Lesedatum (oder als Einstellung) und in `docs/value_register.md` (ADR-016)
 - größere Entscheidungen als ADR in `docs/decisions.md`; `CHANGELOG.md` unter „Unreleased“ ergänzt
 
 ## Tech-Stack (verbindlich)
@@ -105,8 +105,8 @@ polymer-trade-flows/
 - Code, Bezeichner, Docstrings und Commit-Messages auf **Englisch**. Erklärungen an mich auf **Deutsch**.
 - Geschäftslogik gehört in `src/ptf/`, nicht in Notebooks oder die Dash-App.
 - Fachgebiete importieren nur `core`, nie einander; Daten eines anderen Fachgebiets kommen aus dem Warehouse (`uv run lint-imports` prüft das, ADR-012). Jedes Fachgebiet hat `config.py` und `steps.py`.
-- Jede Modellannahme (Frachtkostensatz, Kapazitäten, Regionenzuordnung) steht in Config oder Datei, nicht hart im Code, und ist in `docs/methodology.md` dokumentiert.
-- Wenn Daten fehlen oder nur als Annahme vorliegen: klar kennzeichnen (`source: assumption`), nicht stillschweigend erfinden.
+- Jeder Wert (Frachtsatz, Kapazität, Regionenzuordnung) steht in Config oder Datei, nicht hart im Code, mit Quelle oder als Einstellung, und ist in `docs/methodology.md` und `docs/value_register.md` dokumentiert.
+- Nur Werte, die eine Datenquelle bestätigt, ohne Ausnahme (ADR-016). Fehlt eine Quelle, zeigt die App „n/a“ statt einer Schätzung; Einstellungen des Nutzers (Schwellen, Zeitfenster) sind keine Daten und als solche gekennzeichnet.
 - Rohdaten werden nie überschrieben; Transformationen sind reproduzierbar.
 - Keine riesigen Datenmengen ziehen: mit wenigen Ländern/Jahren starten, API-Limits respektieren, Ergebnisse cachen.
 

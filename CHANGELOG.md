@@ -5,6 +5,23 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Changed
+- Only sourced values (spec 015, ADR-016): every fact in `config/` has source, url and read
+  date (`ptf.core.sourced`); thresholds and windows are named settings; unsourced values were
+  removed. Value register `docs/value_register.md` with a completeness test, and a test
+  against hard-coded facts in app texts.
+- Landed cost: no freight (no sourced rate) – "price + duty, excl. freight", freight slider
+  removed; EU tariff preferences from the official TARIC consultation with validity dates
+  (new: Canada, Mexico, Japan, Singapore, Algeria, South Africa, Uzbekistan).
+- Order planner: ship transit time = UNCTAD median time in port at both ends + sea days at
+  the IMO average container ship speed (16.3 kn); buffers, overland days and "buy in Europe"
+  days removed; congestion and storms as flags; no recommendation without freight; n/a for
+  countries without UNCTAD port data.
+- Transport LP switched off (`enabled: false`): freight, utilisation and costs have no
+  source; capacities from McKinsey Global Institute for four regions.
+- Storm thresholds for gusts from the Met Office Beaufort scale: 63.0 / 88.9 km/h (34 / 48
+  knots) instead of 62 / 89.
+
 ## 0.6.0 – 2026-11-14
 
 Ordering release: when to order from where, a daily Asian PE price, and a start page made

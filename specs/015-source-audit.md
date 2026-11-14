@@ -1,6 +1,6 @@
 # 015 – Source audit: every number about the world has a source
 
-- **Status:** draft
+- **Status:** done
 - **Branch / PR:** `feat/route-scenarios` (implemented before spec 014) / see PR
 - **SPEC.md sections:** 2 (data sources), 4 (LP parameters), 7 (app); touches specs 007 and 010
 
