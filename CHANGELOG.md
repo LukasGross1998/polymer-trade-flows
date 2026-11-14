@@ -5,42 +5,38 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+## 0.5.0 – 2026-11-14
+
+Buyer release: the app answers the questions of a polyethylene buyer in Europe and places
+PE in world trade, at chokepoints and in the weather. Specs 006–009.
+
 ### Added
-- Marine weather (spec 009): wave height and wind gusts at all chokepoints and monitored
-  ports from Open-Meteo, past 7 days and 7-day forecast, storm warnings (Beaufort-based) in
-  the Chokepoints, Ports and Situation tabs; `mart_marine_weather`.
-- EU third-country duty per PE grade from World Bank WITS (`mart_eu_duty`), used by the
-  landed cost; confirms 6.5 %.
-- Nautical chart layer (OpenSeaMap) on the chokepoint and port maps, which are now tile
-  maps.
+- Buyer dashboard (spec 006): tab "Situation" (traffic lights for price, supply and
+  logistics; what changed in the last 7 days), "Prices & drivers" (EUR/USD switch,
+  feedstock vs. resin indexed to 2019) and "Sourcing" (import sources treemap, Sankey of
+  routes, share of imports through disrupted chokepoints).
+- `ptf.insights` layer for logic that combines domains (ADR-014); `config/sourcing.yaml`.
+- Landed cost (spec 007): price, sea freight and EU duty per supplier country in EUR/t,
+  with Red Sea open/closed and a freight factor; route variant `red_sea_closed`.
+- Breakdown by class (spec 008): tab "World trade by class" from the whole BACI file
+  (tonnes vs. value per commodity class, drill-down to the PE grades); vessel classes at
+  chokepoints; PE grade filter in Sourcing and Landed cost.
+- Marine weather (spec 009): waves and gusts at all chokepoints and monitored ports, past
+  7 days and 7-day forecast, storm warnings; EU third-country duty per grade from World
+  Bank WITS (confirms 6.5 %); OpenSeaMap nautical chart layer.
+- dbt: marts `mart_import_sources`, `mart_import_sources_by_product`,
+  `mart_trade_by_class`, `mart_eu_duty`, `mart_marine_weather`; seeds
+  `commodity_classes`, `commodity_class_tree`; tests `value_between`, shares sum to 1.
+- Data: route passages in the sea-distance table; FRED `DEXUSEU`, `PCU325211325211`;
+  BACI world-trade summary `landing_all_trade`.
 - README section "Data sources and keys"; `.env.example` lists `AISSTREAM_API_KEY` and
   `EIA_API_KEY` (not used yet).
-- Breakdown by class (spec 008): tab "World trade by class" (tonnes vs. value per commodity
-  class, plastics drill-down to the PE grades, development since 2019) from the whole BACI
-  file; vessel classes at chokepoints (traffic mix, change per class, capacity mix); PE grade
-  filter in Sourcing and Landed cost.
-- dbt seeds `commodity_classes`, `commodity_class_tree`; marts `mart_trade_by_class`,
-  `mart_import_sources_by_product`; BACI landing `landing_all_trade`.
 
 ### Changed
-- Navigation in two sections: "Buying" and "Markets & logistics".
-- Landed-cost tab (spec 007): price (BACI unit value, optionally indexed to today), sea
-  freight and EU duty per supplier country in EUR/t, with Red Sea open/closed and a freight
-  factor; duty rates in `config/sourcing.yaml`.
-- Route variant `red_sea_closed` (`config/model.yaml`), written by `ptf ingest` as a second
-  sea-distance table.
-- Buyer dashboard (spec 006): tabs "Situation" (traffic lights for price, supply and
-  logistics, "what changed"), "Prices & drivers" (EUR/USD switch, feedstock vs. resin
-  indexed to 2019) and "Sourcing" (import sources treemap, Sankey of routes, share of
-  imports through disrupted chokepoints).
-- `ptf.insights` layer for logic that combines domains (ADR-014); `config/sourcing.yaml`.
-- dbt mart `mart_import_sources` with tests (`value_between`, shares sum to 1).
-- Route passages (`passages`) in the sea-distance table; FRED series `DEXUSEU` and
-  `PCU325211325211`.
-
-### Changed
-- Tabs "Overview" and "Energy & freight" replaced by "Situation" and "Prices & drivers";
-  app title "Polyethylene supply chain monitor".
+- Navigation in two sections, "Buying" and "Markets & logistics"; "Overview" and
+  "Energy & freight" replaced by "Situation" and "Prices & drivers"; app title
+  "Polyethylene supply chain monitor".
+- Chokepoint and port maps are tile maps (MapLibre) instead of a plain world map.
 
 ## 0.4.0 – 2026-11-13
 
