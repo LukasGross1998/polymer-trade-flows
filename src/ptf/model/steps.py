@@ -35,6 +35,14 @@ def ingest(settings: Settings) -> None:
 def run(settings: Settings) -> None:
     """Model layer, transport LP and docs/model_results.md for the configured base year."""
     config = load_model_config(settings.config_dir / CONFIG_FILE)
+    if not config.enabled:
+        # Spec 015: the LP runs only when all its inputs are sourced.
+        logger.warning(
+            "Transport LP switched off (config/model.yaml enabled: false); inputs without a "
+            "source: %s",
+            ", ".join(config.missing_inputs()) or "none",
+        )
+        return
     year = config.base_year
     flows = warehouse.read_table(settings, "marts.mart_region_trade")
     distance_table = pd.read_parquet(settings.raw_dir / "distances" / "sea_distances_base.parquet")

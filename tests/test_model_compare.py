@@ -1,6 +1,8 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
-from helpers import PipelineSetup, write_synthetic_distances
+from helpers import PipelineSetup, with_lp_fixture, write_synthetic_distances
 
 from ptf.model import steps as model_steps
 from ptf.model.compare import comparison_metrics, comparison_table
@@ -48,8 +50,10 @@ def test_explained_share_counts_overlap_per_route() -> None:
     assert metrics["routes_used_both"] == 1
 
 
-def test_model_step_reads_the_mart_and_writes_results(warehouse_setup: PipelineSetup) -> None:
-    settings = warehouse_setup.settings
+def test_model_step_reads_the_mart_and_writes_results(
+    warehouse_setup: PipelineSetup, tmp_path: Path
+) -> None:
+    settings = with_lp_fixture(warehouse_setup.settings, tmp_path)
     write_synthetic_distances(settings.raw_dir, warehouse_setup.regions)
     codes = list(warehouse_setup.regions.regions)
 

@@ -93,7 +93,7 @@ class AppData:
             self.distances,
             self.distances_closed,
             self.sourcing_config.focus_region,
-            self.sourcing_config.lead_time.speed_knots,
+            self.sourcing_config.lead_time.speed,
         )
 
     def grade_options(self) -> list[dict[str, str]]:

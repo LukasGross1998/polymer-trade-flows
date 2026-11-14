@@ -1,5 +1,6 @@
 import pandas as pd
 import pytest
+from helpers import sourced
 
 from ptf.model.config import ModelConfig
 from ptf.model.inputs import build_inputs, observed_region_flows, region_balance, route_costs
@@ -11,9 +12,13 @@ def make_config(**regions: tuple[float, float, float]) -> ModelConfig:
         {
             "base_year": 2023,
             "penalty_usd_t": 5000,
-            "freight": {"source": "t", "fixed_usd_t": 40, "variable_usd_t_per_1000nm": 7},
+            "freight": {"fixed_usd_t": sourced(40), "variable_usd_t_per_1000nm": sourced(7)},
             "regions": {
-                code: {"capacity_mt": c, "utilisation": u, "prod_cost_usd_t": p, "source": "t"}
+                code: {
+                    "capacity_mt": sourced(c),
+                    "utilisation": sourced(u),
+                    "prod_cost_usd_t": sourced(p),
+                }
                 for code, (c, u, p) in regions.items()
             },
         }

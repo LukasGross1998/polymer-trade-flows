@@ -10,13 +10,13 @@ from dash import html
 
 from ptf.app import charts, style
 from ptf.app.data import AppData
-from ptf.shipping.config import Threshold
+from ptf.shipping.config import Threshold, WeatherConfig
 from ptf.shipping.weather import RED, storm_warnings
 
 LEVEL_STYLE = {RED: ("▲ Storm", style.CRITICAL), "amber": ("▲ Gale", style.WARNING)}
 
 
-def layout(prefix: str) -> html.Div:
+def layout(prefix: str, config: WeatherConfig) -> html.Div:
     """Card with two graphs and a note; ids `{prefix}-waves`, `{prefix}-gusts`, `{prefix}-note`."""
     graph = {"flex": "1", "minWidth": "300px"}
     return html.Div(
@@ -31,9 +31,11 @@ def layout(prefix: str) -> html.Div:
                 style={"display": "flex", "gap": "16px", "flexWrap": "wrap"},
             ),
             html.Div(
-                "Source: Open-Meteo (marine and weather models, daily maxima). Thresholds: "
-                "gale from 62 km/h gusts (Beaufort 8) or 4 m waves, storm from 89 km/h "
-                "(Beaufort 10) or 6 m (config/shipping.yaml). Points on land have no wave data.",
+                "Source: Open-Meteo (marine and weather models, daily maxima). Gale from "
+                f"{config.gusts_kmh.amber:g} km/h gusts (Beaufort 8 'gale', Met Office) "
+                f"or {config.waves_m.amber:g} m waves (WMO sea state 'very rough'); storm from "
+                f"{config.gusts_kmh.red:g} km/h (Beaufort 10 'storm') or "
+                f"{config.waves_m.red:g} m ('high'). Points on land have no wave data.",
                 style=style.SMALL_NOTE,
             ),
         ],

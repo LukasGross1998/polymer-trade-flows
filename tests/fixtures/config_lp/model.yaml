@@ -1,0 +1,49 @@
+# TEST FIXTURE: synthetic transport-LP inputs, not real data (spec 015). Used only to
+# test the model step while the project's LP is switched off.
+enabled: true
+base_year: 2023
+penalty_usd_t: 5000
+freight:
+  fixed_usd_t: {value: 40, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  variable_usd_t_per_1000nm: {value: 7, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+regions:
+  NAM:
+    capacity_mt: {value: 34, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.88, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 650, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  SAM:
+    capacity_mt: {value: 5, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.8, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 1100, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  EUR:
+    capacity_mt: {value: 17, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.75, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 1200, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  CIS:
+    capacity_mt: {value: 5, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.85, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 700, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  MDE:
+    capacity_mt: {value: 23, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.9, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 500, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  AFR:
+    capacity_mt: {value: 3, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.75, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 900, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  IND:
+    capacity_mt: {value: 7, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.88, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 1000, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  CHN:
+    capacity_mt: {value: 38, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.78, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 1000, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  NEA:
+    capacity_mt: {value: 10, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.8, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 1100, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+  SEA:
+    capacity_mt: {value: 11, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    utilisation: {value: 0.8, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}
+    prod_cost_usd_t: {value: 1050, source: "test fixture, not real data", url: "https://example.org/test", read: 2026-11-14}

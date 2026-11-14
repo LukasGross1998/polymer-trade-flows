@@ -27,7 +27,7 @@ class WeatherConfig(BaseModel):
     past_days: int = Field(default=7, ge=0, le=92)
     forecast_days: int = Field(default=7, ge=1, le=16)
     waves_m: Threshold = Threshold(amber=4.0, red=6.0)
-    gusts_kmh: Threshold = Threshold(amber=62.0, red=89.0)
+    gusts_kmh: Threshold = Threshold(amber=63.0, red=88.9)
 
 
 class MonitorConfig(BaseModel):

@@ -10,7 +10,7 @@ from helpers import FakeResponse, FakeSession
 from ptf.shipping import weather
 from ptf.shipping.config import WeatherConfig
 
-CONFIG = WeatherConfig()  # waves amber 4 / red 6 m, gusts amber 62 / red 89 km/h
+CONFIG = WeatherConfig()  # waves 4 / 6 m, gusts 63.0 / 88.9 km/h (34 / 48 knots)
 
 
 def daily(days: list[str], **values: list[Any]) -> dict[str, Any]:
@@ -58,11 +58,11 @@ def test_download_for_all_locations_in_two_requests(tmp_path: Path) -> None:
 
 
 def test_storm_level_on_both_sides_of_the_thresholds() -> None:
-    assert weather.storm_level(3.9, 61.0, CONFIG) == weather.GREEN
+    assert weather.storm_level(3.9, 62.9, CONFIG) == weather.GREEN
     assert weather.storm_level(4.0, None, CONFIG) == weather.AMBER
-    assert weather.storm_level(None, 62.0, CONFIG) == weather.AMBER
-    assert weather.storm_level(5.9, 88.9, CONFIG) == weather.AMBER
-    assert weather.storm_level(1.0, 89.0, CONFIG) == weather.RED
+    assert weather.storm_level(None, 63.0, CONFIG) == weather.AMBER
+    assert weather.storm_level(5.9, 88.8, CONFIG) == weather.AMBER
+    assert weather.storm_level(1.0, 88.9, CONFIG) == weather.RED
     assert weather.storm_level(6.0, 10.0, CONFIG) == weather.RED
 
 

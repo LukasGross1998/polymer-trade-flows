@@ -5,6 +5,7 @@ and return plain values and tables, so the tabs only format and draw.
 """
 
 from dataclasses import dataclass
+from datetime import date
 
 import pandas as pd
 
@@ -15,6 +16,9 @@ from ptf.model.config import FreightAssumption
 from ptf.shipping.config import MonitorConfig
 from ptf.shipping.metrics import latest_status, monitor_table, port_table
 from ptf.shipping.weather import RED, storm_warnings
+
+WITS_SOURCE = "World Bank WITS (TRAINS), EU MFN applied rate, highest tariff line of the grade"
+WITS_URL = "https://wits.worldbank.org/"
 
 
 @dataclass
@@ -104,6 +108,7 @@ class LandedView:
     price_scale: float
     closure_extra_eur_t: float | None  # Red Sea closure: extra landed cost, Middle East
     duty_source: str  # where the third-country rate comes from
+    freight_known: bool = False  # a sourced freight rate exists (spec 015)
 
 
 def landed_view(
@@ -111,12 +116,13 @@ def landed_view(
     market: pd.DataFrame | None,
     distances_open: pd.DataFrame,
     distances_closed: pd.DataFrame | None,
-    freight: FreightAssumption,
+    freight: FreightAssumption | None,
     config: SourcingConfig,
     red_sea_closed: bool,
     freight_factor: float,
     indexed_prices: bool,
     mfn_pct: float | None = None,
+    on: date | None = None,
 ) -> LandedView:
     """Landed cost of the largest supplier countries for the chosen route, freight and prices.
 
@@ -126,7 +132,7 @@ def landed_view(
     settings = config.landed_cost
     duty = settings.duty
     if mfn_pct is not None:
-        duty = duty.model_copy(update={"default_pct": mfn_pct})
+        duty = duty.with_default(mfn_pct, WITS_SOURCE, WITS_URL, on or date.today())
     region = config.focus_region
     year = exposure.latest_year(sources, region)
     fx = None if market is None else indicators.latest(market, settings.fx_series)
@@ -140,12 +146,12 @@ def landed_view(
 
     def compute(distances: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
         return landed_cost.landed_cost(
-            rows, distances, freight, duty, region, usd_per_eur, freight_factor, scale
+            rows, distances, freight, duty, region, usd_per_eur, freight_factor, scale, on
         )
 
     chosen = distances_closed if red_sea_closed and distances_closed is not None else distances_open
     closure = None
-    if distances_closed is not None:
+    if distances_closed is not None and freight is not None:
         open_all = landed_cost.weighted_landed(compute(distances_open, prices), "MDE")
         closed_all = landed_cost.weighted_landed(compute(distances_closed, prices), "MDE")
         if open_all is not None and closed_all is not None:
@@ -159,10 +165,11 @@ def landed_view(
         price_scale=scale,
         closure_extra_eur_t=closure,
         duty_source=(
-            f"third-country duty {duty.default_pct:.2f} % from World Bank WITS"
+            f"third-country duty {duty.default_pct.value:.2f} % from World Bank WITS"
             if mfn_pct is not None
-            else f"third-country duty {duty.default_pct:.1f} % from config (no WITS rate)"
+            else f"third-country duty {duty.default_pct.value:.1f} % from EU TARIC"
         ),
+        freight_known=freight is not None,
     )
 
 
@@ -226,7 +233,6 @@ class PlannerView:
     order_date: pd.Timestamp
     need_by: pd.Timestamp
     quantity_t: float
-    europe_arrival: pd.Timestamp
 
 
 def congested_regions(port_activity: pd.DataFrame | None, config: MonitorConfig) -> set[str]:
@@ -267,7 +273,12 @@ def planner_view(
     routes = routes.merge(to_focus, on="origin_region")
     leads = planner.lead_times(routes, region, config.lead_time, congested, storms)
     table = planner.plan(
-        landed.table, leads, order_date, need_by, quantity_t, config.lead_time.overland_days
+        landed.table,
+        leads,
+        order_date,
+        need_by,
+        quantity_t,
+        config.lead_time,
+        landed.freight_known,
     )
-    europe = order_date + pd.Timedelta(days=config.lead_time.europe_days)
-    return PlannerView(table, landed, order_date, need_by, quantity_t, europe)
+    return PlannerView(table, landed, order_date, need_by, quantity_t)
