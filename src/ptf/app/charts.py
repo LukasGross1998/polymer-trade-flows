@@ -83,6 +83,10 @@ def add_key_events(
     return fig
 
 
+# OpenSeaMap seamarks (buoys, lights, harbours) as a transparent raster layer (spec 009).
+SEAMARK_TILES = "https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png"
+
+
 def location_map(
     status: pd.DataFrame,
     coordinates: pd.DataFrame,
@@ -90,11 +94,13 @@ def location_map(
     value_label: str,
     events: pd.DataFrame | None = None,
     value_format: str = ",.1f",
+    seamarks: bool = False,
 ) -> go.Figure:
-    """Map of locations: size = current 7-day value, colour = deviation from normal.
+    """Tile map of locations: size = current 7-day value, colour = deviation from normal.
 
     `status` comes from `latest_status`, `coordinates` has location_id, lat, lon.
-    Active disruption events are drawn as gray crosses.
+    Active disruption events are drawn as small gray dots; with `seamarks` the OpenSeaMap
+    layer is drawn on top of the base map. Base map and seamarks are loaded by the browser.
     """
     points = status.merge(coordinates[["location_id", "lat", "lon"]], on="location_id")
     rolling = points["rolling"].fillna(0)
@@ -105,10 +111,24 @@ def location_map(
         + ("<br><b>▼ Disrupted</b>" if row.is_disrupted else "")
         for row in points.itertuples()
     ]
-    is_selected = points["location_id"] == selected_id
+    is_selected = (points["location_id"] == selected_id).to_numpy()
 
-    fig = go.Figure(
-        go.Scattergeo(
+    fig = go.Figure()
+    # Tile-map markers have no outline, so a slightly larger dark dot behind the selected
+    # location marks it.
+    fig.add_trace(
+        go.Scattermap(
+            lon=points.loc[is_selected, "lon"],
+            lat=points.loc[is_selected, "lat"],
+            customdata=points.loc[is_selected, "location_id"],
+            mode="markers",
+            hoverinfo="skip",
+            showlegend=False,
+            marker={"size": size[is_selected] + 8, "color": style.INK},
+        )
+    )
+    fig.add_trace(
+        go.Scattermap(
             lon=points["lon"],
             lat=points["lat"],
             customdata=points["location_id"],
@@ -124,18 +144,13 @@ def location_map(
                 "cmax": 100,
                 "colorscale": [[0, style.RED], [0.5, style.NEUTRAL], [1, style.BLUE]],
                 "colorbar": {"title": {"text": "% vs.<br>normal"}, "thickness": 10, "len": 0.7},
-                # A dark ring marks the selected location; a light ring separates overlaps.
-                "line": {
-                    "color": np.where(is_selected, style.INK, style.SURFACE),
-                    "width": np.where(is_selected, 3, 2),
-                },
-                "opacity": 0.95,
+                "opacity": 0.9,
             },
         )
     )
     if events is not None and not events.empty:
         fig.add_trace(
-            go.Scattergeo(
+            go.Scattermap(
                 lon=events["lon"],
                 lat=events["lat"],
                 text=[
@@ -144,27 +159,42 @@ def location_map(
                 hoverinfo="text",
                 mode="markers",
                 name="Active disruption event",
-                marker={"symbol": "x", "size": 11, "color": style.INK_SECONDARY},
+                marker={"size": 9, "color": style.INK_SECONDARY},
                 showlegend=True,
             )
         )
-    fig.update_geos(
-        projection_type="natural earth",
-        showcountries=False,
-        showcoastlines=False,
-        showland=True,
-        landcolor=style.LAND,
-        showocean=True,
-        oceancolor=style.SURFACE,
-        showframe=False,
-    )
+    # Seamarks only show from about zoom 8 on, so the chart layer also zooms to the selection.
+    center, zoom = {"lat": 20.0, "lon": 45.0}, 0.7
+    layers = []
+    if seamarks:
+        layers = [{"sourcetype": "raster", "source": [SEAMARK_TILES], "below": "traces"}]
+        chosen = points[is_selected]
+        if not chosen.empty:
+            center = {"lat": float(chosen["lat"].iloc[0]), "lon": float(chosen["lon"].iloc[0])}
+            zoom = 8.0
     fig.update_layout(
+        map={
+            "style": "carto-positron",
+            "center": center,
+            "zoom": zoom,
+            "layers": layers,
+        },
         height=380,
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
         paper_bgcolor=style.SURFACE,
         legend={"orientation": "h", "y": 0.02, "x": 0.01},
     )
     return fig
+
+
+def seamark_switch(component_id: str) -> dcc.Checklist:
+    """Switch for the OpenSeaMap layer on the location maps."""
+    return dcc.Checklist(
+        id=component_id,
+        options=[{"label": " Nautical chart layer (OpenSeaMap)", "value": "on"}],
+        value=[],
+        inputStyle={"marginRight": "4px"},
+    )
 
 
 def location_timeseries(table: pd.DataFrame, title: str, y_label: str) -> go.Figure:

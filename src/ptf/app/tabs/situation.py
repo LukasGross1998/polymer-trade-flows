@@ -13,6 +13,7 @@ from ptf.markets import indicators
 from ptf.shipping.metrics import latest_status
 from ptf.shipping.overview import active_events, furthest_below_normal
 from ptf.shipping.vocabulary import EVENT_TYPES
+from ptf.shipping.weather import storm_warnings
 
 # Icon + word + colour, never colour alone.
 LEVELS = {
@@ -152,6 +153,22 @@ def change_items(data: AppData) -> list[Component]:
                     [
                         html.Span(f"▲ {event['alert_level']} ", style={"color": style.CRITICAL}),
                         f"new event: {event['event']} (from {event['from_date']:%d %b})",
+                    ]
+                )
+            )
+    if data.weather is not None:
+        today = pd.Timestamp(pd.Timestamp.now(tz="UTC").date())
+        warnings = storm_warnings(data.weather, today, data.monitor_config.weather)
+        for row in warnings.drop_duplicates("location_id").head(5).to_dict("records"):
+            kind = "Storm" if row["level"] == "red" else "Gale"
+            colour = style.CRITICAL if row["level"] == "red" else style.WARNING
+            items.append(
+                html.Span(
+                    [
+                        html.Span(f"▲ {kind} forecast ", style={"color": colour}),
+                        f"at {row['location']} on {row['date']:%d %b}: waves "
+                        f"{charts.number(row['wave_height_m'])} m, gusts "
+                        f"{charts.number(row['wind_gusts_kmh'], ',.0f')} km/h",
                     ]
                 )
             )

@@ -102,6 +102,7 @@ class LandedView:
     usd_per_eur: float
     price_scale: float
     closure_extra_eur_t: float | None  # Red Sea closure: extra landed cost, Middle East
+    duty_source: str  # where the third-country rate comes from
 
 
 def landed_view(
@@ -114,9 +115,17 @@ def landed_view(
     red_sea_closed: bool,
     freight_factor: float,
     indexed_prices: bool,
+    mfn_pct: float | None = None,
 ) -> LandedView:
-    """Landed cost of the largest supplier countries for the chosen route, freight and prices."""
+    """Landed cost of the largest supplier countries for the chosen route, freight and prices.
+
+    `mfn_pct` is the EU third-country rate from WITS for the selected grade(s); without it
+    the configured default applies. Preferential rates always come from the config.
+    """
     settings = config.landed_cost
+    duty = settings.duty
+    if mfn_pct is not None:
+        duty = duty.model_copy(update={"default_pct": mfn_pct})
     region = config.focus_region
     year = exposure.latest_year(sources, region)
     fx = None if market is None else indicators.latest(market, settings.fx_series)
@@ -130,7 +139,7 @@ def landed_view(
 
     def compute(distances: pd.DataFrame, rows: pd.DataFrame) -> pd.DataFrame:
         return landed_cost.landed_cost(
-            rows, distances, freight, settings.duty, region, usd_per_eur, freight_factor, scale
+            rows, distances, freight, duty, region, usd_per_eur, freight_factor, scale
         )
 
     chosen = distances_closed if red_sea_closed and distances_closed is not None else distances_open
@@ -148,6 +157,11 @@ def landed_view(
         usd_per_eur=usd_per_eur,
         price_scale=scale,
         closure_extra_eur_t=closure,
+        duty_source=(
+            f"third-country duty {duty.default_pct:.2f} % from World Bank WITS"
+            if mfn_pct is not None
+            else f"third-country duty {duty.default_pct:.1f} % from config (no WITS rate)"
+        ),
     )
 
 
@@ -173,3 +187,32 @@ def sources_for_grade(by_product: pd.DataFrame, grade: str = ALL_GRADES) -> pd.D
         qty_t=("qty_t", "sum"), value_usd=("value_usd", "sum")
     )
     return summed[summed["qty_t"] > 0].reset_index(drop=True)
+
+
+def mfn_rate(
+    eu_duty: pd.DataFrame | None,
+    by_product: pd.DataFrame | None,
+    grade: str,
+    focus_region: str,
+) -> float | None:
+    """EU third-country rate for one grade, or the import-weighted average over all grades.
+
+    Weights: the focus region's extra-regional tonnes per grade in the latest year.
+    """
+    if eu_duty is None or eu_duty.empty:
+        return None
+    rates = dict(zip(eu_duty["hs6"], eu_duty["mfn_pct"], strict=True))
+    if grade != ALL_GRADES:
+        rate = rates.get(grade)
+        return None if rate is None else float(rate)
+    if by_product is None:
+        return None
+    rows = by_product[
+        (by_product["importer_region"] == focus_region) & ~by_product["is_intra_regional"]
+    ]
+    rows = rows[rows["year"] == rows["year"].max()]
+    weights = rows.groupby("hs6")["qty_t"].sum()
+    weights = weights[weights.index.isin(list(rates))]
+    if weights.sum() == 0:
+        return None
+    return float(sum(rates[h] * w for h, w in weights.items()) / weights.sum())

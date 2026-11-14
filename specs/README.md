@@ -15,3 +15,4 @@ increments.
 | 006 | [Buyer dashboard: situation, prices, sourcing exposure](006-buyer-dashboard.md) | done |
 | 007 | [Landed cost by supplier country](007-landed-cost.md) | done |
 | 008 | [Breakdown by class: commodities, vessels, PE grades](008-class-breakdown.md) | done |
+| 009 | [Marine weather, official EU duties, nautical chart layer](009-weather-duties-seamap.md) | done |

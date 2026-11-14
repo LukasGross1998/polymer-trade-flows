@@ -23,6 +23,7 @@ from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 from ptf.trade.baci import baci_zip_path, write_landing
 from ptf.trade.config import load_trade_config
+from ptf.trade.duties import write_duty_landing
 from ptf.trade.reference import write_reference_tables
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -171,6 +172,35 @@ def write_portwatch_raw(raw_dir: Path) -> None:
         portwatch / "port_links" / "20261110T000000000000.parquet"
     )
 
+    # Marine weather (spec 009): Bab el-Mandeb calm, Jubail with a storm forecast on 13 Nov.
+    days = pd.to_datetime([f"2026-11-{d:02d}" for d in range(6, 15)])
+    weather = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "location_id": "chokepoint4",
+                    "location_type": "chokepoint",
+                    "date": days,
+                    "wave_height_m": 1.0,
+                    "wind_gusts_kmh": 40.0,
+                    "wind_speed_kmh": 20.0,
+                }
+            ),
+            pd.DataFrame(
+                {
+                    "location_id": "port24",
+                    "location_type": "port",
+                    "date": days,
+                    "wave_height_m": [0.5] * 7 + [4.5, 1.0],
+                    "wind_gusts_kmh": [30.0] * 7 + [95.0, 30.0],
+                    "wind_speed_kmh": 15.0,
+                }
+            ),
+        ]
+    ).assign(fetched_at=pd.Timestamp("2026-11-08", tz="UTC"))
+    (raw_dir / "weather").mkdir()
+    weather.to_parquet(raw_dir / "weather" / "20261108T000000000000.parquet")
+
 
 def build_warehouse(setup: "PipelineSetup") -> None:
     """Landing files, reference tables and a full `dbt build`, offline (no downloads)."""
@@ -182,6 +212,11 @@ def build_warehouse(setup: "PipelineSetup") -> None:
         baci_config.hs_prefix,
         raw,
     )
+    # WITS duties: the saved real answer for LDPE (6.5 % in 2022) as one download.
+    wits = raw / "wits" / "20261101T000000000000"
+    wits.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURES / "wits_eu_390110_2022.xml", wits / "390110_2022.xml")
+    write_duty_landing(raw)
     write_reference_tables(setup.regions, raw)
     write_port_reference(load_monitor_config(settings.config_dir / "shipping.yaml"), raw)
     write_market_reference(load_market_config(settings.config_dir / "markets.yaml"), raw)

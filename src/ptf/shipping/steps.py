@@ -2,7 +2,7 @@
 
 from ptf.core import warehouse
 from ptf.core.settings import Settings
-from ptf.shipping import portwatch
+from ptf.shipping import portwatch, weather
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 
@@ -10,7 +10,7 @@ CONFIG_FILE = "shipping.yaml"
 
 
 def refresh(settings: Settings) -> None:
-    """Download new PortWatch days (incremental) and events, then `dbt build -s tag:shipping`."""
+    """New PortWatch days (incremental), events and weather, then `dbt build -s tag:shipping`."""
     config = load_monitor_config(settings.config_dir / CONFIG_FILE)
     raw = settings.raw_dir
     port_names = {p.id: p.name for p in config.ports}
@@ -23,6 +23,7 @@ def refresh(settings: Settings) -> None:
     if config.download_country_trade:
         portwatch.ingest_country_trade(raw, revision_days=config.revision_days)
     portwatch.ingest_port_links(raw, config.min_link_capacity)
+    weather.ingest_weather(raw, list(port_names), config.weather)
 
     write_port_reference(config, raw)
     # The optional country trade models are built only when their raw data exist.

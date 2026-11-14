@@ -60,6 +60,21 @@ sources:
         meta:
           external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/portwatch/ports.parquet')"
 
+  - name: wits
+    description: World Bank WITS (TRAINS) EU duty rates per PE grade, parsed by ptf.trade.duties.
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/wits/{name}.parquet')"
+    tables:
+      - name: landing_eu_duty
+        description: Newest MFN rate per HS6 grade (empty before the first download).
+
+  - name: openmeteo
+    description: Open-Meteo marine weather and wind downloads (ptf.shipping.weather), never overwritten.
+    tables:
+      - name: weather
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/weather/*.parquet', union_by_name = true)"
+
   - name: fred
     description: FRED series, one CSV per download in fred/{series_id}/ (ptf.markets.fred).
     tables:

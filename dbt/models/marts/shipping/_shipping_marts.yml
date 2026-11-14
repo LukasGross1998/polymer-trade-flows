@@ -196,3 +196,38 @@ models:
       - name: export_general_cargo
       - name: export_roro
       - name: fetched_at
+
+  - name: mart_marine_weather
+    description: >
+      Marine weather at the PortWatch chokepoints and the monitored ports (Open-Meteo,
+      spec 009): daily maxima of wave height and wind, past days and forecast.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [location_id, date]
+    columns:
+      - name: date
+        data_tests: [not_null]
+      - name: location_id
+        description: PortWatch id of the chokepoint or port.
+        data_tests: [not_null]
+      - name: location_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [chokepoint, port]
+      - name: location
+        description: Name of the chokepoint or the configured short name of the port.
+      - name: wave_height_m
+        description: Daily maximum significant wave height (m); empty on land points.
+        data_tests: [non_negative]
+      - name: wind_gusts_kmh
+        description: Daily maximum wind gusts at 10 m (km/h).
+        data_tests: [non_negative]
+      - name: wind_speed_kmh
+        description: Daily maximum wind speed at 10 m (km/h).
+        data_tests: [non_negative]
+      - name: is_forecast
+        description: True for days after the download day.
+      - name: fetched_at
+        description: Time of the download the row comes from (UTC).

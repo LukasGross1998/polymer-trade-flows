@@ -69,3 +69,17 @@ def test_calendar_covers_the_data(warehouse_setup: PipelineSetup) -> None:
 
     assert calendar["date"].min() == pd.Timestamp("2019-01-01")
     assert calendar["iso_week"].max() == 52  # week 53 folded into 52
+
+
+def test_marine_weather_with_names_and_forecast_flag(warehouse_setup: PipelineSetup) -> None:
+    weather = table(warehouse_setup, "mart_marine_weather").set_index(["location_id", "date"])
+
+    jubail = weather.loc[("port24", pd.Timestamp("2026-11-13"))]
+    assert jubail["location"] == "Jubail"  # short name from config/shipping.yaml
+    assert jubail["wind_gusts_kmh"] == 95.0
+    assert bool(jubail["is_forecast"])  # downloaded on 8 Nov
+    assert not bool(weather.loc[("port24", pd.Timestamp("2026-11-08")), "is_forecast"])
+    assert (
+        weather.loc[("chokepoint4", pd.Timestamp("2026-11-06")), "location"]
+        == "Bab el-Mandeb Strait"
+    )

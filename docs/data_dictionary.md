@@ -37,6 +37,8 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 |---|---|---|---|
 | raw BACI | `data/raw/baci/BACI_HS17_V202601.zip` | one CSV per year inside the zip | `ptf.trade.baci` |
 | BACI landing | `data/raw/baci/landing_*.parquet` | HS 3901 flows and code lists, unpacked | `ptf.trade.baci.write_landing` |
+| Marine weather raw | `data/raw/weather/*.parquet` | one location × day per download (Open-Meteo): wave height, gusts, wind | `ptf.shipping.weather` |
+| WITS raw / landing | `data/raw/wits/<download>/*.xml`, `wits/landing_eu_duty.parquet` | WITS answers per grade and year; newest MFN rate per grade | `ptf.trade.duties` |
 | BACI all-trade summary | `data/raw/baci/landing_all_trade.parquet` | one year × code (HS4 heading; HS6 for 3901): value (thousand USD), tonnes, value without quantity, number of flows | `ptf.trade.baci.write_landing` |
 | reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.trade.reference.write_reference_tables` |
 | PortWatch raw | `data/raw/portwatch/<dataset>/*.parquet` | one file per download, never overwritten | `ptf.shipping.portwatch` |
@@ -97,6 +99,8 @@ Folders carry dbt tags, so each pipeline step builds only its domain.
 | `marts.mart_region_trade` | year × exporter region × importer region | input of the transport LP |
 | `marts.mart_import_sources` | year × importer region × exporter country | share in extra-regional imports; input of the Sourcing tab |
 | `marts.mart_import_sources_by_product` | year × importer region × exporter country × HS6 | grade filter of Sourcing and Landed cost |
+| `marts.mart_marine_weather` | location × day | marine weather at chokepoints and ports, past and forecast |
+| `marts.mart_eu_duty` | HS6 grade | EU third-country duty from WITS |
 | `marts.mart_trade_by_class` | year × commodity class | world trade by class: value, tonnes, shares |
 | `marts.dim_date` | calendar day (2019 → today) | ISO year and week for seasonal baselines |
 | `marts.dim_chokepoint`, `marts.dim_port` | chokepoint / monitored port | names, coordinates, port role |

@@ -10,6 +10,7 @@ import pytest
 from flask import Flask
 from helpers import REPO_ROOT, PipelineSetup, write_synthetic_distances
 
+from ptf.app import weather_card
 from ptf.app.__main__ import create_app
 from ptf.app.data import AppData, load_app_data
 from ptf.app.tabs import (
@@ -60,7 +61,9 @@ def test_chokepoint_tab_returns_all_outputs(data: AppData) -> None:
         data, "chokepoint4", "container", "90d"
     )
 
-    assert len(map_fig.data[0].lon) == 3  # one marker per chokepoint
+    assert len(map_fig.data[0].lon) == 1  # dark dot behind the selected chokepoint
+    assert len(map_fig.data[1].lon) == 3  # one marker per chokepoint
+    assert map_fig.layout.map.layers == ()  # nautical chart layer off by default
     assert len(kpis) == 4
     assert [t.name for t in series_fig.data][-1] == "7-day average"
     assert len(diversion_fig.data) == 3
@@ -193,3 +196,17 @@ def test_grade_filter_in_sourcing_and_landed_cost(warehouse_setup: PipelineSetup
     # HDPE only: 1.2 m USD for 1,000 t = 1,200 USD/t, plus 75 USD/t freight, US duty 0 %.
     landed, *_ = landed_cost.update(data, "open", 1.0, "baci", "390120")
     assert landed[0].children[1].children == "1,275 EUR/t"
+
+
+def test_weather_card_and_seamark_layer(data: AppData) -> None:
+    waves, gusts, note = weather_card.update(data, "port24", today=pd.Timestamp("2026-11-12"))
+
+    # Fixture: Jubail gusts 95 km/h and waves 4.5 m on 13 Nov -> storm (gusts >= 89 km/h).
+    assert note.children == "▲ Storm forecast on 13 Nov: waves 4.5 m, gusts 95 km/h"
+    assert [t.name for t in waves.data] == ["observed", "forecast"]
+    assert weather_card.update(data, "chokepoint4", today=pd.Timestamp("2026-11-12"))[
+        2
+    ].children == ("● No gale or storm in the forecast")
+
+    map_fig, *_ = chokepoints.update(data, "chokepoint4", "container", "90d", seamarks=True)
+    assert "openseamap" in map_fig.layout.map.layers[0].source[0]

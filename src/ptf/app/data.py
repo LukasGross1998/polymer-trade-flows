@@ -44,6 +44,8 @@ class AppData:
     trade_by_class: pd.DataFrame | None = None
     class_tree: pd.DataFrame | None = None
     products: pd.DataFrame | None = None
+    eu_duty: pd.DataFrame | None = None
+    weather: pd.DataFrame | None = None
 
     @property
     def latest_date(self) -> pd.Timestamp:
@@ -129,6 +131,8 @@ APP_TABLES = {
     "trade_by_class": "marts.mart_trade_by_class",
     "class_tree": "reference.commodity_class_tree",
     "products": "marts.dim_product",
+    "eu_duty": "marts.mart_eu_duty",
+    "weather": "marts.mart_marine_weather",
 }
 
 
@@ -157,6 +161,8 @@ def load_app_data(settings: Settings) -> AppData:
         trade_by_class=tables["trade_by_class"],
         class_tree=tables["class_tree"],
         products=tables["products"],
+        eu_duty=tables["eu_duty"],
+        weather=tables["weather"],
         distances=read_distance_table(settings.raw_dir),
         distances_closed=read_distance_table(settings.raw_dir, "red_sea_closed"),
     )

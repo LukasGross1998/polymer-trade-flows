@@ -96,3 +96,20 @@ def test_price_factor_latest_over_base_year_average() -> None:
 
     assert landed_cost.price_factor(market, "IDX", 2024) == pytest.approx(1.10)  # 330 / 300
     assert landed_cost.price_factor(market, "missing", 2024) == 1.0
+
+
+def test_mfn_rate_per_grade_and_weighted_over_grades() -> None:
+    from ptf.insights.view import ALL_GRADES, mfn_rate
+
+    eu_duty = pd.DataFrame({"hs6": ["390110", "390120"], "mfn_pct": [6.5, 3.0]})
+    base = {"year": 2024, "importer_region": "EUR", "is_intra_regional": False}
+    by_product = pd.DataFrame(
+        [{**base, "hs6": "390110", "qty_t": 30.0}, {**base, "hs6": "390120", "qty_t": 10.0}]
+    )
+
+    assert mfn_rate(eu_duty, by_product, "390120", "EUR") == 3.0
+    assert mfn_rate(eu_duty, by_product, ALL_GRADES, "EUR") == pytest.approx(
+        5.625
+    )  # (6.5x30 + 3x10) / 40
+    assert mfn_rate(None, by_product, "390120", "EUR") is None
+    assert mfn_rate(eu_duty, by_product, "390190", "EUR") is None  # no WITS rate -> config
