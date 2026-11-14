@@ -7,10 +7,10 @@ module provides `layout(data)` and `register(app, state)`; the callbacks only pa
 to functions in `src/ptf/` and `ptf.app.charts`.
 """
 
-from dash import Dash, Input, Output, State, dcc, html
+from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 
 from ptf.app import style
-from ptf.app.data import AppState, monitor_data_available
+from ptf.app.data import AppData, AppState, monitor_data_available
 from ptf.app.tabs import (
     chokepoints,
     classes,
@@ -71,6 +71,11 @@ def build_layout(state: AppState) -> html.Div:
             html.Div(
                 [
                     html.Button("Update data", id="refresh", n_clicks=0),
+                    html.Div(
+                        freshness(state.data),
+                        id="last-updated",
+                        style={"fontSize": "12px", "color": style.MUTED, "marginTop": "4px"},
+                    ),
                     html.Div(id="refresh-status", style={"fontSize": "12px", "color": style.MUTED}),
                 ],
                 style={"textAlign": "right"},
@@ -90,7 +95,8 @@ def build_layout(state: AppState) -> html.Div:
             style=SECTION_TAB,
             selected_style=SECTION_TAB,
             children=dcc.Tabs(
-                [
+                id=f"tabs-{section_id}",
+                children=[
                     dcc.Tab(
                         label=label,
                         value=value,
@@ -104,7 +110,7 @@ def build_layout(state: AppState) -> html.Div:
         )
         for section_id, section_label, tabs in SECTIONS
     ]
-    tabs = dcc.Tabs(sections, value="buying")
+    tabs = dcc.Tabs(sections, id="section-tabs", value="buying")
     return html.Div([header, tabs, dcc.Store(id="data-version", data=0)], style=style.PAGE)
 
 
@@ -124,17 +130,62 @@ def no_data_layout() -> html.Div:
     )
 
 
+def freshness(data: AppData) -> str:
+    """'Last updated' (time of the last warehouse build) and the newest data dates."""
+    parts = []
+    if data.updated_at is not None:
+        local = data.updated_at.tz_convert("Europe/Berlin")
+        parts.append(f"Last updated: {local:%d %b %Y, %H:%M}")
+    parts.append(f"chokepoints to {data.latest_date:%d %b}")
+    if data.market is not None:
+        parts.append(f"markets to {data.market['date'].max():%d %b}")
+    return " · ".join(parts)
+
+
+# Sub-tab -> section, for the action links on the situation page (spec 013).
+TAB_SECTION = {value: section_id for section_id, _, tabs in SECTIONS for value, _, _ in tabs}
+
+
+def navigate(tab: str) -> tuple[object, ...]:
+    """Values of the section tabs and every section's sub-tabs that show `tab`.
+
+    Sections that do not contain `tab` keep their current sub-tab (no_update).
+    """
+    section = TAB_SECTION[tab]
+    values: list[object] = [section]
+    for section_id, _, _ in SECTIONS:
+        values.append(tab if section_id == section else no_update)
+    return tuple(values)
+
+
+def register_navigation(app: Dash) -> None:
+    @app.callback(
+        Output("section-tabs", "value"),
+        *[Output(f"tabs-{section_id}", "value") for section_id, _, _ in SECTIONS],
+        Input({"type": "goto", "tab": ALL}, "n_clicks"),
+        prevent_initial_call=True,
+    )
+    def _goto(clicks: list[int | None]) -> tuple[object, ...]:
+        # Cards are rebuilt by callbacks; their new buttons (n_clicks 0) must not navigate.
+        trigger = ctx.triggered_id
+        if not isinstance(trigger, dict) or not any(clicks):
+            return tuple(no_update for _ in range(len(SECTIONS) + 1))
+        return navigate(str(trigger["tab"]))
+
+
 def register_refresh(app: Dash, state: AppState) -> None:
     @app.callback(
         Output("refresh-status", "children"),
         Output("data-version", "data"),
+        Output("last-updated", "children"),
         Input("refresh", "n_clicks"),
         State("data-version", "data"),
         prevent_initial_call=True,
     )
-    def _refresh(_clicks: int, version: int) -> tuple[str, int]:
+    def _refresh(_clicks: int, version: int) -> tuple[str, int, str]:
         new_days = state.refresh()
-        return f"Updated: {new_days} new day(s) of chokepoint data", version + 1
+        message = f"Updated: {new_days} new day(s) of chokepoint data"
+        return message, version + 1, freshness(state.data)
 
 
 def create_app(settings: Settings | None = None) -> Dash:
@@ -148,6 +199,7 @@ def create_app(settings: Settings | None = None) -> Dash:
     for _, _, module in TABS:
         module.register(app, state)
     register_refresh(app, state)
+    register_navigation(app)
     return app
 
 

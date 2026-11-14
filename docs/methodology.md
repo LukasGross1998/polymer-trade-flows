@@ -643,3 +643,38 @@ day; a night session counts for the next trading day). The Prices tab shows it w
 trading day is newer than the last daily close, with the download time, because Sina's
 delay is not documented. Dalian trades (winter, CET) 02:00–04:30, 06:30–08:00 and
 14:00–16:00; outside these hours the quote is the last trade of the previous session.
+
+
+## 11. Situation page for European buyers (spec 013)
+
+**Traffic lights with four levels** (`config/sourcing.yaml`, assumptions): green, yellow
+("watch"), orange ("elevated"), red ("critical"):
+
+| Light | Measure | Yellow | Orange | Red |
+|---|---|---|---|---|
+| Price | Brent in EUR, 90-day change | +5 % | +15 % | +30 % |
+| Supply | share of extra-European imports through a disrupted chokepoint | 10 % | 25 % | 50 % |
+| Logistics | GSCPI, std. dev. from average (2021 peak: 4.3) | 0.5 | 1.0 | 2.0 |
+
+Red is meant for real exceptions; on 14 Nov 2026 the page shows price OK (+3.5 %), supply
+critical (52 %: Hormuz and Bab el-Mandeb disrupted) and logistics elevated (1.26).
+
+**Polyethylene card:** Dalian LLDPE in EUR with its 7-day change (section 10), else the US
+resin index; an indicator without a traffic light. A European HDPE/LDPE spot price or a
+naphtha/ethylene spread would be better but has no free source.
+
+**What changed in the last 7 days:** chokepoints newly below normal, new orange/red events,
+gale or storm forecasts, and 7-day moves of daily series only (the comparison value must lie
+7–11 days back, so a sparse or monthly series never shows a longer move as a weekly one).
+
+**Relevant for Europe** (default; "All regions" shows everything): supplier regions with at
+least 5 % of Europe's extra-regional imports (BACI 2024: Middle East 40 %, North America
+40 %, Northeast Asia 8 %) plus Europe; the chokepoints on their routes (Hormuz, Bab
+el-Mandeb, Suez, Gibraltar, Malacca) plus Dover Strait; the monitored ports in these
+regions; a list of Europe-relevant market series (not LNG Japan, the CNY or the dollar
+index); disruption events within 1,000 km of a relevant chokepoint or port.
+
+**Chokepoint details:** share of Europe's extra-regional PE imports whose route passes the
+chokepoint, and the volume-weighted extra sea days via the Cape if the Red Sea is closed
+(14 knots; e.g. Bab el-Mandeb 52 %, +13 days; Hormuz 40 %, +14 days for the cargo that
+then detours).

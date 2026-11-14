@@ -5,6 +5,15 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Changed
+- Situation page for European buyers (spec 013): four-level traffic lights (green, yellow,
+  orange, red) with new thresholds; a polyethylene card (Dalian LLDPE in EUR); action links
+  that open the right tab ("Review drivers →", "Check routes →", "View delays →", "See PE
+  prices →"); "What changed" with true 7-day moves of daily series; filter "Relevant for
+  Europe" (regions, chokepoints, ports, series, events) with a switch to all regions;
+  chokepoint entries with Europe's import share and the Red Sea detour days; method notes
+  in info icons instead of a footer; "Last updated" and data dates in the header.
+
 ### Added
 - Isolated Docker service `asia` (spec 012): image `ptf:asia` (build argument `EXTRAS`),
   step `ptf dce`, only `data/raw/dce` mounted, no `.env`, read-only file system, no

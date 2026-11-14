@@ -24,6 +24,7 @@ NEUTRAL = "#f0efec"
 
 # Status colours (with icon + label).
 CRITICAL = "#d03b3b"
+ELEVATED = "#e0701b"  # orange level of the four-level traffic lights (spec 013)
 WARNING = "#fab219"
 GOOD = "#006300"
 

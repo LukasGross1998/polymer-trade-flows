@@ -86,10 +86,18 @@ def test_prices_port_and_situation_tabs(data: AppData) -> None:
     assert len(ports.update(data, "port24", "export", "90d")) == 4
 
     lights, *_ = situation.update(data)
-    assert [card.children[0].children[0].children for card in lights] == [
+    assert [card.children[0].children[0].children[0] for card in lights] == [
         "Price",
         "Supply",
         "Logistics",
+        "Polyethylene",
+    ]
+    links = [card.children[-1].children for card in lights]
+    assert [(b.children, b.id["tab"]) for b in links] == [
+        ("Review drivers →", "prices"),
+        ("Check routes →", "sourcing"),
+        ("View delays →", "planner"),
+        ("See PE prices →", "prices"),
     ]
 
 
@@ -255,3 +263,36 @@ def test_dce_price_converted_to_usd_and_eur(data: AppData) -> None:
     assert eur[pd.Timestamp("2026-11-13")] == pytest.approx(8578 / 7.20 / 1.10)
     kpis = prices.kpi_values(market, "USD")
     assert kpis[-1]["label"] == "LLDPE Dalian, USD/t" and kpis[-1]["value"] == "1,191"
+
+
+def test_navigation_and_freshness(data: AppData) -> None:
+    from dash import no_update
+
+    from ptf.app.__main__ import freshness, navigate
+
+    assert navigate("planner") == ("buying", "planner", no_update)
+    assert navigate("chokepoints") == ("markets", no_update, "chokepoints")
+    assert "chokepoints to 08 Nov" in freshness(data)
+    assert freshness(data).startswith("Last updated: ")
+
+
+def test_situation_europe_filter(warehouse_setup: PipelineSetup) -> None:
+    raw, regions = warehouse_setup.settings.raw_dir, warehouse_setup.regions
+    write_synthetic_distances(raw, regions)
+    data = load_app_data(warehouse_setup.settings)
+    assert data.relevance is not None
+    # Fixture: Europe imports only from North America (no chokepoint) -> Dover only.
+    assert data.relevance.chokepoints == {"chokepoint9"}
+    assert "port24" not in data.relevance.ports  # Jubail: no Middle East imports here
+
+    today = pd.Timestamp("2026-11-12")
+    europe = situation.change_items(data, situation.EUROPE, today)
+    everything = situation.change_items(data, situation.ALL, today)
+    text = lambda items: " ".join(str(i) for i in items)  # noqa: E731
+    assert "Jubail" not in text(europe)  # storm forecast at Jubail filtered out for Europe
+    assert "Jubail" in text(everything)
+
+
+def test_weather_text_leaves_out_missing_parts() -> None:
+    assert situation.weather_text(1.4, 68.8) == "waves 1.4 m, gusts 69 km/h"
+    assert situation.weather_text(float("nan"), 62.6) == "gusts 63 km/h"  # land point

@@ -14,7 +14,12 @@ from ptf.insights.view import ALL_GRADES, SourcingView
 
 EXPOSED_COLOUR = style.RED
 SAFE_COLOUR = style.BLUE
-LEVEL_TONES = {signals.GREEN: style.GOOD, signals.AMBER: style.WARNING, signals.RED: style.CRITICAL}
+LEVEL_TONES = {
+    signals.GREEN: style.GOOD,
+    signals.YELLOW: style.WARNING,
+    signals.ORANGE: style.ELEVATED,
+    signals.RED: style.CRITICAL,
+}
 
 
 def layout(data: AppData) -> html.Div:

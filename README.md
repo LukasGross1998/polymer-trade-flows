@@ -18,9 +18,10 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
 
 **Buying** (Sourcing and Landed cost per PE grade):
 
-- **Situation:** three traffic lights – price (Brent in EUR, 90-day change), supply (share
-  of imports through disrupted chokepoints), logistics (supply-chain pressure) – plus what
-  changed in the last 7 days and active disruption events.
+- **Situation:** four cards – price, supply and logistics with graded traffic lights, plus a
+  polyethylene price indicator – each with a link to the tab that explains it; what changed
+  in the last 7 days, the chokepoints and events that matter for European imports (switch
+  to all regions), "last updated" in the header.
 - **Prices & drivers:** feedstock (oil, gas) vs. resin price indices since 2019, in EUR or
   USD; oil, gas, freight, currencies and the NY Fed Global Supply Chain Pressure Index.
 - **Sourcing:** where Europe's imports from outside the region come from (BACI) and which

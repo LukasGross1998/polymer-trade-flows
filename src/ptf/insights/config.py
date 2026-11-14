@@ -7,9 +7,10 @@ from pydantic import BaseModel
 
 
 class Threshold(BaseModel):
-    """A traffic light: amber from `amber`, red from `red` (both inclusive)."""
+    """A traffic light with four levels: yellow, orange and red from these values (inclusive)."""
 
-    amber: float
+    yellow: float
+    orange: float
     red: float
 
 
@@ -64,6 +65,15 @@ class LeadTime(BaseModel):
     overland_days: dict[str, float] = {}
 
 
+class Relevance(BaseModel):
+    """What counts as relevant for the focus region's buyer (spec 013)."""
+
+    min_region_share: float = 5.0
+    extra_chokepoints: list[str] = []
+    event_radius_km: float = 1000.0
+    series: list[str] = []
+
+
 class SourcingConfig(BaseModel):
     focus_region: str
     passage_chokepoints: dict[str, str]
@@ -71,6 +81,7 @@ class SourcingConfig(BaseModel):
     recent_days: int
     landed_cost: LandedCostSettings
     lead_time: LeadTime
+    relevance: Relevance = Relevance()
 
 
 def load_sourcing_config(path: Path) -> SourcingConfig:

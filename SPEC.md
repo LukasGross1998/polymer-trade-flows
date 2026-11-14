@@ -218,7 +218,7 @@ Architektur zuerst (ADR-010), jeder Schritt als eigene Spec in `specs/` und eige
 5. **Airflow:** zurückgestellt (2026-11-13), eventuell später gehostet statt lokal. Minimalentwurf: `airflow standalone` mit SQLite, Tasks starten das `ptf`-Image (DockerOperator), DAG Schifffahrt/Märkte täglich, Handel/Modell manuell.
 6. **Betrieb:** Laufprotokoll, Frischeprüfungen, Prüfsummen.
 
-Aktueller Fokus: **Einkäufer-Dashboard** (Spec 006: Lagebild, Preise & Treiber, Bezugsquellen mit Meerengen-Abhängigkeit – erledigt; Spec 007 Landed-Cost-Rechner – erledigt; Spec 008 Aufschlüsselung nach Klassen, Spec 009 Seewetter/WITS-Zölle/Seekarten, Spec 010 Bestellplaner, Spec 011 Tagespreis LLDPE Dalian (AKShare, optional), Spec 012 abgeschotteter AKShare-Container und Intraday-Kurs – erledigt; als Nächstes UNCTAD-Seehandel nach Ladungsart prüfen, Eurostat-Monatsimporte).
+Aktueller Fokus: **Einkäufer-Dashboard** (Spec 006: Lagebild, Preise & Treiber, Bezugsquellen mit Meerengen-Abhängigkeit – erledigt; Spec 007 Landed-Cost-Rechner – erledigt; Spec 008 Aufschlüsselung nach Klassen, Spec 009 Seewetter/WITS-Zölle/Seekarten, Spec 010 Bestellplaner, Spec 011 Tagespreis LLDPE Dalian (AKShare, optional), Spec 012 abgeschotteter AKShare-Container und Intraday-Kurs, Spec 013 Startseite für europäische Einkäufer – erledigt; als Nächstes UNCTAD-Seehandel nach Ladungsart prüfen, Eurostat-Monatsimporte).
 
 Danach fachlich:
 7. **Kalibrierung:** Mindestauslastung je Region im LP; Kapazitäts- und Kostenannahmen gegen die BACI-Bilanz prüfen (z. B. Nachfrage Nahost nur 4,2 Mt, Nordostasien 3,5 Mt).

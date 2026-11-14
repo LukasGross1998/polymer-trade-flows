@@ -20,21 +20,42 @@ passage_chokepoints:
   panama: chokepoint2        # Panama Canal
   bering: chokepoint26       # Bering Strait
 
-# Traffic lights on the situation page: amber from `amber`, red from `red` (inclusive).
-# source: assumption
+# Traffic lights on the situation page, four levels (spec 013): yellow from `yellow`, orange
+# from `orange`, red from `red` (inclusive), green below. Red is meant for real exceptions.
+# source: assumption (GSCPI: its 2021 peak was 4.3; red from 2.0 = twice its usual swing)
 signals:
   price:
     series: DCOILBRENTEU     # Brent, converted to EUR with DEXUSEU
     days: 90                 # change over this many days, in %
-    amber: 5.0
-    red: 10.0
+    yellow: 5.0
+    orange: 15.0
+    red: 30.0
   supply:                    # share of extra-regional imports through a disrupted chokepoint, %
-    amber: 10.0
-    red: 25.0
+    yellow: 10.0
+    orange: 25.0
+    red: 50.0
   logistics:                 # latest GSCPI, standard deviations from the average
     series: GSCPI
-    amber: 0.5
-    red: 1.0
+    yellow: 0.5
+    orange: 1.0
+    red: 2.0
+
+# What is relevant for a buyer in the focus region (spec 013). The situation page shows only
+# these by default; a switch shows everything. source: assumption
+relevance:
+  min_region_share: 5.0          # supplier regions with >= 5 % of extra-regional imports
+  extra_chokepoints: [chokepoint9]   # Dover Strait: approach to the ARA ports
+  event_radius_km: 1000          # disruption events this close to a relevant chokepoint or port
+  series:                        # market series for "what changed"
+    - DCOILBRENTEU
+    - DCOILWTICO
+    - DHHNGSP
+    - PNGASEUUSDM
+    - DEXUSEU
+    - PCU3252113252111
+    - PCU325211325211
+    - PCU483111483111
+    - DCE_LLDPE
 
 # "What changed" list on the situation page.
 recent_days: 7
