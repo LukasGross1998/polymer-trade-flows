@@ -7,3 +7,10 @@ baci:
   url: https://www.cepii.fr/DATA_DOWNLOAD/baci/data/BACI_{hs_revision}_V{version}.zip
   hs_prefix: "3901"        # polyethylene in primary forms: 390110, 390120, 390130, 390140, 390190
   years: [2019, 2020, 2021, 2022, 2023, 2024]
+
+# EU import duties from the World Bank WITS API (TRAINS, no key; spec 009).
+# reporter 918 = European Union; the rate is looked up for each grade, newest year first.
+wits:
+  reporter: "918"
+  hs6: ["390110", "390120", "390130", "390140", "390190"]
+  years_back: 6

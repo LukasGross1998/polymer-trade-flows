@@ -6,6 +6,15 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Marine weather (spec 009): wave height and wind gusts at all chokepoints and monitored
+  ports from Open-Meteo, past 7 days and 7-day forecast, storm warnings (Beaufort-based) in
+  the Chokepoints, Ports and Situation tabs; `mart_marine_weather`.
+- EU third-country duty per PE grade from World Bank WITS (`mart_eu_duty`), used by the
+  landed cost; confirms 6.5 %.
+- Nautical chart layer (OpenSeaMap) on the chokepoint and port maps, which are now tile
+  maps.
+- README section "Data sources and keys"; `.env.example` lists `AISSTREAM_API_KEY` and
+  `EIA_API_KEY` (not used yet).
 - Breakdown by class (spec 008): tab "World trade by class" (tonnes vs. value per commodity
   class, plastics drill-down to the PE grades, development since 2019) from the whole BACI
   file; vessel classes at chokepoints (traffic mix, change per class, capacity mix); PE grade

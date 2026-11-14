@@ -556,3 +556,38 @@ Hormuz 2025: tankers 70 % of capacity (822 of 1,175 million t).
 filter by grade; unit prices of one grade are comparable across countries, which removes
 the product-mix effect of section 6.4 (the grades themselves are still broad: HS 390110
 mixes LDPE and LLDPE).
+
+
+## 8. Marine weather, official EU duties, nautical charts (spec 009)
+
+### 8.1 Marine weather (Open-Meteo, no key)
+
+`ptf portwatch` also downloads, for the 28 PortWatch chokepoints and the configured ports,
+the daily maximum wave height (marine API) and wind gusts and wind speed at 10 m (weather
+API), 7 days back and 7 days ahead, in two requests (all coordinates at once). Each download
+is a raw file; dbt keeps the newest value per location and day (`mart_marine_weather`), so a
+newer forecast or the observed value replaces an older forecast. Points on land (some
+chokepoint centroids, inland port coordinates) have no wave data.
+
+**Storm warnings** (`config/shipping.yaml`): gale (amber) from 62 km/h gusts – Beaufort 8 –
+or 4 m waves; storm (red) from 89 km/h – Beaufort 10 – or 6 m. The wave thresholds are an
+assumption ("rough" and "very high" seas); container ships slow down or wait for weather
+well below them in exposed waters. The warnings show in the Chokepoints and Ports tabs and
+in "What changed" on the Situation page.
+
+### 8.2 EU duties from World Bank WITS (no key)
+
+`ptf ingest` asks WITS (TRAINS, reporter 918 = EU, partner = world) for the MFN rate of each
+PE grade, newest year first. WITS gives the simple average, minimum and maximum over the
+EU's tariff lines behind the HS6 code. Result (2023): 6.5 % for all five grades as the
+highest line; HDPE (390120) and other ethylene polymers (390190) have a second line at 0 %
+(average 3.25 %). The landed cost uses the highest line, which applies to ordinary pellets;
+this confirms the 6.5 % taken earlier from the TARIC mirror. Preferential rates (USA 0 %,
+Korea 0 %, ...) are not in this WITS series and stay in `config/sourcing.yaml`.
+
+### 8.3 Nautical chart layer (OpenSeaMap)
+
+The chokepoint and port maps are tile maps (MapLibre, Carto base map). A switch adds the
+OpenSeaMap seamark layer (buoys, lights, traffic separation schemes) and zooms to the
+selected location, because seamarks only appear from about zoom 8. The tiles are loaded by
+the browser; without internet the maps show only the markers.

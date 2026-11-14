@@ -10,7 +10,7 @@ from dash import Dash, Input, Output, dcc, html
 from ptf.app import charts, style
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs.sourcing import grade_dropdown
-from ptf.insights.view import ALL_GRADES, LandedView, landed_view
+from ptf.insights.view import ALL_GRADES, LandedView, landed_view, mfn_rate
 
 COMPONENT_LABELS = {"price": "Price (FOB)", "freight": "Sea freight", "duty": "EU duty"}
 
@@ -78,7 +78,8 @@ def layout(data: AppData) -> html.Div:
                 "(latest / average of the BACI year): a proxy, not a quote. Freight: assumption "
                 "of the transport model (40 USD/t + 7 USD/t per 1,000 nm, config/model.yaml) "
                 "from one port per region. EU duty on price + freight (CIF), rates in "
-                "config/sourcing.yaml (TARIC mirror, to be checked in the official TARIC). "
+                "the third-country rate per grade from World Bank WITS (highest tariff line of the "
+                "grade), preferential rates in config/sourcing.yaml (TARIC mirror). "
                 "Reference line: average price of trade within Europe. The model region Europe "
                 "also includes the UK, Turkey, Switzerland, Norway and Ukraine, where EU duties do "
                 "not apply (e.g. most imports from Iran go to Turkey); GSP preferences (e.g. "
@@ -105,6 +106,12 @@ def compute(
         red_sea_closed=route == "closed",
         freight_factor=freight_factor,
         indexed_prices=basis == "indexed",
+        mfn_pct=mfn_rate(
+            data.eu_duty,
+            data.import_sources_by_product,
+            grade,
+            data.sourcing_config.focus_region,
+        ),
     )
 
 
@@ -135,7 +142,8 @@ def kpi_values(view: LandedView) -> list[dict[str, str]]:
             "label": "Basis",
             "value": f"{view.usd_per_eur:.3f} USD/EUR",
             "note": f"prices {view.year}"
-            + (f" × {view.price_scale:.2f} (index)" if view.price_scale != 1 else ""),
+            + (f" × {view.price_scale:.2f} (index)" if view.price_scale != 1 else "")
+            + f"; {view.duty_source}",
         },
     ]
 

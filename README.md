@@ -35,7 +35,8 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
   the tonnes but 13 % of the value; polyethylene 70 Mt (0.5 %), split by grade.
 - **Chokepoints:** daily transits through 28 maritime chokepoints (IMF PortWatch) against
   their 2019–2023 normal, with the Red Sea diversion (share of container ships taking the
-  Cape route: ~25 % before the crisis, ~77 % since 2024) and the traffic mix by vessel class.
+  Cape route: ~25 % before the crisis, ~77 % since 2024), the traffic mix by vessel class,
+  marine weather with storm warnings and an optional nautical chart layer (OpenSeaMap).
 - **Ports:** port calls and estimated trade volumes of eleven polyethylene-relevant ports
   (Houston, Jubail, Yanbu, Jebel Ali, Antwerp, Rotterdam, Shanghai, ...).
 - **Trade flows:** the port-to-port shipping network (long-haul links, line width = vessel
@@ -45,6 +46,7 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
 ![Prices and drivers](docs/figures/dashboard_prices.jpg)
 ![Landed cost](docs/figures/dashboard_landed_cost.jpg)
 ![World trade by class](docs/figures/dashboard_classes.jpg)
+![Nautical chart layer](docs/figures/dashboard_seamarks.jpg)
 ![Ports](docs/figures/dashboard_ports.jpg)
 ![Trade flows](docs/figures/dashboard_flows.jpg)
 
@@ -63,6 +65,23 @@ uv run python -m ptf.app    # open http://127.0.0.1:8050
 
 The full specification is in [SPEC.md](SPEC.md); design decisions are in
 [docs/decisions.md](docs/decisions.md).
+
+## Data sources and keys
+
+| Source | Used for | Key needed | Status |
+|---|---|---|---|
+| CEPII BACI | bilateral trade by HS6, world trade by class | no | in use |
+| IMF PortWatch | chokepoint transits, ports, events, port network | no | in use |
+| FRED (St. Louis Fed) | oil, gas, freight and resin price indices, FX | no | in use |
+| NY Fed GSCPI | supply chain pressure | no | in use |
+| Open-Meteo | marine weather at chokepoints and ports | no | in use |
+| World Bank WITS | EU third-country duty per PE grade | no | in use |
+| OpenSeaMap | nautical chart layer on the maps (browser) | no | in use |
+| UN Comtrade | own trade download (legacy check) | optional | legacy |
+| AISStream.io | live vessel positions | yes (free account) | planned for hosting |
+| U.S. EIA | crude stocks, ethane/NGL | yes (free registration) | candidate |
+
+Keys go into `.env` (git-ignored, template `.env.example`); never into code or commits.
 
 ## Code structure
 

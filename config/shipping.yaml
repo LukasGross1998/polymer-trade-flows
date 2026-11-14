@@ -45,3 +45,13 @@ min_link_capacity: 1000
 # download takes 20-25 minutes (2-3.5 s per page of 1,000 rows), later updates only a few
 # pages. Switched off until it is needed; set to true and run `pipeline portwatch`.
 download_country_trade: false
+
+# Marine weather at the chokepoints and ports (Open-Meteo, no key; spec 009).
+# Storm warnings: amber from `amber`, red from `red` (inclusive), whichever variable is worse.
+# source: Beaufort scale (gale = force 8 from 62 km/h, storm = force 10 from 89 km/h); wave
+# heights: assumption (about "rough" and "very high" seas in the Douglas sea scale).
+weather:
+  past_days: 7
+  forecast_days: 7
+  waves_m: {amber: 4.0, red: 6.0}
+  gusts_kmh: {amber: 62.0, red: 89.0}

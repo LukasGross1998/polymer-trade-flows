@@ -244,3 +244,30 @@ models:
       - name: qty_t
         data_tests: [non_negative]
       - name: value_usd
+
+  - name: mart_eu_duty
+    description: EU third-country (MFN) import duty per PE grade from WITS (spec 009).
+    columns:
+      - name: hs6
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_product')
+                field: hs6
+      - name: year
+        description: Newest year WITS has a rate for (tariff schedules change rarely).
+      - name: mfn_pct
+        description: Highest MFN rate of the grade's tariff lines, % of the customs value.
+        data_tests:
+          - value_between:
+              arguments:
+                min_value: 0
+                max_value: 100
+      - name: avg_pct
+        description: Simple average over the tariff lines (WITS OBS_VALUE).
+      - name: min_pct
+      - name: tariff_lines
+        description: Number of national tariff lines (8-digit CN codes) behind the HS6 grade.
+      - name: source

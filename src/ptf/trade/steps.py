@@ -5,7 +5,7 @@ import logging
 from ptf.core import warehouse
 from ptf.core.regions import load_regions
 from ptf.core.settings import Settings
-from ptf.trade import baci
+from ptf.trade import baci, duties
 from ptf.trade.config import load_trade_config
 from ptf.trade.quality_report import build_report
 from ptf.trade.reference import write_reference_tables
@@ -16,9 +16,12 @@ CONFIG_FILE = "trade.yaml"
 
 
 def ingest(settings: Settings) -> None:
-    """Download the BACI release (one ~800 MB zip, cached: downloaded once)."""
-    config = load_trade_config(settings.config_dir / CONFIG_FILE).baci
+    """Download the BACI release (one ~800 MB zip, cached) and the EU duties (WITS)."""
+    trade = load_trade_config(settings.config_dir / CONFIG_FILE)
+    config = trade.baci
     baci.ingest_baci(settings.raw_dir, config.download_url, config.hs_revision, config.version)
+    wits = trade.wits
+    duties.ingest_duties(settings.raw_dir, wits.reporter, wits.hs6, wits.years_back)
 
 
 def build(settings: Settings) -> None:
@@ -31,6 +34,7 @@ def build(settings: Settings) -> None:
     config = load_trade_config(settings.config_dir / CONFIG_FILE).baci
     zip_path = baci.baci_zip_path(raw, config.hs_revision, config.version)
     baci.write_landing(zip_path, config.years, config.hs_prefix, raw)
+    duties.write_duty_landing(raw)
     write_reference_tables(load_regions(settings.config_dir / "regions.yaml"), raw)
     warehouse.run_dbt(settings, ["build", "--select", "tag:trade"])
     logger.info("trade marts built in %s", warehouse.warehouse_path(settings))

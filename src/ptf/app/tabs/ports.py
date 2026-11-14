@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 from dash import Dash, Input, Output, dcc, html, no_update
 
-from ptf.app import charts, style
+from ptf.app import charts, style, weather_card
 from ptf.app.data import AppData, AppState, require
 from ptf.shipping.metrics import latest_status, port_table
 from ptf.shipping.overview import active_events
@@ -44,6 +44,7 @@ def layout(data: AppData) -> html.Div:
                 ),
             ),
             charts.control("Period", charts.period_dropdown("port-period")),
+            charts.control("Map", charts.seamark_switch("port-seamarks")),
         ],
         style=style.ROW,
     )
@@ -68,6 +69,7 @@ def layout(data: AppData) -> html.Div:
                 style=style.ROW,
             ),
             html.Div(charts.graph("port-timeseries"), style=style.CARD),
+            weather_card.layout("port-weather"),
             html.Div(
                 "Source: IMF PortWatch. Port calls are counted from satellite AIS data; import and "
                 "export volumes are PortWatch estimates from vessel draught and capacity, not "
@@ -103,7 +105,9 @@ def status_table(status: pd.DataFrame, unit: str) -> html.Table:
     return html.Table([header, *rows], style={"width": "100%", "borderCollapse": "collapse"})
 
 
-def update(data: AppData, port_id: str, metric: str, period: str) -> charts.Outputs:
+def update(
+    data: AppData, port_id: str, metric: str, period: str, seamarks: bool = False
+) -> charts.Outputs:
     unit = _unit(metric)
     label = PORT_METRICS[metric]
     activity = require(data.port_activity, "port_activity")
@@ -113,7 +117,9 @@ def update(data: AppData, port_id: str, metric: str, period: str) -> charts.Outp
     latest = activity["date"].max()
     events = None if data.events is None else active_events(data.events, latest)
 
-    map_fig = charts.location_map(status, data.port_coordinates(), port_id, unit, events, ",.0f")
+    map_fig = charts.location_map(
+        status, data.port_coordinates(), port_id, unit, events, ",.0f", seamarks
+    )
     kpis = charts.tiles(
         [
             {
@@ -148,10 +154,23 @@ def register(app: Dash, state: AppState) -> None:
         Input("port-select", "value"),
         Input("port-metric", "value"),
         Input("port-period", "value"),
+        Input("port-seamarks", "value"),
         Input("data-version", "data"),
     )
-    def _update(port_id: str, metric: str, period: str, _version: int) -> charts.Outputs:
-        return update(state.data, port_id, metric, period)
+    def _update(
+        port_id: str, metric: str, period: str, seamarks: list[str], _version: int
+    ) -> charts.Outputs:
+        return update(state.data, port_id, metric, period, bool(seamarks))
+
+    @app.callback(
+        Output("port-weather-waves", "figure"),
+        Output("port-weather-gusts", "figure"),
+        Output("port-weather-note", "children"),
+        Input("port-select", "value"),
+        Input("data-version", "data"),
+    )
+    def _weather(port_id: str, _version: int) -> charts.Outputs:
+        return weather_card.update(state.data, port_id)
 
     @app.callback(
         Output("port-select", "value"), Input("port-map", "clickData"), prevent_initial_call=True

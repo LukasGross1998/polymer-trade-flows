@@ -1,0 +1,96 @@
+"""Weather card for the chokepoint and port tabs (spec 009): waves and gusts, past and forecast.
+
+Two small charts instead of one with two axes; observed days solid, forecast dashed; the
+storm thresholds of `config/shipping.yaml` as dotted lines.
+"""
+
+import pandas as pd
+import plotly.graph_objects as go
+from dash import html
+
+from ptf.app import charts, style
+from ptf.app.data import AppData
+from ptf.shipping.config import Threshold
+from ptf.shipping.weather import RED, storm_warnings
+
+LEVEL_STYLE = {RED: ("▲ Storm", style.CRITICAL), "amber": ("▲ Gale", style.WARNING)}
+
+
+def layout(prefix: str) -> html.Div:
+    """Card with two graphs and a note; ids `{prefix}-waves`, `{prefix}-gusts`, `{prefix}-note`."""
+    graph = {"flex": "1", "minWidth": "300px"}
+    return html.Div(
+        [
+            html.Div("Marine weather: past 7 days and 7-day forecast", style=style.SECTION_TITLE),
+            html.Div(id=f"{prefix}-note", style={"fontSize": "13px", "marginBottom": "4px"}),
+            html.Div(
+                [
+                    html.Div(charts.graph(f"{prefix}-waves"), style=graph),
+                    html.Div(charts.graph(f"{prefix}-gusts"), style=graph),
+                ],
+                style={"display": "flex", "gap": "16px", "flexWrap": "wrap"},
+            ),
+            html.Div(
+                "Source: Open-Meteo (marine and weather models, daily maxima). Thresholds: "
+                "gale from 62 km/h gusts (Beaufort 8) or 4 m waves, storm from 89 km/h "
+                "(Beaufort 10) or 6 m (config/shipping.yaml). Points on land have no wave data.",
+                style=style.SMALL_NOTE,
+            ),
+        ],
+        style={**style.CARD, "marginTop": "16px"},
+    )
+
+
+def _figure(
+    rows: pd.DataFrame, column: str, title: str, unit: str, threshold: Threshold
+) -> go.Figure:
+    fig = go.Figure()
+    for is_forecast, name, dash in [(False, "observed", "solid"), (True, "forecast", "dash")]:
+        part = rows[rows["is_forecast"] == is_forecast]
+        if is_forecast and not rows[~rows["is_forecast"]].empty:
+            part = pd.concat([rows[~rows["is_forecast"]].tail(1), part])  # connect the lines
+        fig.add_trace(
+            go.Scatter(
+                x=part["date"],
+                y=part[column],
+                name=name,
+                mode="lines+markers",
+                line={"color": style.BLUE, "width": 2, "dash": dash},
+                hovertemplate="%{x|%d %b}: %{y:.1f} " + unit + "<extra>" + name + "</extra>",
+            )
+        )
+    for value, colour in [(threshold.amber, style.WARNING), (threshold.red, style.CRITICAL)]:
+        fig.add_hline(y=value, line={"color": colour, "width": 1, "dash": "dot"})
+    fig.update_yaxes(title={"text": unit, "font": {"color": style.MUTED}}, rangemode="tozero")
+    charts.base_layout(fig, height=230, title=title)
+    fig.update_layout(showlegend=False, margin={"l": 45, "r": 10, "t": 40, "b": 30})
+    return fig
+
+
+def update(
+    data: AppData, location_id: str, today: pd.Timestamp | None = None
+) -> tuple[go.Figure, go.Figure, html.Span]:
+    """Figures and the warning note for one chokepoint or port."""
+    empty = go.Figure()
+    if data.weather is None:
+        return empty, empty, html.Span("No weather data yet: run `uv run ptf portwatch`.")
+    rows = data.weather[data.weather["location_id"] == location_id].sort_values("date")
+    if rows.empty:
+        return empty, empty, html.Span("No weather data for this location.")
+    config = data.monitor_config.weather
+    waves = _figure(rows, "wave_height_m", "Wave height, daily maximum", "m", config.waves_m)
+    gusts = _figure(rows, "wind_gusts_kmh", "Wind gusts, daily maximum", "km/h", config.gusts_kmh)
+    today = today if today is not None else pd.Timestamp(pd.Timestamp.now(tz="UTC").date())
+    warnings = storm_warnings(rows, today, config)
+    if warnings.empty:
+        note = html.Span("● No gale or storm in the forecast", style={"color": style.GOOD})
+    else:
+        first = warnings.iloc[0]
+        label, colour = LEVEL_STYLE.get(first["level"], ("", style.INK))
+        waves_m = charts.number(first["wave_height_m"])
+        gusts_kmh = charts.number(first["wind_gusts_kmh"], ",.0f")
+        note = html.Span(
+            f"{label} forecast on {first['date']:%d %b}: waves {waves_m} m, gusts {gusts_kmh} km/h",
+            style={"color": colour, "fontWeight": "600"},
+        )
+    return waves, gusts, note

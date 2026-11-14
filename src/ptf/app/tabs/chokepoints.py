@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html, no_update
 from plotly.subplots import make_subplots
 
-from ptf.app import charts, style
+from ptf.app import charts, style, weather_card
 from ptf.app.data import AppData, AppState
 from ptf.markets.config import KeyEvent
 from ptf.shipping.metrics import (
@@ -57,6 +57,7 @@ def layout(data: AppData) -> html.Div:
                 ),
             ),
             charts.control("Period", charts.period_dropdown("cp-period")),
+            charts.control("Map", charts.seamark_switch("cp-seamarks")),
         ],
         style=style.ROW,
     )
@@ -103,6 +104,7 @@ def layout(data: AppData) -> html.Div:
                 ],
                 style={**style.ROW, "marginTop": "16px"},
             ),
+            weather_card.layout("cp-weather"),
             html.Div(
                 "Source: IMF PortWatch (daily transit counts from satellite AIS data). Not "
                 "real-time: data arrive a few days late and are updated about weekly. Normal = "
@@ -161,7 +163,9 @@ def diversion_figure(
     return charts.base_layout(fig, height=460)
 
 
-def update(data: AppData, chokepoint_id: str, vessel_type: str, period: str) -> charts.Outputs:
+def update(
+    data: AppData, chokepoint_id: str, vessel_type: str, period: str, seamarks: bool = False
+) -> charts.Outputs:
     """Map, tiles, time series and diversion chart for the current selection."""
     label = VESSEL_LABELS[vessel_type]
     table = monitor_table(data.transits, vessel_type, data.monitor_config)
@@ -171,7 +175,12 @@ def update(data: AppData, chokepoint_id: str, vessel_type: str, period: str) -> 
     events = None if data.events is None else active_events(data.events, data.latest_date)
 
     map_fig = charts.location_map(
-        status, data.chokepoint_coordinates(), chokepoint_id, f"{label} per day", events
+        status,
+        data.chokepoint_coordinates(),
+        chokepoint_id,
+        f"{label} per day",
+        events,
+        seamarks=seamarks,
     )
     kpis = charts.tiles(
         [
@@ -310,10 +319,23 @@ def register(app: Dash, state: AppState) -> None:
         Input("cp-select", "value"),
         Input("cp-vessel-type", "value"),
         Input("cp-period", "value"),
+        Input("cp-seamarks", "value"),
         Input("data-version", "data"),  # changes after "Update data" -> redraw
     )
-    def _update(chokepoint_id: str, vessel_type: str, period: str, _version: int) -> charts.Outputs:
-        return update(state.data, chokepoint_id, vessel_type, period)
+    def _update(
+        chokepoint_id: str, vessel_type: str, period: str, seamarks: list[str], _version: int
+    ) -> charts.Outputs:
+        return update(state.data, chokepoint_id, vessel_type, period, bool(seamarks))
+
+    @app.callback(
+        Output("cp-weather-waves", "figure"),
+        Output("cp-weather-gusts", "figure"),
+        Output("cp-weather-note", "children"),
+        Input("cp-select", "value"),
+        Input("data-version", "data"),
+    )
+    def _weather(chokepoint_id: str, _version: int) -> charts.Outputs:
+        return weather_card.update(state.data, chokepoint_id)
 
     @app.callback(
         Output("cp-select", "value"), Input("cp-map", "clickData"), prevent_initial_call=True

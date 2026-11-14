@@ -17,6 +17,18 @@ class PortConfig(BaseModel):
     role: str
 
 
+class Threshold(BaseModel):
+    amber: float
+    red: float
+
+
+class WeatherConfig(BaseModel):
+    past_days: int = Field(default=7, ge=0, le=92)
+    forecast_days: int = Field(default=7, ge=1, le=16)
+    waves_m: Threshold = Threshold(amber=4.0, red=6.0)
+    gusts_kmh: Threshold = Threshold(amber=62.0, red=89.0)
+
+
 class MonitorConfig(BaseModel):
     baseline_years: list[int]
     rolling_window_days: int = Field(ge=1)
@@ -27,6 +39,7 @@ class MonitorConfig(BaseModel):
     ports: list[PortConfig] = []
     min_link_capacity: float = Field(default=1000, ge=0)
     download_country_trade: bool = False
+    weather: WeatherConfig = WeatherConfig()
 
 
 def load_monitor_config(path: Path) -> MonitorConfig:

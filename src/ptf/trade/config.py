@@ -18,8 +18,15 @@ class BaciConfig(BaseModel):
         return self.url.format(hs_revision=self.hs_revision, version=self.version)
 
 
+class WitsConfig(BaseModel):
+    reporter: str = "918"  # European Union
+    hs6: list[str] = []
+    years_back: int = 6
+
+
 class TradeConfig(BaseModel):
     baci: BaciConfig
+    wits: WitsConfig = WitsConfig()
 
 
 def load_trade_config(path: Path) -> TradeConfig:

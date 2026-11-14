@@ -15,3 +15,9 @@ models:
     columns:
       - name: port_id
         data_tests: [unique, not_null]
+  - name: stg_openmeteo__weather
+    description: Daily marine weather per location, latest download per day (spec 009).
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [location_id, date]
