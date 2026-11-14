@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test of the Docker image (spec 005), used by CI and runnable locally:
 #   docker build -t ptf:local . && docker/smoke_test.sh ptf:local
+#   with the asia image too: ASIA_IMAGE=ptf:asia docker/smoke_test.sh ptf:local
 # Checks: no data or secrets baked in, non-root user, the CLI works, and the app becomes
 # healthy without any warehouse (it shows its "no data yet" start page).
 set -euo pipefail
@@ -34,5 +35,15 @@ if [ "$status" != "healthy" ]; then
     exit 1
 fi
 curl -fsS "http://127.0.0.1:${PORT}/_dash-layout" | grep -q '"no-data"'
+
+if [ -n "${ASIA_IMAGE:-}" ]; then
+    echo "5. asia image: AKShare importable, step dce known, root file system read-only"
+    docker run --rm "$ASIA_IMAGE" python -c "import akshare"
+    docker run --rm "$ASIA_IMAGE" ptf --help | grep -q "dce"
+    if docker run --rm --read-only --tmpfs /tmp "$ASIA_IMAGE" sh -c 'touch /app/x' 2>/dev/null; then
+        echo "asia container could write outside the mounted folder" >&2
+        exit 1
+    fi
+fi
 
 echo "smoke test passed: $IMAGE"

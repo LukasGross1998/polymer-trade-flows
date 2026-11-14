@@ -497,7 +497,11 @@ endpoint (smaller attack surface, but we maintain the parser); C. no Asian price
   landed cost or the order planner.
 
 **Consequences.** A daily Asian PE price at low cost. Risks: the source can change or
-disappear (then switch to option B or drop it); third-party code runs in the market step,
-so in a hosted setup that step should run in its own container without secrets. To remove
+disappear (then switch to option B or drop it); third-party code runs in the download step.
+Since spec 012 that step (`ptf dce`) runs in Docker in its own container `asia` (image
+`ptf:asia` with the extra): only `data/raw/dce` mounted, no `.env`, read-only file system,
+no Linux capabilities, `no-new-privileges`; the marts are built afterwards by the normal
+pipeline container without AKShare (least privilege). Open for hosting: restricting the
+container's network to Sina's hosts (needs a proxy) and polling during trading hours. To remove
 it: delete the `asia` extra, `ptf.markets.dce`, the `dce` block in `config/markets.yaml`,
 the dbt staging model and the chart.

@@ -57,3 +57,26 @@ models:
         data_tests: [unique, not_null]
       - name: brent_usd_per_bbl
       - name: quoted_days
+
+  - name: mart_dce_quote
+    description: >
+      Latest intraday quote of the Dalian LLDPE main contract via AKShare (spec 012); at most
+      one row, empty without the asia extra. Unofficial source (ADR-015).
+    columns:
+      - name: symbol
+        description: Contract code, L0 = main contract (continuous).
+      - name: last_cny_t
+        description: Last trade, CNY per tonne (China, incl. VAT).
+        data_tests: [non_negative]
+      - name: bid_cny_t
+        description: Best bid.
+      - name: ask_cny_t
+        description: Best ask.
+      - name: prev_settle_cny_t
+        description: Settlement price of the previous trading day.
+      - name: tick_time_beijing
+        description: Time of the last trade as reported by Sina (Beijing time, HH:MM:SS).
+      - name: trading_day
+        description: Exchange trading day (a night session counts for the next day).
+      - name: fetched_at
+        description: Time of our download (UTC); Sina's delay is not documented.

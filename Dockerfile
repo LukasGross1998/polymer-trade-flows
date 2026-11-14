@@ -8,9 +8,13 @@
 #   docker compose run --rm pipeline model    # any `ptf` step
 
 ARG PYTHON_IMAGE=python:3.12-slim
+# Optional dependency groups, e.g. "--extra asia" for the isolated AKShare image ptf:asia
+# (spec 012, ADR-015). Empty for the normal image ptf:local.
+ARG EXTRAS=""
 
 # --- stage 1: builder ----------------------------------------------------------------------
 FROM ${PYTHON_IMAGE} AS builder
+ARG EXTRAS
 
 # uv as a single binary from its official image, same version as uv.lock was written with.
 COPY --from=ghcr.io/astral-sh/uv:0.13.7 /uv /bin/uv
@@ -28,13 +32,13 @@ WORKDIR /app
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-dev --no-install-project
+    uv sync --locked --no-dev --no-install-project ${EXTRAS}
 
 # 2) The project itself, installed as a regular package (not linked to the source folder).
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-editable
+    uv sync --locked --no-dev --no-editable ${EXTRAS}
 
 # --- stage 2: runtime ----------------------------------------------------------------------
 FROM ${PYTHON_IMAGE} AS runtime

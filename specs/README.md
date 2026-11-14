@@ -18,3 +18,4 @@ increments.
 | 009 | [Marine weather, official EU duties, nautical chart layer](009-weather-duties-seamap.md) | done |
 | 010 | [Order planner: landed cost against arrival date](010-order-planner.md) | done |
 | 011 | [Daily LLDPE price from the Dalian futures exchange (AKShare)](011-dce-lldpe-futures.md) | done |
+| 012 | [Isolated container for the AKShare download, latest intraday quote](012-asia-container-intraday.md) | done |

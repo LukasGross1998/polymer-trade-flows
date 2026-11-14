@@ -6,6 +6,7 @@
     uv run ptf model      # model layer, transport LP, docs/model_results.md
     uv run ptf portwatch  # PortWatch (incremental) + dbt build of the shipping marts
     uv run ptf market     # FRED prices and NY Fed GSCPI + dbt build of the market marts
+    uv run ptf dce        # Dalian LLDPE price only, needs the asia extra (not in "all")
     uv run ptf comtrade   # superseded own Comtrade download, for comparison (not in "all")
     uv run ptf all        # all steps except comtrade, in the order above
 
@@ -37,8 +38,10 @@ STEPS: dict[str, list[Step]] = {
     "market": [markets_steps.refresh],
 }
 
-# Run only on request, never as part of "all" (ADR-009).
+# Run only on request, never as part of "all": dce runs in its own container (spec 012),
+# comtrade is superseded (ADR-009). `market` includes the DCE download when AKShare exists.
 ON_REQUEST: dict[str, list[Step]] = {
+    "dce": [markets_steps.download_dce],
     "comtrade": [comtrade_steps.run],
 }
 

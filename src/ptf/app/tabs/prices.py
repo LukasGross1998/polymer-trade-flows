@@ -50,6 +50,7 @@ def layout(data: AppData) -> html.Div:
             html.Div(charts.graph("mkt-drivers"), style={**style.CARD, "marginBottom": "16px"}),
             html.Div(
                 [
+                    html.Div(id="mkt-dce-quote", style={"fontSize": "13px", "marginBottom": "4px"}),
                     charts.graph("mkt-dce"),
                     html.Div(
                         "Source: Dalian Commodity Exchange, LLDPE main contract (closing price), "
@@ -183,6 +184,41 @@ def dce_in_currency(market: pd.DataFrame, currency: str) -> pd.DataFrame:
     return usd
 
 
+def quote_line(data: AppData, currency: str) -> str:
+    """The latest intraday quote, if it belongs to a newer trading day than the last close.
+
+    Dalian trades (winter, CET) 02:00-04:30, 06:30-08:00 and 14:00-16:00 (night session in
+    Beijing), so a quote from a download during those hours is fresher than the daily close.
+    """
+    hours = "Dalian trading hours (CET, winter): 02:00–04:30, 06:30–08:00, 14:00–16:00."
+    quote = data.dce_quote
+    market = data.market
+    if quote is None or quote.empty or market is None:
+        return hours
+    row = quote.iloc[0]
+    closes = indicators.series(market, DCE_SERIES)
+    if not closes.empty and row["trading_day"] <= closes["date"].max():
+        return hours  # the daily close already covers this trading day
+    # One price, so convert with the latest rates: CNY -> USD (DEXCHUS = CNY per USD), then
+    # USD -> EUR (DEXUSEU = USD per EUR) if EUR is chosen.
+    in_currency = ""
+    cny_per_usd = indicators.latest(market, "DEXCHUS")
+    usd_per_eur = indicators.latest(market, "DEXUSEU")
+    if cny_per_usd is not None:
+        value = row["last_cny_t"] / cny_per_usd[1]
+        if currency == "EUR" and usd_per_eur is not None:
+            value = value / usd_per_eur[1]
+        if currency == "USD" or usd_per_eur is not None:
+            in_currency = f" ≈ {value:,.0f} {currency}/t"
+    fetched = pd.Timestamp(row["fetched_at"]).tz_convert("Europe/Berlin")
+    return (
+        f"Latest quote: {row['last_cny_t']:,.0f} CNY/t{in_currency} (bid {row['bid_cny_t']:,.0f} / "
+        f"ask {row['ask_cny_t']:,.0f}), last trade {row['tick_time_beijing']} Beijing time, "
+        f"trading day {pd.Timestamp(row['trading_day']):%d %b}; fetched {fetched:%a %d %b %H:%M}. "
+        + hours
+    )
+
+
 def dce_figure(market: pd.DataFrame, start: pd.Timestamp, currency: str) -> go.Figure:
     converted = dce_in_currency(market, currency)
     if converted.empty:
@@ -281,6 +317,7 @@ def update(data: AppData, period: str, currency: str = "EUR") -> charts.Outputs:
         charts.tiles(kpi_values(market, currency)),
         drivers_figure(market, currency, events),
         dce_figure(market, start, currency),
+        quote_line(data, currency),
         oil_figure(market, start, latest, events, currency),
         gas_figure(market, start, latest, events, currency),
         indexed_figure(market, start, latest, events),
@@ -296,6 +333,7 @@ def register(app: Dash, state: AppState) -> None:
         Output("mkt-kpis", "children"),
         Output("mkt-drivers", "figure"),
         Output("mkt-dce", "figure"),
+        Output("mkt-dce-quote", "children"),
         Output("mkt-oil", "figure"),
         Output("mkt-gas", "figure"),
         Output("mkt-indexed", "figure"),

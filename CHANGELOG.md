@@ -6,6 +6,11 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Added
+- Isolated Docker service `asia` (spec 012): image `ptf:asia` (build argument `EXTRAS`),
+  step `ptf dce`, only `data/raw/dce` mounted, no `.env`, read-only file system, no
+  capabilities; CI builds it and checks the isolation.
+- Latest intraday quote of the Dalian LLDPE main contract (last trade, bid, ask, trading
+  day) in `mart_dce_quote`, shown on the Prices tab when newer than the daily close.
 - Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015) via AKShare as
   optional extra `asia`: download in `ptf market`, series `DCE_LLDPE` in the market mart,
   chart and KPI in USD or EUR on the Prices tab; CI job with the extra's tests and
