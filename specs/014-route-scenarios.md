@@ -11,7 +11,7 @@ All tabs tell the same story. A blocked chokepoint either costs time and money b
 detour exists (Bab el-Mandeb, Suez: around the Cape), or it removes supply because no sea
 detour exists (Hormuz). The monitor's live status sets the default route scenario, and that
 one scenario drives the situation page, sourcing, landed cost and the order planner. Routes
-are assigned per country where the region's port is wrong for that country (Egypt, Israel,
+are assigned per country where a source shows that the region's port is wrong (candidates: Egypt, Israel,
 Saudi Arabia, Uzbekistan).
 
 ## Acceptance criteria
@@ -48,34 +48,39 @@ Saudi Arabia, Uzbekistan).
    reduced = {Suez}, distances = `red_sea_closed`.
 
 4. **Country routes** (`config/sourcing.yaml`, block `country_routes`). Where a country does
-   not ship from its region's representative port, it gets its own port(s); sea distances
-   and passages from these ports to the focus region are computed with searoute for the base
-   case and every variant by `ptf model` (new raw file per variant, landing + dbt not needed:
-   the app reads it like the region distances). Initial list (assumptions, marked for review):
-   - EGY → Alexandria (Mediterranean, not Durban);
-   - ISR → Haifa (Mediterranean, not Jebel Ali);
-   - SAU → 50 % Al Jubail (Gulf, passes Hormuz) / 50 % Yanbu (Red Sea, passes Bab el-Mandeb or
-     Suez only);
-   - DZA, LBY, TUN, MAR → their Mediterranean port (instead of Durban);
-   - UZB → see 6.
-   A split country appears as one row per port ("Saudi Arabia via Yanbu", tonnes × share).
-   Tests: Egypt's route to Rotterdam passes Gibraltar but not the Cape; the Saudi rows sum to
-   the Saudi tonnes; under "Hormuz closed" only the Jubail half is at risk.
+   not ship from its region's representative port, it gets its own export port(s); sea
+   distances and passages from these ports to the focus region are computed with searoute for
+   the base case and every variant by `ptf model` (new raw file per variant; the app reads it
+   like the region distances). **Every entry needs a `source`** (document or dataset with the
+   date read) showing that the country's polyethylene leaves from that port; an entry without
+   one is rejected when the config loads (test). Candidates to be researched and sourced
+   before they go into the config: Egypt (Mediterranean instead of Durban), Israel
+   (Mediterranean instead of Jebel Ali), Saudi Arabia (Gulf and Red Sea ports), Algeria /
+   Libya / Tunisia / Morocco (Mediterranean instead of Durban). A candidate without a source
+   stays on its region's port and is marked "route: region default" in the tables.
+   - **Several ports, shares unknown:** a country can list several ports without shares. Its
+     exposure is then a range: from "everything leaves from the least exposed port" to
+     "everything leaves from the most exposed port"; landed cost and arrival are shown per
+     port. Shares are only used if a source gives them.
+   Tests: Egypt routed from a Mediterranean port passes Gibraltar, not the Cape; a country with
+   a Gulf and a Red Sea port under "Hormuz closed" gives an exposure range from 0 % to 100 % of
+   its tonnes; a country route without `source` fails validation.
 
 5. **Scenario drives landed cost and the order planner.**
    - Freight and sea days use the scenario's distance per origin.
    - An origin whose route passes a closed, not bypassable chokepoint is flagged `at_risk`:
      shown greyed with "availability uncertain", never `on_time`, never recommended.
-   - A reduced chokepoint on the route adds `reduced_buffer_days` (assumption: 3).
+   - A reduced chokepoint on the route is flagged "reduced traffic" on the row; it adds no
+     days, because no source gives the delay it causes.
    - "Suppliers in time" counts only origins that are on time and not at risk.
    Test: with Hormuz closed, a Qatar row arriving before "needed by" is at risk, not on time,
    not recommended, and not counted.
 
-6. **Landlocked origins** (UZB): a country route can name an overland leg with
-   `overland_days` and `overland_usd_t` to its export port (UZB: rail to Poti, Georgia,
-   21 days, 120 USD/t – assumption) and `confidence: low`. Freight = overland + sea; the tab
-   marks the row "low confidence". Test: UZB landed freight = 120 USD/t + sea freight from
-   Poti.
+6. **Landlocked origins** (Uzbekistan): without a sourced overland leg (days and cost to an
+   export port) they get no route: landed cost and arrival show "n/a – overland leg unknown",
+   the row is marked "low confidence", and it is never recommended. The existing
+   `lead_time.overland_days: {UZB: 21}` (spec 010) has no source and is removed. Test: an
+   origin flagged landlocked has no landed cost and is not recommended.
 
 7. **Supply light** splits the exposed share into *at risk* (behind a closed, not bypassable
    chokepoint) and *delayed* (behind a closed bypassable one, i.e. on a detour); the level
@@ -104,8 +109,8 @@ Saudi Arabia, Uzbekistan).
 - Today's data (14 Nov 2026, week 45): Hormuz −95 %, Bab el-Mandeb −58 %, Bosporus −56 %,
   Suez −30 %, Gibraltar +2 %, Malacca +18 %. Live status would thus close Hormuz, Bab
   el-Mandeb and Bosporus: Gulf origins at risk, Asian and Red Sea routes via the Cape.
-  Bosporus closed puts a Black Sea route (UZB via Poti) at risk too; whether Black Sea origins
-  matter at all for PE into Europe is small (Uzbekistan 151 kt).
+  Bosporus matters only for Black Sea origins; none of the larger suppliers ships from there
+  in the current routing.
 - Root cause of the Hormuz bug: `insights.relevance.chokepoint_dependency` computes one
   detour delta per region (Middle East: +13 days) and gives it to every chokepoint on that
   region's route.
@@ -116,11 +121,16 @@ Saudi Arabia, Uzbekistan).
   writes `data/raw/distances/country_distances_<variant>.parquet` (country, port, share,
   distance_nm, passages); `ptf.model` gets a `malacca_closed` variant (restrictions
   `[malacca]`, to be confirmed with searoute's passage list). Ports and coordinates live in
-  `config/sourcing.yaml` (an insights assumption), but the computation stays in `model`, so
+  `config/sourcing.yaml` (insights config), but the computation stays in `model`, so
   `model/steps.py` reads them through `model.config` (no insights import, ADR-012).
 - Files: `config/sourcing.yaml`, `config/model.yaml`, `src/ptf/insights/{config,scenario,
   exposure,relevance,landed_cost,planner,view}.py`, `src/ptf/model/{distances,steps,config}.py`,
   `src/ptf/app/{__main__,data}.py`, `src/ptf/app/tabs/{situation,sourcing,landed_cost,
   planner}.py`, tests, docs.
-- Open questions for the user: the Saudi split (50/50), the reduced and closed thresholds
-  (−30 % disrupted, −50 % closed), UZB via Poti vs. rail directly to Europe, rail cost 120 USD/t.
+- Data rule (user, 14 Nov 2026): only values confirmed by a data source. Settings are not
+  data: `closed_below_pct` (−50 %) is a user setting like the traffic-light thresholds and is
+  labelled `setting` in the config, not `source`. The country-route research (criterion 4)
+  is part of this spec; whatever cannot be sourced is left out.
+- Other unsourced values the scenario depends on (freight rates, ship speed, port days, the
+  congestion and storm buffers, "buy in Europe" days) are handled in the source audit (spec
+  015), which runs before this spec is implemented.
