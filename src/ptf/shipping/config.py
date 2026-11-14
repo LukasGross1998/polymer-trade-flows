@@ -15,6 +15,7 @@ class PortConfig(BaseModel):
     id: str  # PortWatch id
     name: str
     role: str
+    region: str | None = None  # model region (config/regions.yaml), for the order planner
 
 
 class Threshold(BaseModel):

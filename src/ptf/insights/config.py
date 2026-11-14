@@ -50,12 +50,27 @@ class LandedCostSettings(BaseModel):
     duty: Duty
 
 
+class LeadTime(BaseModel):
+    """Assumptions of the order planner (spec 010), in days and knots."""
+
+    speed_knots: float
+    origin_port_days: float
+    destination_port_days: float
+    congestion_buffer_days: float
+    storm_buffer_days: float
+    europe_days: float
+    default_need_by_days: int
+    default_quantity_t: float
+    overland_days: dict[str, float] = {}
+
+
 class SourcingConfig(BaseModel):
     focus_region: str
     passage_chokepoints: dict[str, str]
     signals: Signals
     recent_days: int
     landed_cost: LandedCostSettings
+    lead_time: LeadTime
 
 
 def load_sourcing_config(path: Path) -> SourcingConfig:

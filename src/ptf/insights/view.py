@@ -8,12 +8,13 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from ptf.insights import exposure, landed_cost, signals
+from ptf.insights import exposure, landed_cost, planner, signals
 from ptf.insights.config import SourcingConfig
 from ptf.markets import indicators
 from ptf.model.config import FreightAssumption
 from ptf.shipping.config import MonitorConfig
-from ptf.shipping.metrics import latest_status, monitor_table
+from ptf.shipping.metrics import latest_status, monitor_table, port_table
+from ptf.shipping.weather import RED, storm_warnings
 
 
 @dataclass
@@ -216,3 +217,57 @@ def mfn_rate(
     if weights.sum() == 0:
         return None
     return float(sum(rates[h] * w for h, w in weights.items()) / weights.sum())
+
+
+@dataclass
+class PlannerView:
+    table: pd.DataFrame  # insights.planner.plan: suppliers with landed cost, arrival, flags
+    landed: LandedView
+    order_date: pd.Timestamp
+    need_by: pd.Timestamp
+    quantity_t: float
+    europe_arrival: pd.Timestamp
+
+
+def congested_regions(port_activity: pd.DataFrame | None, config: MonitorConfig) -> set[str]:
+    """Regions with a monitored port whose port calls are flagged below normal today."""
+    if port_activity is None or port_activity.empty:
+        return set()
+    status = latest_status(port_table(port_activity, "portcalls", config))
+    flagged = set(status.loc[status["is_disrupted"], "location_id"])
+    return {p.region for p in config.ports if p.id in flagged and p.region}
+
+
+def storm_chokepoints(
+    weather_table: pd.DataFrame | None, as_of: pd.Timestamp, config: MonitorConfig
+) -> set[str]:
+    """Chokepoints with a storm (red) forecast from `as_of` on."""
+    if weather_table is None or weather_table.empty:
+        return set()
+    warnings = storm_warnings(weather_table, as_of, config.weather)
+    red = warnings[(warnings["level"] == RED) & (warnings["location_type"] == "chokepoint")]
+    return set(red["location_id"])
+
+
+def planner_view(
+    landed: LandedView,
+    distances: pd.DataFrame,
+    chokepoints: pd.DataFrame,
+    config: SourcingConfig,
+    congested: set[str],
+    storms: set[str],
+    order_date: pd.Timestamp,
+    need_by: pd.Timestamp,
+    quantity_t: float,
+) -> PlannerView:
+    """Lead times on the chosen route and the plan for the landed-cost suppliers."""
+    region = config.focus_region
+    routes = exposure.route_chokepoints(distances, config.passage_chokepoints, chokepoints, region)
+    to_focus = distances.loc[distances["dest_region"] == region, ["origin_region", "distance_nm"]]
+    routes = routes.merge(to_focus, on="origin_region")
+    leads = planner.lead_times(routes, region, config.lead_time, congested, storms)
+    table = planner.plan(
+        landed.table, leads, order_date, need_by, quantity_t, config.lead_time.overland_days
+    )
+    europe = order_date + pd.Timedelta(days=config.lead_time.europe_days)
+    return PlannerView(table, landed, order_date, need_by, quantity_t, europe)

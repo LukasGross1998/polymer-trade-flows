@@ -18,6 +18,7 @@ from ptf.app.tabs import (
     classes,
     flows,
     landed_cost,
+    planner,
     ports,
     prices,
     situation,
@@ -210,3 +211,21 @@ def test_weather_card_and_seamark_layer(data: AppData) -> None:
 
     map_fig, *_ = chokepoints.update(data, "chokepoint4", "container", "90d", seamarks=True)
     assert "openseamap" in map_fig.layout.map.layers[0].source[0]
+
+
+def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
+    raw, regions = warehouse_setup.settings.raw_dir, warehouse_setup.regions
+    write_synthetic_distances(raw, regions)
+    data = load_app_data(warehouse_setup.settings)
+    order = pd.Timestamp("2026-11-14")
+
+    kpis, scatter, table = planner.update(data, "2027-01-31", 500, order_date=order)
+    # Fixture: only the USA ship to Europe; 5,000 nm / (14 kn x 24) = 14.9 sea days + 8 port days
+    # = 23 days -> arrival 7 Dec, in time; landed 1,325 EUR/t x 500 t = 662,500 EUR.
+    assert kpis[0].children[1].children == "USA"
+    assert kpis[0].children[2].children == "arrives 07 Dec 2026 (23 days)"
+    assert kpis[1].children[2].children == "662 thousand EUR for 500 t"
+    assert scatter.data[0].x[0] == pd.Timestamp("2026-12-07")
+
+    late, *_ = planner.update(data, "2026-11-30", 500, order_date=order)
+    assert late[0].children[0].children == "No origin in time – earliest"

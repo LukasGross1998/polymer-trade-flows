@@ -68,3 +68,20 @@ landed_cost:
       ARG: *mercosur
       URY: *mercosur
       PRY: *mercosur
+
+# Order planner (spec 010): lead time = origin port + sea days + destination port + buffers.
+# source: assumption (container ships slow-steam at about 14 knots; 4 days each for loading
+# and export clearance, discharge, import clearance and delivery to the warehouse).
+lead_time:
+  speed_knots: 14
+  origin_port_days: 4
+  destination_port_days: 4
+  congestion_buffer_days: 3   # a monitored port of the origin or destination region is below normal
+  storm_buffer_days: 2        # a chokepoint on the route has a storm (red) forecast
+  europe_days: 7              # reference "buy in Europe": truck or short sea from a European producer
+  default_need_by_days: 45
+  default_quantity_t: 500
+  # Landlocked exporters: days by rail or truck to the region's port, added to the lead time.
+  # source: assumption (Uzbekistan: rail to the Baltic or Black Sea, about three weeks).
+  overland_days:
+    UZB: 21

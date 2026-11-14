@@ -28,6 +28,8 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
   East and Asian supplies through Hormuz, Bab el-Mandeb and Suez.
 - **Landed cost:** price, sea freight and EU duty per supplier country in EUR/t, with the
   Red Sea open or closed and adjustable freight rates.
+- **Order planner:** landed cost against arrival date if ordered today; the cheapest
+  supplier that arrives by the need-by date (lead times with port and storm buffers).
 
 **Markets & logistics:**
 
@@ -45,6 +47,7 @@ A Dash app for a polyethylene buyer in Europe, in two sections (specs 006–008)
 ![Sourcing](docs/figures/dashboard_sourcing.jpg)
 ![Prices and drivers](docs/figures/dashboard_prices.jpg)
 ![Landed cost](docs/figures/dashboard_landed_cost.jpg)
+![Order planner](docs/figures/dashboard_planner.jpg)
 ![World trade by class](docs/figures/dashboard_classes.jpg)
 ![Nautical chart layer](docs/figures/dashboard_seamarks.jpg)
 ![Ports](docs/figures/dashboard_ports.jpg)
@@ -166,6 +169,6 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | 0 | Repo scaffold, tooling, CI | done |
 | 1 | Ingest, cleaning, data-quality report | done (BACI, ADR-009) |
 | 2 | Transport LP, model vs. reality, shadow prices | first version done (base year 2023) |
-| 3 | Scenarios, cost curves, Dash app (MVP) | buyer dashboard (two sections, 8 tabs) done; landed cost and scenarios next |
+| 3 | Scenarios, cost curves, Dash app (MVP) | buyer dashboard (two sections, 9 tabs) done; landed cost and scenarios next |
 | 4 | Import forecasting (optional) | planned |
 | 5 | Docker, Airflow, final polish | planned |
