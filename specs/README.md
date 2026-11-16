@@ -24,4 +24,4 @@ increments.
 | 015 | [Source audit: every number about the world has a source](015-source-audit.md) | done |
 | 016 | [Recommendation logic: sourceable origins, confidence, price ranges, order timing](016-recommendation-logic.md) | done |
 | 017 | [One design: theme, KPI tile, global bar, number formats, method panels](017-design-system.md) | done |
-| 018 | [Charts that answer the buyer's question](018-charts.md) | draft |
+| 018 | [Charts that answer the buyer's question](018-charts.md) | done |

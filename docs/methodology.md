@@ -776,3 +776,33 @@ rate (OECD via FRED, `IR3TIB01EZM156N`, monthly; 2.03 % in January 2026) × ship
 days / 365 – n/a where the transit time is n/a. Insurance (% of the price), port handling
 and on-carriage (EUR/t) enter only as the buyer's quotes; everything left out is listed
 under the table.
+
+
+## 14. Charts for the buyer (spec 018)
+
+**Situation:** a summary sentence built only from the three lights and the scenario
+("Supply critical: 16–39 % … at risk behind Hormuz, 12 % on a detour; price mixed; logistics
+elevated"). The price card shows the 90-day and the 30-day change of Brent in EUR; when the
+two point in opposite directions and are at least 10 percentage points apart (setting), the
+card says "Mixed" (watch level) instead of OK – on 14 Nov 2026 Brent was +3.5 % over 90
+days but −28.8 % over 30 days. "What changed" lists only changes of level, storm (red)
+forecasts near relevant points and market moves of at least 5 % (settings), each with a
+fixed, neutral note for the buyer (no forecast). Chokepoints and open events are one list:
+events within the relevance radius sit under their chokepoint.
+
+**Polymer over crude:** Dalian LLDPE minus Brent per tonne, both in the chosen currency;
+Brent in USD/bbl × 7.32 barrels per tonne (UN Energy Statistics Yearbook 2023, Table II,
+crude oil of average specific gravity), taken from the last Brent day up to four days before
+each Dalian trading day. A rising spread means polymer prices rise faster than crude: margin
+rather than feedstock. Not a producer margin: naphtha, ethane and conversion costs are not
+in it. The daily Dalian price is the close of the day session at 15:00 Beijing time (Nanhua
+Futures' overview of DCE trading hours).
+
+**Destinations in Europe:** BACI's importer country, grouped by a setting (North-West
+Europe, Mediterranean, Turkey, Central & Eastern Europe, other). Turkey is the largest
+single destination of extra-European PE in 2024 (1.9 Mt). Only for all grades together –
+the bilateral mart has no grade split.
+
+**Planner timeline:** the transit band runs from the fastest to the slowest container ship
+size of the IMO table (16.5 and 11.8 knots), e.g. 24.5 to 34.3 sea days for 9,720 nm. It
+shows how much the ship speed alone moves the arrival, not loading, waiting or clearance.

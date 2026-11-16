@@ -6,6 +6,14 @@ versioning (`0.x`: no stable interface yet).
 ## Unreleased
 
 ### Changed
+- Charts that answer the buyer's question (spec 018): summary sentence and one list of
+  chokepoints and disruptions on the situation page, "what changed" with thresholds and
+  buyer notes, price card with 30 and 90 days ("Mixed" when they diverge); polymer-over-
+  crude spread (Dalian LLDPE minus Brent per tonne, UN conversion factor) instead of the
+  index chart, Brent only, gas spread as an area, own freight and EUR/USD charts, GSCPI as
+  context; Sankey to destination groups in Europe and a supplier bar chart instead of the
+  treemap; landed cost as one table with inline bars; planner timeline with the transit
+  range of the IMO ship sizes. README screenshots of the buying tabs updated.
 - One design for all tabs (spec 017): central theme (`ptf.app.theme`) with status colours
   only for status, a validated categorical palette without red, orange, yellow or green,
   one route encoding (open / detour / at risk / not sourceable) and a Plotly template;

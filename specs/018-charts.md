@@ -1,6 +1,6 @@
 # 018 – Charts that answer the buyer's question
 
-- **Status:** draft
+- **Status:** done
 - **Branch / PR:** `feat/charts` / see PR
 - **SPEC.md sections:** 7 (app); phase 4 of the user's dashboard plan (14 Nov 2026); builds
   on the theme of spec 017 and the sourced-values rule (ADR-016)
@@ -97,3 +97,14 @@ need a source like every other value.
   oil (Energy Institute / IEA conversion tables).
 - Settings to confirm: `min_move_pct` 5 %, `divergence_pct` 10 points, destination groups,
   top 15 suppliers.
+
+## Implementation notes (16 Nov 2026)
+
+- Sources: 7.32 barrels per tonne of crude (UN Energy Statistics Yearbook 2023, Table II);
+  DCE day session closes at 15:00 Beijing time (Nanhua Futures trading-hours overview of
+  18 Nov 2024). The old trading-hours text of spec 012 (CET times without a source) is gone.
+- Buyer notes in "what changed" are fixed and neutral ("compare resin offers with it"), no
+  forecasts.
+- Destination groups only for all grades: `mart_bilateral_trade` has no grade split.
+- Currencies: only EUR/USD is drawn; CNY and the dollar index stay in the pipeline (the CNY
+  rate converts the Dalian price).
