@@ -7,7 +7,7 @@ the development of the classes since 2019. Source: the whole CEPII BACI file (al
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, html
 
-from ptf.app import charts, style
+from ptf.app import charts, theme
 from ptf.app.data import AppData, AppState
 from ptf.trade import classes
 
@@ -16,30 +16,30 @@ BASE_YEAR = 2019
 
 def layout(data: AppData) -> html.Div:
     if data.trade_by_class is None or data.class_tree is None:
-        return charts.no_data("No class data yet: run `uv run ptf clean`.")
+        return charts.no_data("No trade data loaded yet.")
     year = int(data.trade_by_class["year"].max())
-    card = {**style.CARD, "flex": "1", "minWidth": "420px"}
+    card = {**theme.CARD, "flex": "1", "minWidth": "420px"}
     return html.Div(
         [
-            html.Div(id="cls-kpis", style=style.ROW),
-            html.Div(
-                [
-                    html.Div(charts.graph("cls-shares"), style=card),
-                    html.Div(charts.graph("cls-treemap"), style=card),
-                ],
-                style=style.ROW,
-            ),
-            html.Div(charts.graph("cls-index"), style={**style.CARD, "marginBottom": "16px"}),
-            html.Div(
+            theme.method_panel(
                 f"World trade of all goods, CEPII BACI {year} (latest year), all transport modes: "
                 "BACI does not tell sea from land, rail, pipeline or air, so these are shares of "
                 "world trade, not of seaborne trade (most bulk tonnage moves by sea, but e.g. "
                 "pipeline gas and European road freight are included). Classes by HS chapter: "
                 "27 mineral fuels, 26 ores, 10 and 12 cereals and oilseeds, 29 organic chemicals, "
                 "3901-3914 plastics in primary forms (3901 polyethylene by grade); "
-                "dbt/seeds/commodity_classes.csv. Flows without a quantity count with 0 t.",
-                style=style.SMALL_NOTE,
+                "the grouping is documented in the project's methodology. Flows without a "
+                "quantity count with 0 t.",
             ),
+            html.Div(id="cls-kpis", style=theme.ROW),
+            html.Div(
+                [
+                    html.Div(charts.graph("cls-shares"), style=card),
+                    html.Div(charts.graph("cls-treemap"), style=card),
+                ],
+                style=theme.ROW,
+            ),
+            html.Div(charts.graph("cls-index"), style={**theme.CARD, "marginBottom": "16px"}),
         ]
     )
 
@@ -93,7 +93,7 @@ def shares_figure(data: AppData, year: int) -> go.Figure:
     top = classes.top_level(data.trade_by_class, data.class_tree, year)
     fig = go.Figure()
     for colour, (column, name) in zip(
-        style.SERIES,
+        theme.SERIES,
         [("qty_share", "Share of tonnes"), ("value_share", "Share of value")],
         strict=False,
     ):
@@ -109,7 +109,7 @@ def shares_figure(data: AppData, year: int) -> go.Figure:
         )
     fig.update_layout(barmode="group", hovermode="closest", legend={"traceorder": "normal"})
     fig.update_yaxes(autorange="reversed")
-    fig.update_xaxes(title={"text": "% of world trade", "font": {"color": style.MUTED}})
+    fig.update_xaxes(title={"text": "% of world trade", "font": {"color": theme.MUTED}})
     return charts.base_layout(fig, height=420, title=f"Tonnes vs. value by class, {year}")
 
 
@@ -139,7 +139,7 @@ def treemap_figure(data: AppData, year: int) -> go.Figure:
             values=nodes["qty_t"],
             branchvalues="total",
             customdata=nodes["qty_t"] / 1e6,
-            marker={"colors": [style.ORANGE if p else style.BLUE for p in is_pe]},
+            marker={"colors": [theme.HIGHLIGHT if p else theme.BLUE for p in is_pe]},
             texttemplate="%{label}<br>%{customdata:,.1f} Mt",
             hovertemplate="%{label}: %{customdata:,.1f} Mt<extra></extra>",
         )
@@ -160,7 +160,7 @@ def index_figure(data: AppData) -> go.Figure:
     ]
     fig = go.Figure()
     for colour, (name, frame) in zip(
-        style.SERIES + [style.MUTED, style.INK_SECONDARY], frames, strict=False
+        theme.SERIES + [theme.MUTED, theme.INK_SECONDARY], frames, strict=False
     ):
         fig.add_trace(
             go.Scatter(
@@ -172,8 +172,8 @@ def index_figure(data: AppData) -> go.Figure:
                 hovertemplate="%{y:.0f}",
             )
         )
-    fig.add_hline(y=100, line={"color": style.GRID, "width": 1})
-    fig.update_yaxes(title={"text": f"tonnes, {BASE_YEAR} = 100", "font": {"color": style.MUTED}})
+    fig.add_hline(y=100, line={"color": theme.GRID, "width": 1})
+    fig.update_yaxes(title={"text": f"tonnes, {BASE_YEAR} = 100", "font": {"color": theme.MUTED}})
     fig.update_xaxes(dtick=1)
     return charts.base_layout(fig, height=340, title="Development of the classes (tonnes)")
 

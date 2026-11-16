@@ -5,3 +5,28 @@ body {
   background-color: #f9f9f7;
   color-scheme: light;
 }
+
+/* Spec 017: chart titles sit in the card above the plot, so Plotly's own title is hidden. */
+.ptf-graph .gtitle {
+  display: none;
+}
+
+/* Second-level tabs: light underline tabs with less height. */
+.ptf-subtabs .tab {
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  background: transparent !important;
+  padding: 6px 12px !important;
+  line-height: 1.4 !important;
+  color: #52514e;
+  font-size: 14px;
+}
+.ptf-subtabs .tab--selected {
+  border-bottom: 2px solid #0b0b0b !important;
+  color: #0b0b0b !important;
+  font-weight: 600;
+}
+.ptf-subtabs {
+  border-bottom: 1px solid #e1e0d9;
+  height: auto !important;
+}

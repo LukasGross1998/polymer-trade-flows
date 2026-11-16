@@ -7,7 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html, no_update
 
-from ptf.app import charts, style
+from ptf.app import charts, theme
 from ptf.app.data import AppData, AppState, require
 from ptf.shipping.flows import cargo_mix, country_ranking, port_options, top_links
 from ptf.shipping.vocabulary import CARGO_TYPES
@@ -25,14 +25,13 @@ CARGO_SHORT = {
 
 COUNTRY_TRADE_HINT = (
     "Trade by cargo type: no data yet. The country trade dataset (~560,000 rows) takes 20-25 "
-    "minutes to download the first time. To enable it, set `download_country_trade: true` in "
-    "config/shipping.yaml and run `uv run ptf portwatch`."
+    "minutes to download the first time and is switched off (see the README to enable it)."
 )
 
 
 def layout(data: AppData) -> html.Div:
     if data.port_links is None:
-        return charts.no_data("No flow data yet: run `uv run ptf portwatch`.")
+        return charts.no_data("No flow data loaded yet – use Update data.")
     trade = charts.no_data(COUNTRY_TRADE_HINT)
     if data.country_trade is not None:
         trade = _trade_section(data)
@@ -46,7 +45,7 @@ def _network_section(data: AppData) -> html.Div:
     ]
     return html.Div(
         [
-            html.Div("Port-to-port shipping network", style=style.SECTION_TITLE),
+            html.Div("Port-to-port shipping network", style=theme.SECTION_TITLE),
             html.Div(
                 [
                     charts.control(
@@ -82,25 +81,24 @@ def _network_section(data: AppData) -> html.Div:
                         ),
                     ),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
             html.Div(
                 [
                     html.Div(charts.graph("flow-map"), style={"flex": "2", "minWidth": "480px"}),
                     html.Div(id="flow-table", style={"flex": "1", "minWidth": "280px"}),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
-            html.Div(
+            theme.method_panel(
                 "Source: IMF PortWatch port-to-port network (snapshot, last updated May 2025), all "
                 "vessel types together. Line width = vessel capacity (deadweight tonnes) "
                 "travelling between the ports per day, not the cargo actually carried. Only links "
                 f"with at least {data.monitor_config.min_link_capacity:,.0f} t of daily capacity "
                 "are included.",
-                style=style.SMALL_NOTE,
             ),
         ],
-        style={**style.CARD, "marginBottom": "16px"},
+        style={**theme.CARD, "marginBottom": "16px"},
     )
 
 
@@ -110,7 +108,7 @@ def _trade_section(data: AppData) -> html.Div:
     country_choices = [{"label": c.country, "value": c.iso3} for c in countries.itertuples()]
     return html.Div(
         [
-            html.Div("Trade by cargo type", style=style.SECTION_TITLE),
+            html.Div("Trade by cargo type", style=theme.SECTION_TITLE),
             html.Div(
                 [
                     charts.control(
@@ -146,7 +144,7 @@ def _trade_section(data: AppData) -> html.Div:
                     ),
                     charts.control("Period", charts.period_dropdown("flow-period")),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
             html.Div(
                 [
@@ -155,17 +153,16 @@ def _trade_section(data: AppData) -> html.Div:
                         charts.graph("flow-ranking"), style={"flex": "1", "minWidth": "420px"}
                     ),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
-            html.Div(
+            theme.method_panel(
                 "Source: IMF PortWatch daily trade estimates per country from vessel draught and "
                 "capacity (t/day), not customs statistics. Vessel type stands for the cargo: "
                 + "; ".join(f"{CARGO_SHORT[k]} = {v}" for k, v in CARGO_TYPES.items())
                 + ".",
-                style=style.SMALL_NOTE,
             ),
         ],
-        style=style.CARD,
+        style=theme.CARD,
     )
 
 
@@ -193,7 +190,7 @@ def network_figure(links: pd.DataFrame, selected_port: str | None) -> go.Figure:
                 lon=lon,
                 lat=lat,
                 mode="lines",
-                line={"width": width, "color": style.BLUE},
+                line={"width": width, "color": theme.BLUE},
                 opacity=0.45,
                 hoverinfo="skip",
                 showlegend=False,
@@ -245,8 +242,8 @@ def network_figure(links: pd.DataFrame, selected_port: str | None) -> go.Figure:
             mode="markers",
             marker={
                 "size": 5 + 14 * np.sqrt(ports["capacity"] / ports["capacity"].max()),
-                "color": np.where(is_selected, style.ORANGE, style.INK_SECONDARY),
-                "line": {"color": style.SURFACE, "width": 1},
+                "color": np.where(is_selected, theme.HIGHLIGHT, theme.INK_SECONDARY),
+                "line": {"color": theme.SURFACE, "width": 1},
             },
             showlegend=False,
         )
@@ -256,13 +253,13 @@ def network_figure(links: pd.DataFrame, selected_port: str | None) -> go.Figure:
         showcountries=False,
         showcoastlines=False,
         showland=True,
-        landcolor=style.LAND,
+        landcolor=theme.LAND,
         showocean=True,
-        oceancolor=style.SURFACE,
+        oceancolor=theme.SURFACE,
         showframe=False,
     )
     fig.update_layout(
-        height=420, margin={"l": 0, "r": 0, "t": 0, "b": 0}, paper_bgcolor=style.SURFACE
+        height=420, margin={"l": 0, "r": 0, "t": 0, "b": 0}, paper_bgcolor=theme.SURFACE
     )
     return fig
 
@@ -270,10 +267,10 @@ def network_figure(links: pd.DataFrame, selected_port: str | None) -> go.Figure:
 def links_table(links: pd.DataFrame, n: int = 12) -> html.Div:
     """The largest links of the current selection as a compact table."""
     if links.empty:
-        return html.Div("No links above the capacity threshold.", style={"color": style.MUTED})
+        return html.Div("No links above the capacity threshold.", style={"color": theme.MUTED})
     header = html.Tr(
         [
-            html.Th(t, style={"textAlign": "left", "fontSize": "12px", "color": style.MUTED})
+            html.Th(t, style={"textAlign": "left", "fontSize": "12px", "color": theme.MUTED})
             for t in ["From → to", "t/day", "days"]
         ]
     )
@@ -290,7 +287,7 @@ def links_table(links: pd.DataFrame, n: int = 12) -> html.Div:
     ]
     return html.Div(
         [
-            html.Div("Largest links", style={**style.SECTION_TITLE, "fontSize": "13px"}),
+            html.Div("Largest links", style={**theme.SECTION_TITLE, "fontSize": "13px"}),
             html.Table([header, *rows], style={"width": "100%", "borderCollapse": "collapse"}),
         ]
     )
@@ -299,7 +296,7 @@ def links_table(links: pd.DataFrame, n: int = 12) -> html.Div:
 def mix_figure(mix: pd.DataFrame, title: str) -> go.Figure:
     """Stacked areas by cargo type; colours tied to the cargo type, in fixed order."""
     fig = go.Figure()
-    for colour, cargo_type in zip(style.SERIES, CARGO_TYPES, strict=True):
+    for colour, cargo_type in zip(theme.SERIES, CARGO_TYPES, strict=True):
         one = mix[mix["cargo_type"] == cargo_type]
         fig.add_trace(
             go.Scatter(
@@ -312,7 +309,7 @@ def mix_figure(mix: pd.DataFrame, title: str) -> go.Figure:
                 hovertemplate="%{y:,.0f} t",
             )
         )
-    fig.update_yaxes(title={"text": "t per day (30-day average)", "font": {"color": style.MUTED}})
+    fig.update_yaxes(title={"text": "t per day (30-day average)", "font": {"color": theme.MUTED}})
     return charts.base_layout(fig, height=400, title=title)
 
 
@@ -328,14 +325,14 @@ def ranking_figure(ranking: pd.DataFrame, title: str) -> go.Figure:
             x=ordered["rolling"],
             y=ordered["location"],
             orientation="h",
-            marker={"color": style.BLUE},
+            marker={"color": theme.BLUE},
             text=labels,
             textposition="outside",
             cliponaxis=False,
             hovertemplate="%{x:,.0f} t per day<extra></extra>",
         )
     )
-    fig.update_xaxes(title={"text": "t per day, last 7 days", "font": {"color": style.MUTED}})
+    fig.update_xaxes(title={"text": "t per day, last 7 days", "font": {"color": theme.MUTED}})
     charts.base_layout(fig, height=400, title=title)
     fig.update_layout(hovermode="closest", margin={"l": 140, "r": 110})
     return fig

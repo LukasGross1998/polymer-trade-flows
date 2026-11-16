@@ -5,49 +5,42 @@ Combines the BACI import sources with the sea routes and today's chokepoint stat
 """
 
 import plotly.graph_objects as go
-from dash import Dash, Input, Output, dcc, html
+from dash import Dash, Input, Output, html
 
-from ptf.app import charts, style
+from ptf.app import charts, theme
 from ptf.app.data import AppData, AppState
 from ptf.insights import exposure, signals, sourceable
 from ptf.insights.scenario import LIVE
 from ptf.insights.view import ALL_GRADES, SourcingView
 
-EXPOSED_COLOUR = style.RED
-SAFE_COLOUR = style.BLUE
 LEVEL_TONES = {
-    signals.GREEN: style.GOOD,
-    signals.YELLOW: style.WARNING,
-    signals.ORANGE: style.ELEVATED,
-    signals.RED: style.CRITICAL,
+    signals.GREEN: theme.GOOD,
+    signals.YELLOW: theme.WARNING,
+    signals.ORANGE: theme.ELEVATED,
+    signals.RED: theme.CRITICAL,
 }
 
 
 def layout(data: AppData) -> html.Div:
     if data.sourcing is None:
-        return charts.no_data(
-            "No sourcing data yet: run `uv run ptf clean` (trade marts) and "
-            "`uv run ptf ingest` (sea routes with passages)."
-        )
+        return charts.no_data("No trade data or sea routes loaded yet.")
     # Full-width charts: the route labels of the Sankey need the room.
-    card = {**style.CARD, "marginBottom": "16px"}
+    card = {**theme.CARD, "marginBottom": "16px"}
     return html.Div(
         [
-            html.Div(charts.control("Grade", grade_dropdown("src-grade", data)), style=style.ROW),
-            html.Div(id="src-kpis", style=style.ROW),
-            html.Div(charts.graph("src-sankey"), style=card),
-            html.Div(charts.graph("src-treemap"), style=card),
-            html.Div(
+            theme.method_panel(
                 f"Imports of polyethylene (HS 3901) into Europe from outside the region, CEPII "
                 f"BACI {data.sourcing.year} (latest year available). Routes: shortest sea route "
                 "from one representative port per region (searoute), or from the country's own "
-                "export ports where a source names them (Egypt, Israel, Saudi Arabia: "
-                "config/model.yaml). Red = in the route scenario chosen above the route is at "
+                "export ports where a source names them (Egypt, Israel, Saudi Arabia). "
+                "Colours: in the route scenario chosen above the route is at "
                 "risk (it passes a closed chokepoint without a sea detour, e.g. Hormuz) or on a "
                 "detour (e.g. around the Cape). Saudi Arabia ships from Al Jubail and Yanbu with "
                 "unknown shares: its tonnes count once, shares are ranges.",
-                style=style.SMALL_NOTE,
             ),
+            html.Div(id="src-kpis", style=theme.ROW),
+            html.Div(charts.graph("src-sankey"), style=card),
+            html.Div(charts.graph("src-treemap"), style=card),
         ]
     )
 
@@ -84,32 +77,46 @@ def kpi_values(view: SourcingView, data: AppData) -> list[dict[str, str]]:
     ]
 
 
-def sankey_figure(view: SourcingView) -> go.Figure:
-    """Exporter region -> route -> Europe; links at risk or on a detour in red. A country
+def country_states(view: SourcingView, blocked: set[str]) -> dict[str, str]:
+    """Route encoding per exporter country (theme): not sourceable, at risk, detour or open.
+    A country with several ports is at risk / on a detour if any of its ports is."""
+    states = {}
+    for iso3, group in view.routes.groupby("exporter_iso3"):
+        states[str(iso3)] = theme.route_state(
+            bool(group["at_risk"].any()), bool(group["delayed"].any()), iso3 not in blocked
+        )
+    return states
+
+
+def sankey_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Figure:
+    """Exporter region -> route -> Europe, links coloured with the route encoding. A country
     with several export ports counts once, its route reads "A or B (port shares unknown)"."""
     routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
-    grouped = routes.groupby(["exporter_region", "route", "exposed"], as_index=False)
+    states = country_states(view, blocked or set())
+    routes["state"] = routes["exporter_iso3"].map(states)
+    routes["region"] = routes["exporter_region"].map(theme.region_name)
+    grouped = routes.groupby(["region", "route", "state"], as_index=False)
     by_route = grouped.agg(qty_t=("qty_t", "sum")).sort_values("qty_t", ascending=False)
-    regions = list(dict.fromkeys(by_route["exporter_region"]))
+    regions = list(dict.fromkeys(by_route["region"]))
     route_names = list(dict.fromkeys(by_route["route"]))
     labels = regions + route_names + ["Europe"]
     index = {name: i for i, name in enumerate(labels)}
 
-    def colour(exposed: bool) -> str:
-        return "rgba(227, 73, 72, 0.45)" if exposed else "rgba(137, 135, 129, 0.30)"
+    def colour(state: str) -> str:
+        return theme.with_alpha(theme.ROUTE_COLOURS[state], 0.55)
 
     source, target, value, colours = [], [], [], []
     for row in by_route.to_dict("records"):
-        source.append(index[row["exporter_region"]])
+        source.append(index[row["region"]])
         target.append(index[row["route"]])
         value.append(row["qty_t"] / 1e3)
-        colours.append(colour(bool(row["exposed"])))
-    to_europe = by_route.groupby(["route", "exposed"], as_index=False).agg(qty_t=("qty_t", "sum"))
+        colours.append(colour(row["state"]))
+    to_europe = by_route.groupby(["route", "state"], as_index=False).agg(qty_t=("qty_t", "sum"))
     for row in to_europe.to_dict("records"):
         source.append(index[row["route"]])
         target.append(index["Europe"])
         value.append(row["qty_t"] / 1e3)
-        colours.append(colour(bool(row["exposed"])))
+        colours.append(colour(row["state"]))
 
     fig = go.Figure(
         go.Sankey(
@@ -117,7 +124,7 @@ def sankey_figure(view: SourcingView) -> go.Figure:
                 "label": labels,
                 "pad": 14,
                 "thickness": 14,
-                "color": style.INK_SECONDARY,
+                "color": theme.INK_SECONDARY,
                 "line": {"width": 0},
             },
             link={
@@ -126,13 +133,15 @@ def sankey_figure(view: SourcingView) -> go.Figure:
                 "value": value,
                 "color": colours,
                 "hovertemplate": (
-                    "%{source.label} → %{target.label}: %{value:,.0f} kt<extra></extra>"
+                    "%{source.label} → %{target.label}: %{value:,.0f} thousand t<extra></extra>"
                 ),
             },
         )
     )
     return charts.base_layout(
-        fig, height=460, title="Import routes into Europe: region → sea route → Europe (kt)"
+        fig,
+        height=460,
+        title="Import routes into Europe: region → route → Europe (thousand tonnes)",
     )
 
 
@@ -143,28 +152,23 @@ def not_sourceable(view: SourcingView, data: AppData) -> set[str]:
 
 
 def treemap_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Figure:
-    """Supplier countries grouped by region; red = at risk or on a detour in the scenario;
-    grey = not sourceable (EU import control or blocked, spec 016)."""
+    """Supplier countries grouped by region, coloured with the route encoding (open, detour,
+    at risk, not sourceable); regions in neutral grey."""
     routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
     blocked = blocked or set()
-    regions = routes.groupby("exporter_region", as_index=False).agg(
-        qty_t=("qty_t", "sum"), exposed=("exposed", "max")
-    )
+    states = country_states(view, blocked)
+    regions = routes.groupby("exporter_region", as_index=False).agg(qty_t=("qty_t", "sum"))
     # Region codes can equal country codes (IND, CHN), so region ids get a prefix.
     ids = [f"region:{r}" for r in regions["exporter_region"]] + list(routes["exporter_iso3"])
-    labels = list(regions["exporter_region"]) + list(routes["exporter_name"])
     parents = [""] * len(regions) + [f"region:{r}" for r in routes["exporter_region"]]
     values = list(regions["qty_t"]) + list(routes["qty_t"])
-    flags = list(regions["exposed"]) + list(routes["exposed"])
-    labels = list(regions["exporter_region"]) + [
-        f"{name} (not sourceable)" if iso3 in blocked else name
+    labels = [theme.region_name(r) for r in regions["exporter_region"]] + [
+        f"{name} · {theme.route_label(states[iso3])}" if states[iso3] != theme.ROUTE_OPEN else name
         for name, iso3 in zip(routes["exporter_name"], routes["exporter_iso3"], strict=True)
     ]
-    colours = [EXPOSED_COLOUR if f else SAFE_COLOUR for f in flags]
-    offset = len(regions)
-    for i, iso3 in enumerate(routes["exporter_iso3"]):
-        if iso3 in blocked:
-            colours[offset + i] = style.GRID
+    colours = [theme.NEUTRAL] * len(regions) + [
+        theme.ROUTE_COLOURS[states[iso3]] for iso3 in routes["exporter_iso3"]
+    ]
     share = [v / view.extra_t * 100 for v in values]
     fig = go.Figure(
         go.Treemap(
@@ -184,13 +188,6 @@ def treemap_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Fi
     )
 
 
-def grade_dropdown(component_id: str, data: AppData) -> dcc.Dropdown:
-    """PE grade filter (spec 008), shared with the landed-cost tab."""
-    return dcc.Dropdown(
-        id=component_id, options=data.grade_options(), value=ALL_GRADES, clearable=False
-    )
-
-
 def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> charts.Outputs:
     view = data.sourcing_for(grade, scenario)
     if view is None or view.routes.empty:
@@ -201,7 +198,7 @@ def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> char
         )
     return (
         charts.tiles(kpi_values(view, data)),
-        sankey_figure(view),
+        sankey_figure(view, not_sourceable(view, data)),
         treemap_figure(view, not_sourceable(view, data)),
     )
 
@@ -214,7 +211,7 @@ def register(app: Dash, state: AppState) -> None:
         Output("src-kpis", "children"),
         Output("src-sankey", "figure"),
         Output("src-treemap", "figure"),
-        Input("src-grade", "value"),
+        Input("grade", "value"),
         Input("scenario", "value"),
         Input("data-version", "data"),
     )

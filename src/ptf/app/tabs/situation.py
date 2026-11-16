@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
 from dash.development.base_component import Component
 
-from ptf.app import charts, style
+from ptf.app import charts, fmt, theme
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs import prices
 from ptf.insights import relevance, signals
@@ -26,10 +26,10 @@ from ptf.shipping.weather import storm_warnings
 
 # Icon + word + colour, never colour alone.
 LEVELS = {
-    signals.GREEN: ("●", "OK", style.GOOD),
-    signals.YELLOW: ("◆", "Watch", style.WARNING),
-    signals.ORANGE: ("▲", "Elevated", style.ELEVATED),
-    signals.RED: ("▲", "Critical", style.CRITICAL),
+    signals.GREEN: ("●", "OK", theme.GOOD),
+    signals.YELLOW: ("◆", "Watch", theme.WARNING),
+    signals.ORANGE: ("▲", "Elevated", theme.ELEVATED),
+    signals.RED: ("▲", "Critical", theme.CRITICAL),
 }
 # Card -> (link text, tab it opens).
 ACTIONS = {
@@ -44,16 +44,16 @@ EUROPE, ALL = "europe", "all"
 def info(text: str) -> html.Span:
     """An (i) icon whose tooltip carries the method note."""
     return html.Span(
-        " ⓘ", title=text, style={"cursor": "help", "color": style.MUTED, "fontWeight": "400"}
+        " ⓘ", title=text, style={"cursor": "help", "color": theme.MUTED, "fontWeight": "400"}
     )
 
 
 def heading(text: str, note: str) -> html.Div:
-    return html.Div([text, info(note)], style=style.SECTION_TITLE)
+    return html.Div([text, info(note)], style=theme.SECTION_TITLE)
 
 
 def layout(data: AppData) -> html.Div:
-    card = {**style.CARD, "flex": "1", "minWidth": "300px"}
+    card = {**theme.CARD, "flex": "1", "minWidth": "300px"}
     days = data.sourcing_config.recent_days
     return html.Div(
         [
@@ -70,7 +70,7 @@ def layout(data: AppData) -> html.Div:
                 ),
                 style={"marginBottom": "8px", "fontSize": "13px"},
             ),
-            html.Div(id="sit-lights", style=style.ROW),
+            html.Div(id="sit-lights", style=theme.ROW),
             html.Div(
                 [
                     html.Div(
@@ -108,7 +108,7 @@ def layout(data: AppData) -> html.Div:
                         style=card,
                     ),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
             html.Div(
                 [
@@ -121,7 +121,7 @@ def layout(data: AppData) -> html.Div:
                     ),
                     html.Div(id="sit-events"),
                 ],
-                style=style.CARD,
+                style=theme.CARD,
             ),
         ]
     )
@@ -139,8 +139,8 @@ def sparkline(frame: pd.DataFrame, colour: str) -> dcc.Graph:
     fig.update_layout(
         height=60,
         margin={"l": 0, "r": 0, "t": 4, "b": 0},
-        paper_bgcolor=style.SURFACE,
-        plot_bgcolor=style.SURFACE,
+        paper_bgcolor=theme.SURFACE,
+        plot_bgcolor=theme.SURFACE,
         showlegend=False,
     )
     fig.update_xaxes(visible=False)
@@ -159,7 +159,7 @@ def action_link(title: str) -> html.Button:
             "background": "none",
             "border": "none",
             "padding": "0",
-            "color": style.BLUE,
+            "color": theme.BLUE,
             "cursor": "pointer",
             "fontSize": "13px",
             "fontWeight": "600",
@@ -175,8 +175,8 @@ def light_card(
     `level` None = an indicator without a traffic light (the polyethylene card).
     """
     if level is None:
-        badge: Component = html.Span("indicator", style={"fontSize": "12px", "color": style.MUTED})
-        colour = style.GRID
+        badge: Component = html.Span("indicator", style={"fontSize": "12px", "color": theme.MUTED})
+        colour = theme.GRID
     else:
         icon, word, colour = LEVELS[level]
         badge = html.Span(
@@ -186,22 +186,22 @@ def light_card(
         html.Div(
             [
                 html.Span(
-                    [signal.title, info(note)], style={"fontSize": "13px", "color": style.MUTED}
+                    [signal.title, info(note)], style={"fontSize": "13px", "color": theme.MUTED}
                 ),
                 badge,
             ],
             style={"display": "flex", "justifyContent": "space-between"},
         ),
         html.Div(signal.value, style={"fontSize": "26px", "fontWeight": "600"}),
-        html.Div(signal.note, style={"fontSize": "11px", "color": style.MUTED}),
+        html.Div(signal.note, style={"fontSize": "11px", "color": theme.MUTED}),
     ]
     if trend is not None and not trend.empty:
-        children.append(sparkline(trend, style.BLUE))
+        children.append(sparkline(trend, theme.BLUE))
     children.append(html.Div(action_link(signal.title), style={"marginTop": "4px"}))
     return html.Div(
         children,
         style={
-            **style.CARD,
+            **theme.CARD,
             "flex": "1",
             "minWidth": "230px",
             "borderTop": f"4px solid {colour}",
@@ -259,7 +259,7 @@ def pe_signal(data: AppData) -> tuple[signals.Signal, pd.DataFrame | None]:
 
 def _bullets(items: list[Component]) -> Component:
     if not items:
-        return html.Div("● Nothing new", style={"color": style.GOOD})
+        return html.Div("● Nothing new", style={"color": theme.GOOD})
     return html.Ul(
         [html.Li(i, style={"fontSize": "14px", "marginBottom": "4px"}) for i in items],
         style={"paddingLeft": "18px", "margin": "0"},
@@ -297,8 +297,8 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
         items.append(
             html.Span(
                 [
-                    html.Span(f"▼ {row['location']}", style={"color": style.CRITICAL}),
-                    f" newly below normal ({row['deviation_pct']:+.0f} %)",
+                    html.Span(f"▼ {row['location']}", style={"color": theme.CRITICAL}),
+                    f" newly below normal ({fmt.pct(row['deviation_pct'])})",
                 ]
             )
         )
@@ -308,7 +308,7 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
             items.append(
                 html.Span(
                     [
-                        html.Span(f"▲ {event['alert_level']} ", style={"color": style.CRITICAL}),
+                        html.Span(f"▲ {event['alert_level']} ", style={"color": theme.CRITICAL}),
                         f"new event: {event['event']} (from {event['from_date']:%d %b})",
                     ]
                 )
@@ -320,7 +320,7 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
             warnings = warnings[warnings["location_id"].isin(rel.chokepoints | rel.ports)]
         for row in warnings.drop_duplicates("location_id").head(5).to_dict("records"):
             storm = row["level"] == "red"
-            kind, colour = ("Storm", style.CRITICAL) if storm else ("Gale", style.WARNING)
+            kind, colour = ("Storm", theme.CRITICAL) if storm else ("Gale", theme.WARNING)
             items.append(
                 html.Span(
                     [
@@ -335,7 +335,7 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
         moves = signals.largest_moves(data.market, days=days, series_ids=series)
         for move in moves.to_dict("records"):
             arrow = "▲" if move["change_pct"] > 0 else "▼"
-            text = f"{arrow} {move['name']}: {move['change_pct']:+.1f} % in {days} days"
+            text = f"{arrow} {move['name']}: {fmt.pct(move['change_pct'])} in {days} days"
             items.append(html.Span(text))
     return items
 
@@ -357,7 +357,7 @@ def chokepoint_list(data: AppData, scope: str) -> Component:
         flagged = flagged[flagged["location_id"].isin(rel.chokepoints)]
     flagged = flagged.head(5)
     if flagged.empty:
-        return html.Div("● None flagged", style={"color": style.GOOD})
+        return html.Div("● None flagged", style={"color": theme.GOOD})
     dependency = data.chokepoint_dependency
     details = {} if dependency is None else dependency.set_index("chokepoint_id").to_dict("index")
     items = []
@@ -376,9 +376,9 @@ def chokepoint_list(data: AppData, scope: str) -> Component:
         items.append(
             html.Li(
                 [
-                    html.Span(f"▼ {row['location']}", style={"color": style.CRITICAL}),
-                    f"  {row['deviation_pct']:+.0f} % vs. normal",
-                    html.Div(text, style={"fontSize": "12px", "color": style.MUTED}),
+                    html.Span(f"▼ {row['location']}", style={"color": theme.CRITICAL}),
+                    f"  {fmt.pct(row['deviation_pct'])} vs. normal",
+                    html.Div(text, style={"fontSize": "12px", "color": theme.MUTED}),
                 ],
                 title=text,
                 style={"fontSize": "14px", "marginBottom": "6px"},
@@ -399,7 +399,7 @@ def _event_list(events: pd.DataFrame) -> Component:
                 [
                     html.Span(
                         f"▲ {event['alert_level']} ",
-                        style={"color": style.CRITICAL, "fontWeight": "600"},
+                        style={"color": theme.CRITICAL, "fontWeight": "600"},
                     ),
                     f"{event['event']} ({kind}), {since}",
                 ]
@@ -430,7 +430,7 @@ def update(
     pe, pe_trend = pe_signal(data)
     cards.append(light_card(pe, notes["Polyethylene"], pe_trend, None))
 
-    events: Component = html.Div("No event data yet.", style={"color": style.MUTED})
+    events: Component = html.Div("No event data yet.", style={"color": theme.MUTED})
     if data.events is not None:
         active = active_events(data.events, data.latest_date)
         events = _event_list(filter_events(active, data, scope))

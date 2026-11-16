@@ -10,10 +10,9 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
 
-from ptf.app import charts, style
+from ptf.app import charts, theme
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs.landed_cost import compute as compute_landed
-from ptf.app.tabs.sourcing import grade_dropdown
 from ptf.insights.scenario import LIVE
 from ptf.insights.view import (
     ALL_GRADES,
@@ -30,13 +29,24 @@ def today() -> pd.Timestamp:
 
 def layout(data: AppData) -> html.Div:
     if data.import_sources is None or data.distances is None:
-        return charts.no_data(
-            "No planner data yet: run `uv run ptf clean` and `uv run ptf ingest`."
-        )
+        return charts.no_data("No trade data or sea routes loaded yet.")
     lead = data.sourcing_config.lead_time
     need_by = today() + pd.Timedelta(days=lead.default_need_by_days)
     return html.Div(
         [
+            theme.method_panel(
+                "Planning estimate, not a quote. Ship transit time = median time in port of "
+                "container ships at origin and at the destination (UNCTADstat, 2023; "
+                f"{lead.port_days.get(lead.destination_country) or 0:.1f} days in the "
+                "Netherlands) + sea days at "
+                f"{lead.speed:g} knots (average speed at sea of {lead.vessel_size} TEU container "
+                "ships, Fourth IMO GHG Study 2020). Not included because no source gives them: "
+                "loading and export clearance, waiting for a sailing, import clearance, "
+                "delivery to the warehouse, delays from congestion or storms (shown as flags). "
+                "Countries without UNCTAD port data have no arrival date (n/a). Cost: price + "
+                "EU duty as in the Landed cost tab; sea freight has no sourced rate, so no "
+                "origin is recommended.",
+            ),
             html.Div(
                 [
                     charts.control(
@@ -58,9 +68,8 @@ def layout(data: AppData) -> html.Div:
                             style={"width": "120px"},
                         ),
                     ),
-                    charts.control("Grade", grade_dropdown("pl-grade", data)),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
             ),
             html.Div(
                 [
@@ -71,26 +80,12 @@ def layout(data: AppData) -> html.Div:
                     charts.control("Your days for customs clearance", own_days("pl-customs")),
                     charts.control("Your days for delivery to the plant", own_days("pl-delivery")),
                 ],
-                style=style.ROW,
+                style=theme.ROW,
                 title="Your own estimates (no free source gives these per country); default 0.",
             ),
-            html.Div(id="pl-kpis", style=style.ROW),
-            html.Div(charts.graph("pl-scatter"), style={**style.CARD, "marginBottom": "16px"}),
-            html.Div(id="pl-table", style={**style.CARD, "marginBottom": "16px"}),
-            html.Div(
-                "Planning estimate, not a quote. Ship transit time = median time in port of "
-                "container ships at origin and at the destination (UNCTADstat, 2023; "
-                f"{lead.port_days.get(lead.destination_country) or 0:.1f} days in the "
-                "Netherlands) + sea days at "
-                f"{lead.speed:g} knots (average speed at sea of {lead.vessel_size} TEU container "
-                "ships, Fourth IMO GHG Study 2020). Not included because no source gives them: "
-                "loading and export clearance, waiting for a sailing, import clearance, "
-                "delivery to the warehouse, delays from congestion or storms (shown as flags). "
-                "Countries without UNCTAD port data have no arrival date (n/a). Cost: price + "
-                "EU duty as in the Landed cost tab; sea freight has no sourced rate, so no "
-                "origin is recommended.",
-                style=style.SMALL_NOTE,
-            ),
+            html.Div(id="pl-kpis", style=theme.ROW),
+            html.Div(charts.graph("pl-scatter"), style={**theme.CARD, "marginBottom": "16px"}),
+            html.Div(id="pl-table", style={**theme.CARD, "marginBottom": "16px"}),
         ]
     )
 
@@ -116,8 +111,10 @@ def compute(
     order_date: pd.Timestamp | None = None,
     own_before_days: float = 0.0,
     own_after_days: float = 0.0,
+    currency: str = "EUR",
 ) -> PlannerView | None:
     landed = compute_landed(data, scenario, "baci", grade)
+    landed = None if landed is None else landed.in_currency(currency)
     tables = data.route_tables
     if landed is None or landed.table.empty or tables is None:
         return None
@@ -147,14 +144,14 @@ def kpi_values(view: PlannerView) -> list[dict[str, str]]:
         first = {
             "label": "Recommended origin",
             "value": str(pick["exporter_name"]),
-            "tone": style.GOOD,
+            "tone": theme.GOOD,
             "note": f"arrives {pick['arrival']:%d %b %Y} ({pick['lead_days']:.0f} days)",
         }
     else:
         first = {
             "label": "Recommended origin",
             "value": "none",
-            "tone": style.WARNING,
+            "tone": theme.WARNING,
             "note": "sea freight has no sourced rate"
             if not view.landed.freight_known
             else "no origin known to arrive in time",
@@ -198,11 +195,11 @@ def scatter_figure(view: PlannerView) -> go.Figure:
     table = view.table[view.table["arrival"].notna()]
     size = 10 + 30 * (table["qty_t"] / table["qty_t"].max()) ** 0.5
     colours = [
-        style.ORANGE if rec else (style.BLUE if ok is True else style.MUTED)
+        theme.HIGHLIGHT if rec else (theme.BLUE if ok is True else theme.MUTED)
         for rec, ok in zip(table["recommended"], table["on_time"], strict=True)
     ]
     hover = [
-        f"<b>{r['exporter_name']}</b><br>{r['landed_eur_t']:,.0f} EUR/t"
+        f"<b>{r['exporter_name']}</b><br>{r['landed_eur_t']:,.0f} {view.landed.currency}/t"
         + ("" if view.landed.freight_known else " excl. freight")
         + "<br>"
         f"arrives {r['arrival']:%d %b} ({r['lead_days']:.0f} days)"
@@ -220,20 +217,20 @@ def scatter_figure(view: PlannerView) -> go.Figure:
             textposition="top center",
             hovertext=hover,
             hoverinfo="text",
-            marker={"size": size, "color": colours, "line": {"color": style.SURFACE, "width": 2}},
+            marker={"size": size, "color": colours, "line": {"color": theme.SURFACE, "width": 2}},
             showlegend=False,
         )
     )
     fig.add_vline(
         x=view.need_by.timestamp() * 1000,
-        line={"color": style.CRITICAL, "width": 1.5, "dash": "dash"},
+        line={"color": theme.CRITICAL, "width": 1.5, "dash": "dash"},
         annotation_text="needed by",
         annotation_position="top",
     )
-    cost = (
-        "EUR per tonne, delivered" if view.landed.freight_known else "EUR per tonne, excl. freight"
+    cost = f"{view.landed.currency} per tonne, " + (
+        "delivered" if view.landed.freight_known else "excl. freight"
     )
-    fig.update_yaxes(title={"text": cost, "font": {"color": style.MUTED}})
+    fig.update_yaxes(title={"text": cost, "font": {"color": theme.MUTED}})
     fig.update_layout(hovermode="closest")
     return charts.base_layout(
         fig,
@@ -243,7 +240,8 @@ def scatter_figure(view: PlannerView) -> go.Figure:
 
 
 def plan_table(view: PlannerView) -> html.Table:
-    cost = "EUR/t" if view.landed.freight_known else "EUR/t excl. freight"
+    unit = f"{view.landed.currency}/t"
+    cost = unit if view.landed.freight_known else f"{unit} excl. freight"
     header = [
         "Country",
         cost,
@@ -255,7 +253,7 @@ def plan_table(view: PlannerView) -> html.Table:
         "On time",
     ]
     cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
-    rows = [html.Tr([html.Th(h, style={**cell, "color": style.MUTED}) for h in header])]
+    rows = [html.Tr([html.Th(h, style={**cell, "color": theme.MUTED}) for h in header])]
     for r in view.table.to_dict("records"):
         flags = []
         if r["congested"]:
@@ -274,15 +272,15 @@ def plan_table(view: PlannerView) -> html.Table:
         )
         usable = bool(r.get("sourceable", True))
         if not usable:
-            ok, colour = "not sourceable", style.MUTED
+            ok, colour = "not sourceable", theme.MUTED
         elif r.get("at_risk"):
-            ok, colour = "⚠ at risk", style.CRITICAL
+            ok, colour = "⚠ at risk", theme.CRITICAL
         elif r["on_time"] is None:
-            ok, colour = "n/a", style.MUTED
+            ok, colour = "n/a", theme.MUTED
         elif r["on_time"]:
-            ok, colour = "● yes", style.GOOD
+            ok, colour = "● yes", theme.GOOD
         else:
-            ok, colour = "✕ late", style.MUTED
+            ok, colour = "✕ late", theme.MUTED
         values = [
             f"{r['landed_eur_t']:,.0f}",
             port,
@@ -303,12 +301,12 @@ def plan_table(view: PlannerView) -> html.Table:
                             **cell,
                             "textAlign": "left",
                             "fontWeight": weight,
-                            "color": style.INK if usable else style.MUTED,
+                            "color": theme.INK if usable else theme.MUTED,
                         },
                     )
                 ]
                 + [
-                    html.Td(v, style={**cell, "color": style.INK if usable else style.MUTED})
+                    html.Td(v, style={**cell, "color": theme.INK if usable else theme.MUTED})
                     for v in values
                 ]
                 + [html.Td(ok, style={**cell, "color": colour})]
@@ -326,6 +324,7 @@ def update(
     order_date: pd.Timestamp | None = None,
     own_before_days: float | None = 0.0,
     own_after_days: float | None = 0.0,
+    currency: str = "EUR",
 ) -> charts.Outputs:
     quantity = (
         float(quantity_t) if quantity_t else data.sourcing_config.lead_time.default_quantity_t
@@ -339,6 +338,7 @@ def update(
         order_date,
         float(own_before_days or 0),
         float(own_after_days or 0),
+        currency,
     )
     if view is None:
         return [], go.Figure(), charts.no_data("No suppliers with a sea route for this grade.")
@@ -355,11 +355,12 @@ def register(app: Dash, state: AppState) -> None:
         Output("pl-table", "children"),
         Input("pl-need-by", "date"),
         Input("pl-quantity", "value"),
-        Input("pl-grade", "value"),
+        Input("grade", "value"),
         Input("scenario", "value"),
         Input("pl-before", "value"),
         Input("pl-customs", "value"),
         Input("pl-delivery", "value"),
+        Input("currency", "value"),
         Input("data-version", "data"),
     )
     def _update(
@@ -370,7 +371,8 @@ def register(app: Dash, state: AppState) -> None:
         before: float | None,
         customs: float | None,
         delivery: float | None,
+        currency: str,
         _version: int,
     ) -> charts.Outputs:
         after = float(customs or 0) + float(delivery or 0)
-        return update(state.data, need_by, quantity, grade, scenario, None, before, after)
+        return update(state.data, need_by, quantity, grade, scenario, None, before, after, currency)
