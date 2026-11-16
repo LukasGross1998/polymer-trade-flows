@@ -5,27 +5,10 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
-### Changed
-- Charts that answer the buyer's question (spec 018): summary sentence and one list of
-  chokepoints and disruptions on the situation page, "what changed" with thresholds and
-  buyer notes, price card with 30 and 90 days ("Mixed" when they diverge); polymer-over-
-  crude spread (Dalian LLDPE minus Brent per tonne, UN conversion factor) instead of the
-  index chart, Brent only, gas spread as an area, own freight and EUR/USD charts, GSCPI as
-  context; Sankey to destination groups in Europe and a supplier bar chart instead of the
-  treemap; landed cost as one table with inline bars; planner timeline with the transit
-  range of the IMO ship sizes. README screenshots of the buying tabs updated.
-- One design for all tabs (spec 017): central theme (`ptf.app.theme`) with status colours
-  only for status, a validated categorical palette without red, orange, yellow or green,
-  one route encoding (open / detour / at risk / not sourceable) and a Plotly template;
-  number formats in `ptf.app.fmt` (true minus sign, "€197k", ranges with an en dash).
-- Global bar under the header with route scenario, PE grade and currency for all tabs; the
-  per-tab grade dropdowns and the currency switch of the prices tab are gone; landed cost
-  and the planner show EUR or USD.
-- KPI tiles with unit, change against the standard period (30 days / previous month),
-  data date and sparkline; "Basis USD/EUR" moved to a footnote line.
-- Chart titles as card titles above the plot; underline tabs for the second level; one
-  period for all charts of the prices tab; footnotes in collapsible "Method and sources"
-  panels; no developer commands or config paths in the UI; region codes written out.
+## 0.7.0 – 2026-11-16
+
+Buyer release: only sourced values, one route scenario for all tabs, a recommendation logic,
+one design and charts that answer the buyer's question. Specs 014–018.
 
 ### Added
 - Recommendation logic (spec 016): origins with an EU import control in TARIC (Iran,
@@ -49,6 +32,26 @@ versioning (`0.x`: no stable interface yet).
   combinations in `ptf ingest`.
 
 ### Changed
+- Charts that answer the buyer's question (spec 018): summary sentence and one list of
+  chokepoints and disruptions on the situation page, "what changed" with thresholds and
+  buyer notes, price card with 30 and 90 days ("Mixed" when they diverge); polymer-over-
+  crude spread (Dalian LLDPE minus Brent per tonne, UN conversion factor) instead of the
+  index chart, Brent only, gas spread as an area, own freight and EUR/USD charts, GSCPI as
+  context; Sankey to destination groups in Europe and a supplier bar chart instead of the
+  treemap; landed cost as one table with inline bars; planner timeline with the transit
+  range of the IMO ship sizes. README screenshots of the buying tabs updated.
+- One design for all tabs (spec 017): central theme (`ptf.app.theme`) with status colours
+  only for status, a validated categorical palette without red, orange, yellow or green,
+  one route encoding (open / detour / at risk / not sourceable) and a Plotly template;
+  number formats in `ptf.app.fmt` (true minus sign, "€197k", ranges with an en dash).
+- Global bar under the header with route scenario, PE grade and currency for all tabs; the
+  per-tab grade dropdowns and the currency switch of the prices tab are gone; landed cost
+  and the planner show EUR or USD.
+- KPI tiles with unit, change against the standard period (30 days / previous month),
+  data date and sparkline; "Basis USD/EUR" moved to a footnote line.
+- Chart titles as card titles above the plot; underline tabs for the second level; one
+  period for all charts of the prices tab; footnotes in collapsible "Method and sources"
+  panels; no developer commands or config paths in the UI; region codes written out.
 - Chokepoint details on the situation page use each chokepoint's own detour; Hormuz shows
   "no sea detour – supply at risk" instead of the Middle East's Cape detour.
 - The "Red Sea open/closed" switches of landed cost and the planner are replaced by the
