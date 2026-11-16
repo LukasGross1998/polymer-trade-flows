@@ -6,6 +6,8 @@ from pathlib import Path
 import yaml
 from pydantic import BaseModel, Field
 
+from ptf.core.sourced import Sourced
+
 
 class SeriesConfig(BaseModel):
     id: str
@@ -29,6 +31,7 @@ class DceConfig(BaseModel):
     name: str
     unit: str
     start_date: date
+    day_close_hour: Sourced | None = None  # close of the day session, Beijing time (spec 018)
 
 
 class MarketConfig(BaseModel):
@@ -37,6 +40,7 @@ class MarketConfig(BaseModel):
     gscpi_url: str
     key_events: list[KeyEvent]
     dce: DceConfig | None = None
+    crude_barrels_per_tonne: Sourced | None = None  # for the polymer-over-crude spread
 
 
 def load_market_config(path: Path) -> MarketConfig:

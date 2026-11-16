@@ -20,6 +20,15 @@ class Threshold(BaseModel):
 class PriceSignal(Threshold):
     series: str
     days: int
+    short_days: int = 30  # second period shown on the card (spec 018)
+    divergence_pct: float = 10.0  # opposite moves at least this far apart -> "Mixed"
+
+
+class ChangeSettings(BaseModel):
+    """Filters of "what changed" (spec 018). Settings."""
+
+    min_move_pct: float = 5.0  # market moves smaller than this are not listed
+    weather_level: str = "red"  # only storm (red) forecasts near relevant points
 
 
 class LogisticsSignal(Threshold):
@@ -155,6 +164,7 @@ class SourcingConfig(BaseModel):
     chokepoint_detours: dict[str, str] = {}
     scenarios: ScenarioSettings = ScenarioSettings()
     sourceable: SourceableSettings = SourceableSettings()
+    changes: ChangeSettings = ChangeSettings()
     price_range: PriceRangeSettings = PriceRangeSettings()
     confidence: ConfidenceSettings = ConfidenceSettings()
     relevance: Relevance = Relevance()

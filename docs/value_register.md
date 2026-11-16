@@ -20,6 +20,8 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | File | Key | Value | Source (read) |
 |---|---|---|---|
 | model.yaml | `regions.*.capacity_mt` | NAM 34, EUR 14, MDE 23, CHN 42 Mt/yr | McKinsey Global Institute, "Polyethylene: Widely produced – but not one-size-fits-all" (30 Jun 2026; data S&P Global), installed capacity 2025 (14 Nov 2026). EUR = Western Europe only. |
+| markets.yaml | `dce.day_close_hour` | 15 (Beijing time) | Nanhua Futures, trading hours overview of 18 Nov 2024: DCE LLDPE day session 9:00–10:15, 10:30–11:30, 13:30–15:00 (16 Nov 2026) |
+| markets.yaml | `crude_barrels_per_tonne` | 7.32 bbl/t | UN Energy Statistics Yearbook 2023, Table II, conventional crude oil of average specific gravity (16 Nov 2026) |
 | model.yaml | `country_routes.*` | export ports of EGY (Alexandria), ISR (Haifa), SAU (Al Jubail, Yanbu) | EGY: Oil & Gas Journal on SIDPEC's Alexandria complex; ISR: Global Energy Monitor, Carmel Olefins at Haifa Bay; SAU: SABIC manufacturing affiliates (Kemya, Sharq at Al Jubail; Yansab, Yanpet at Yanbu) (14 Nov 2026). Port coordinates inside an entry are a setting (a point in the port). Shares per port are not published. |
 | sourcing.yaml | `landed_cost.duty.default_pct` | 6.5 % | EU TARIC, third-country duty, CN 3901 10 10 90 (14 Nov 2026). Fallback; the rate per grade comes from World Bank WITS in the pipeline. |
 | sourcing.yaml | `landed_cost.duty.preferential.*` | 0 % USA, CAN, MEX, KOR, JPN, SGP, EGY, ISR, DZA, ZAF, UZB; 5.2 % BRA, ARG, URY, PRY | EU TARIC tariff preferences with validity dates, CN 3901 10 10 90 (USA also 3901 20 90 00) (14 Nov 2026). |
@@ -49,6 +51,9 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | shipping.yaml | `weather.waves_m.amber`, `weather.waves_m.red` | 4.0, 6.0 m | which class counts as amber/red; boundaries from WMO code table 3700 ("very rough" from 4 m, "high" from 6 m) |
 | shipping.yaml | `weather.gusts_kmh.amber`, `weather.gusts_kmh.red` | 63.0, 88.9 km/h | which class counts as amber/red; boundaries from the Met Office Beaufort scale (gale from 34 kn, storm from 48 kn; 1 kn = 1.852 km/h) |
 | sourcing.yaml | `signals.price.days` | 90 | comparison window of the price light |
+| sourcing.yaml | `signals.price.short_days` | 30 | second period on the price card (spec 018) |
+| sourcing.yaml | `signals.price.divergence_pct` | 10 points | opposite 30- and 90-day moves at least this far apart show "Mixed" |
+| sourcing.yaml | `changes.min_move_pct` | 5 % | market moves listed in "what changed" |
 | sourcing.yaml | `signals.*.yellow`, `signals.*.orange`, `signals.*.red` | see config | traffic-light thresholds |
 | sourcing.yaml | `relevance.min_region_share` | 5 % | relevance limit |
 | sourcing.yaml | `relevance.event_radius_km` | 1000 | relevance limit |

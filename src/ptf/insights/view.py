@@ -58,6 +58,7 @@ class SourcingView:
     at_risk: tuple[float, float] = (0.0, 0.0)  # % of tonnes, (low, high)
     delayed: tuple[float, float] = (0.0, 0.0)
     scenario: scenario_mod.Scenario | None = None
+    at_risk_behind: list[str] = field(default_factory=list)  # closed, no sea detour (names)
 
 
 def chokepoint_history(transits: pd.DataFrame, config: MonitorConfig) -> pd.DataFrame:
@@ -129,6 +130,11 @@ def sourcing_view(
         at_risk=exposure.share_range(routes, routes["at_risk"]),
         delayed=exposure.share_range(routes, routes["delayed"]),
         scenario=scenario,
+        at_risk_behind=sorted(
+            exposure.short_name(names.get(i, i))
+            for i in on_routes & scenario.closed
+            if i not in config.chokepoint_detours
+        ),
     )
 
 

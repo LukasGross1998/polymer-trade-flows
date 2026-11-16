@@ -21,6 +21,7 @@ class Signal:
     level: str
     value: str
     note: str
+    word: str | None = None  # replaces the level's word, e.g. "Mixed" (spec 018)
 
 
 def level(value: float | None, threshold: Threshold) -> str:
@@ -36,18 +37,43 @@ def level(value: float | None, threshold: Threshold) -> str:
     return GREEN
 
 
+def diverges(long: float | None, short: float | None, divergence_pct: float) -> bool:
+    """True when the short- and long-period moves point in opposite directions and are at
+    least `divergence_pct` percentage points apart (spec 018)."""
+    if long is None or short is None:
+        return False
+    return long * short < 0 and abs(long - short) >= divergence_pct
+
+
 def price_signal(market_eur: pd.DataFrame, signals: Signals) -> Signal:
-    """Change of the feedstock price (in EUR) over the configured number of days."""
+    """Change of the feedstock price (in EUR) over the long and the short period.
+
+    The level follows the long period; when the two periods point in opposite directions
+    by more than `divergence_pct`, a green light becomes "Mixed" (watch level).
+    """
     config = signals.price
     change = indicators.change_pct(market_eur, config.series, config.days)
+    short = indicators.change_pct(market_eur, config.series, config.short_days)
     latest = indicators.latest(market_eur, config.series)
     names = market_eur.loc[market_eur["series_id"] == config.series, ["name", "unit"]]
     name, unit = (names.iloc[0]["name"], names.iloc[0]["unit"]) if len(names) else ("", "")
-    value = "n/a" if change is None else f"{change:+.1f} %"
-    note = f"{name} over {config.days} days"
+    value = "n/a" if change is None else _pct(change)
+    note = f"{name} over {config.days} days; {config.short_days} days: " + (
+        "n/a" if short is None else _pct(short)
+    )
     if latest is not None:
         note += f" · now {latest[1]:,.1f} {unit} ({latest[0]:%d %b %Y})"
-    return Signal("Price", level(change, config), value, note)
+    result = level(change, config)
+    word = None
+    if diverges(change, short, config.divergence_pct):
+        word = "Mixed"
+        if result == GREEN:
+            result = YELLOW
+    return Signal("Price", result, value, note, word)
+
+
+def _pct(value: float) -> str:
+    return f"{value:+.1f} %".replace("-", "\u2212")
 
 
 def pct_range(low: float, high: float) -> str:

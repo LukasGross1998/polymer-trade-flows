@@ -77,6 +77,18 @@ dce:
   name: LLDPE futures, Dalian (main contract)
   unit: CNY/t
   start_date: "2019-01-01"
+  day_close_hour:             # Beijing time (UTC+8); trading days close at 15:00
+    value: 15
+    source: "Nanhua Futures, Trading Rules Overview: Trading Hours (18 Nov 2024), Dalian Commodity Exchange, LLDPE (L): day hours 9:00-10:15, 10:30-11:30, 13:30-15:00"
+    url: "https://www.nanhua.net/cmsbigfile/2024/11/c7be3f53-3ee2-4e9d-a55f-c074f5165c5b/Trading%20Hours%202024.11.18.pdf"
+    read: 2026-11-16
+
+# Barrels per metric tonne of crude oil, to express Brent per tonne (spec 018 spread).
+crude_barrels_per_tonne:
+  value: 7.32
+  source: "UN Energy Statistics Yearbook 2023, Table II: selected conversion factors, conventional crude oil (average specific gravity)"
+  url: "https://unstats.un.org/unsd/energystats/pubs/yearbook/2023/09ii.pdf"
+  read: 2026-11-16
 
 # New York Fed Global Supply Chain Pressure Index (monthly, standard deviations from the
 # historical average). The file is an old-format .xls despite its .xlsx extension.

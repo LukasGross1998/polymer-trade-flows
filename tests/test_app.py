@@ -85,7 +85,8 @@ def test_prices_port_and_situation_tabs(data: AppData) -> None:
 
     assert len(ports.update(data, "port24", "export", "90d")) == 4
 
-    lights, *_ = situation.update(data)
+    headline, lights, _changes, disruptions = situation.update(data)
+    assert headline.startswith("Supply")  # summary sentence (spec 018)
     assert [card.children[0].children[0].children[0] for card in lights] == [
         "Price",
         "Supply",

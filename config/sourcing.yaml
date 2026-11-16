@@ -44,6 +44,8 @@ signals:
   price:
     series: DCOILBRENTEU     # Brent, converted to EUR with DEXUSEU
     days: 90                 # change over this many days, in %
+    short_days: 30           # setting: second period on the card (spec 018)
+    divergence_pct: 10       # setting: 30- and 90-day moves in opposite directions this far apart -> "Mixed"
     yellow: 5.0
     orange: 15.0
     red: 30.0
@@ -76,6 +78,9 @@ relevance:
 
 # "What changed" list on the situation page.
 recent_days: 7
+changes:                     # settings (spec 018)
+  min_move_pct: 5            # list market moves of at least 5 %
+  weather_level: red         # list only storm (red) forecasts near relevant chokepoints and ports
 
 # Landed cost per supplier country (spec 007): price (BACI unit value) + sea freight
 # (config/model.yaml, today not sourced: shown as n/a) + EU duty, converted to EUR.
