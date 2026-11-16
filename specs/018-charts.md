@@ -47,8 +47,9 @@ need a source like every other value.
 7. **Freight** gets its own chart (deep-sea freight PPI); **currencies** only EUR/USD;
    **GSCPI** as a small context chart (half width) next to freight.
 8. **Dalian chart** titled "Asian price indicator: LLDPE futures, Dalian"; the trading-day
-   note in plain words ("prices of the trading day that ends at 15:00 Beijing time, 08:00
-   CET").
+   note in plain words ("price of the trading day's close"), with the closing time taken from
+   the exchange's published trading hours (to be sourced; without a source no time is
+   shown).
 
 ### Sourcing
 
