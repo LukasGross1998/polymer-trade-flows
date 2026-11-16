@@ -185,24 +185,25 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     write_synthetic_distances(raw, regions, "babalmandab_closed+suez_closed", distance_nm=10000.0)
     data = load_app_data(warehouse_setup.settings)
 
-    kpis, bars, table = landed_cost.update(data, "all_open", "baci")
+    kpis, table = landed_cost.update(data, "all_open", "baci")
     # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
     # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
     assert kpis[0].children[0].children == "Lowest cost sourceable origin, excl. freight"
     assert kpis[0].children[1].children[0] == "1,250"
-    assert [t.name for t in bars.data] == ["Price (FOB)", "EU duty"]
-    rows = table.children[0].children
-    assert rows[1].children[4].children == "n/a"  # freight column
-    assert table.children[1].children.startswith("Not included: sea freight (no sourced rate)")
-
-    assert rows[1].children[9].children == "open"  # route status
+    # Spec 018: one table with an inline bar per row; US duty is 0, so only the price shows.
+    rows = table.children[2].children
+    bar = rows[1].children[1].children
+    assert [part.title for part in bar.children] == ["Price (FOB): 1,250"]
+    assert rows[1].children[5].children == "n/a"  # freight column
+    assert table.children[3].children.startswith("Not included: sea freight (no sourced rate)")
+    assert rows[1].children[10].children == "open"  # route status
 
     # Scenario "Red Sea closed" (spec 014): the variant table is 10,000 nm, so the US route
     # is on a detour; the cost stays price + duty while freight has no source.
-    closed, _, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
+    closed, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
     assert closed[0].children[1].children[0] == "1,250"
     assert closed[2].children[2].children == "n/a – no sourced freight rate"
-    assert closed_table.children[0].children[1].children[9].children == "detour"
+    assert closed_table.children[2].children[1].children[10].children == "detour"
 
 
 def test_scenario_dropdown_in_the_header(data: AppData) -> None:
@@ -262,7 +263,7 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
     data = load_app_data(warehouse_setup.settings)
     order = pd.Timestamp("2026-11-14")
 
-    kpis, scatter, table = planner.update(data, "2027-01-31", 500, order_date=order)
+    kpis, timeline, not_drawn, table = planner.update(data, "2027-01-31", 500, order_date=order)
     # Fixture: only the USA ship to Europe. UNCTAD port days USA 1.08 + Netherlands 0.80;
     # 5,000 nm / (16.3 kn x 24) = 12.8 sea days -> 14.7, rounded 15 days -> 29 Nov.
     # No sourced freight rate: no recommendation (spec 015).
@@ -270,7 +271,12 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
     assert kpis[0].children[2].children == "sea freight has no sourced rate"
     assert kpis[1].children[1].children == "15 days"
     assert kpis[1].children[2].children.startswith("USA, order by 16 Jan 2027")
-    assert scatter.data[0].x[0] == pd.Timestamp("2026-11-29")
+    # Timeline (spec 018): your days, transit range, ship transit, your days after arrival.
+    band, transit = timeline.data[1], timeline.data[2]
+    assert transit.x[1] == pd.Timestamp("2026-11-29")
+    # 5,000 nm at 16.5 kn = 12.6 days (29 Nov), at 11.8 kn = 17.7 days: +5 days -> 4 Dec.
+    assert (band.x[0], band.x[1]) == (pd.Timestamp("2026-11-29"), pd.Timestamp("2026-12-04"))
+    assert not_drawn == ""
 
     late, *_ = planner.update(data, "2026-11-20", 500, order_date=order)
     assert late[2].children[1].children == "0 of 1"
