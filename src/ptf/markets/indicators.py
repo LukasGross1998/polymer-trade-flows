@@ -151,3 +151,23 @@ def cny_to_usd(values: pd.DataFrame, cny_per_usd: pd.DataFrame) -> pd.DataFrame:
     merged = pd.merge_asof(values.sort_values("date"), rates, on="date", direction="backward")
     merged = merged.dropna(subset=["rate"])
     return merged.assign(value=merged["value"] / merged["rate"])[["date", "value"]]
+
+
+def per_tonne(crude: pd.DataFrame, barrels_per_tonne: float) -> pd.DataFrame:
+    """A price per barrel of crude oil expressed per tonne (date, value)."""
+    return crude.assign(value=crude["value"] * barrels_per_tonne)
+
+
+def spread(minuend: pd.DataFrame, subtrahend: pd.DataFrame, max_gap_days: int = 4) -> pd.DataFrame:
+    """minuend − subtrahend on the minuend's dates (date, value).
+
+    The subtrahend's latest value up to `max_gap_days` earlier is used (trading calendars of
+    two exchanges differ: holidays, weekends); dates without one are left out.
+    """
+    left = minuend[["date", "value"]].sort_values("date")
+    right = subtrahend[["date", "value"]].sort_values("date").rename(columns={"value": "other"})
+    merged = pd.merge_asof(
+        left, right, on="date", direction="backward", tolerance=pd.Timedelta(days=max_gap_days)
+    )
+    merged = merged.dropna(subset=["other"])
+    return merged.assign(value=merged["value"] - merged["other"])[["date", "value"]]

@@ -71,7 +71,9 @@ def test_chokepoint_tab_returns_all_outputs(data: AppData) -> None:
 
 
 def test_prices_port_and_situation_tabs(data: AppData) -> None:
-    kpis, drivers, dce_fig, quote, oil, *_ = prices.update(data, "5y", "USD")
+    kpis, drivers, resin, dce_fig, quote, oil, gas, freight, gscpi, fx = prices.update(
+        data, "5y", "USD"
+    )
     # Fixture quote: trading day 16 Nov, newer than the last close (13 Nov) -> shown.
     assert quote.startswith(
         "Latest quote: 8,547 CNY/t (bid 8,547 / ask 8,551), last trade 23:00:00"
@@ -80,8 +82,13 @@ def test_prices_port_and_situation_tabs(data: AppData) -> None:
     # DCE price in the fixtures, but no CNY rate (DEXCHUS): the chart explains instead of failing.
     assert "not available" in dce_fig.layout.annotations[0].text
     assert kpis[0].children[1].children[0] == "78.0"  # latest Brent in the FRED fixture
-    assert len(oil.data) == 1  # WTI missing in the fixtures: only Brent is drawn
-    assert drivers.layout.title.text.startswith("Feedstock vs. resin prices in USD")
+    assert len(oil.data) == 1  # Brent only (spec 018)
+    # No CNY rate in the fixtures: no Dalian price in USD, so no spread (explained instead).
+    assert drivers.layout.title.text.startswith("Polymer over crude")
+    assert "No spread" in drivers.layout.annotations[0].text
+    assert quote.endswith("(08:00 CET in winter, 09:00 CEST in summer).")
+    assert fx.layout.title.text == "Exchange rate: US dollars per euro"
+    assert gas.data[0].name == "Europe − US" and gas.data[1].visible == "legendonly"
 
     assert len(ports.update(data, "port24", "export", "90d")) == 4
 
