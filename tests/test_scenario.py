@@ -93,3 +93,30 @@ def test_country_with_two_ports_gives_a_range() -> None:
     at_risk = pd.Series([True, False, False])  # only the Gulf port is behind Hormuz
     assert exposure.share_range(keyed, at_risk) == pytest.approx((0.0, 40.0))
     assert exposure.country_tonnes(keyed).sum() == 100.0  # Saudi tonnes counted once
+
+
+def test_destination_groups_and_other() -> None:
+    bilateral = pd.DataFrame(
+        {
+            "year": 2024,
+            "exporter_iso3": ["SAU", "SAU", "USA", "DEU"],
+            "importer_iso3": ["TUR", "BEL", "XKX", "FRA"],
+            "exporter_region": ["MDE", "MDE", "NAM", "EUR"],
+            "importer_region": "EUR",
+            "qty_t": [100.0, 50.0, 30.0, 999.0],
+        }
+    )
+    groups = {"North-West Europe": ["BEL"], "Turkey": ["TUR"]}
+    table = exposure.destination_tonnes(bilateral, "EUR", 2024, groups)
+    by_key = table.set_index(["exporter_iso3", "destination"])["qty_t"]
+
+    assert by_key[("SAU", "Turkey")] == 100.0
+    assert by_key[("USA", "Other Europe")] == 30.0  # not listed in any group
+    assert "DEU" not in set(table["exporter_iso3"])  # intra-European trade left out
+
+    countries = pd.DataFrame(
+        {"exporter_iso3": list("ABCD"), "exporter_name": list("ABCD"), "qty_t": [4.0, 3, 2, 1]}
+    )
+    top = exposure.top_with_other(countries, 2)
+    assert top["exporter_name"].tolist() == ["A", "B", "Other (2 countries)"]
+    assert top["qty_t"].tolist() == [4.0, 3.0, 3.0]

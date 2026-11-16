@@ -53,6 +53,7 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | sourcing.yaml | `signals.price.days` | 90 | comparison window of the price light |
 | sourcing.yaml | `signals.price.short_days` | 30 | second period on the price card (spec 018) |
 | sourcing.yaml | `signals.price.divergence_pct` | 10 points | opposite 30- and 90-day moves at least this far apart show "Mixed" |
+| sourcing.yaml | `top_suppliers` | 15 | supplier countries shown before "Other" (spec 018) |
 | sourcing.yaml | `changes.min_move_pct` | 5 % | market moves listed in "what changed" |
 | sourcing.yaml | `signals.*.yellow`, `signals.*.orange`, `signals.*.red` | see config | traffic-light thresholds |
 | sourcing.yaml | `relevance.min_region_share` | 5 % | relevance limit |

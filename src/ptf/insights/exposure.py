@@ -180,3 +180,41 @@ def by_country(routes: pd.DataFrame, flag: str) -> pd.DataFrame:
         f"{flag}_all",
     ]
     return pd.DataFrame(rows, columns=columns)
+
+
+OTHER_DESTINATION = "Other Europe"
+
+
+def destination_tonnes(
+    bilateral: pd.DataFrame, focus_region: str, year: int, groups: dict[str, list[str]]
+) -> pd.DataFrame:
+    """Extra-regional imports of the focus region per exporter country and destination group
+    (importer countries grouped by a setting; unlisted countries -> "Other Europe").
+
+    Columns: exporter_iso3, destination, qty_t.
+    """
+    rows = bilateral[
+        (bilateral["importer_region"] == focus_region)
+        & (bilateral["exporter_region"] != focus_region)
+        & (bilateral["year"] == year)
+    ]
+    group_of = {iso3: name for name, members in groups.items() for iso3 in members}
+    rows = rows.assign(destination=rows["importer_iso3"].map(group_of).fillna(OTHER_DESTINATION))
+    grouped = rows.groupby(["exporter_iso3", "destination"], as_index=False).agg(
+        qty_t=("qty_t", "sum")
+    )
+    return grouped
+
+
+def top_with_other(table: pd.DataFrame, n: int, column: str = "qty_t") -> pd.DataFrame:
+    """The `n` largest rows by `column`, the rest summed into one row named "Other"."""
+    ranked = table.sort_values(column, ascending=False)
+    top, rest = ranked.head(n), ranked.iloc[n:]
+    if rest.empty:
+        return top.reset_index(drop=True)
+    other = {c: None for c in table.columns} | {
+        "exporter_iso3": "OTHER",
+        "exporter_name": f"Other ({len(rest)} countries)",
+        column: float(rest[column].sum()),
+    }
+    return pd.concat([top, pd.DataFrame([other])], ignore_index=True)

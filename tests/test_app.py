@@ -114,13 +114,16 @@ def test_sourcing_tab_with_routes(warehouse_setup: PipelineSetup) -> None:
     data = load_app_data(warehouse_setup.settings)
 
     assert data.sourcing is not None
-    kpis, sankey, treemap = sourcing.update(data)
+    kpis, sankey, suppliers = sourcing.update(data)
     # The BACI fixture: Germany imports 2,000 t from the USA in 2023, nothing from Europe.
     assert kpis[0].children[1].children == "0.0 Mt"
     assert data.sourcing.extra_t == pytest.approx(2000)
     assert data.sourcing.exposure_pct == 0.0  # North America -> Europe passes no chokepoint
-    assert "Europe" in sankey.data[0].node.label
-    assert "United States" in " ".join(treemap.data[0].labels) or "USA" in treemap.data[0].ids
+    # Spec 018: destinations from the importer country – Germany is North-West Europe.
+    labels = list(sankey.data[0].node.label)
+    assert "North-West Europe" in labels and "North & Central America" in labels
+    assert list(suppliers.data[0].x) == [2.0]  # one bar, thousand tonnes
+    assert suppliers.data[0].name == "● open"
 
 
 def test_flows_tab_network_and_injected_country_trade(data: AppData) -> None:

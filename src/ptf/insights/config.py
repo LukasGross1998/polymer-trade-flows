@@ -165,6 +165,8 @@ class SourcingConfig(BaseModel):
     scenarios: ScenarioSettings = ScenarioSettings()
     sourceable: SourceableSettings = SourceableSettings()
     changes: ChangeSettings = ChangeSettings()
+    destinations: dict[str, list[str]] = {}  # destination group -> importer countries
+    top_suppliers: int = 15
     price_range: PriceRangeSettings = PriceRangeSettings()
     confidence: ConfidenceSettings = ConfidenceSettings()
     relevance: Relevance = Relevance()

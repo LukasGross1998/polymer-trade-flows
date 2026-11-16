@@ -213,6 +213,15 @@ import_controls:
     url: "https://ec.europa.eu/taxation_customs/dds2/taric/measures.jsp?Lang=en&Taric=3901101090&SimDate=20261114&Area=RU"
     read: 2026-11-14
 
+# Sourcing charts (spec 018), settings: destination groups of European importer countries
+# (a country not listed counts as "Other Europe") and the number of suppliers shown.
+destinations:
+  North-West Europe: [DEU, BEL, NLD, FRA, GBR, IRL, LUX, DNK, NOR, SWE, FIN, ISL, CHE, AUT]
+  Mediterranean: [ITA, ESP, PRT, GRC, CYP, MLT, HRV, SVN, ALB, MNE]
+  Turkey: [TUR]
+  Central & Eastern Europe: [POL, CZE, SVK, HUN, ROU, BGR, EST, LVA, LTU, SRB, BIH, MKD, UKR, MDA]
+top_suppliers: 15
+
 # Recommendation logic (spec 016). Settings marked `review: true` wait for the user's OK.
 sourceable:
   review: true
