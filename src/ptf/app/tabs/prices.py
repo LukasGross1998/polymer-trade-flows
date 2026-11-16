@@ -39,7 +39,13 @@ def layout(data: AppData) -> html.Div:
                 style=theme.ROW,
             ),
             html.Div(id="mkt-kpis", style=theme.ROW),
-            html.Div(charts.graph("mkt-drivers"), style={**theme.CARD, "marginBottom": "16px"}),
+            html.Div(
+                [
+                    html.Div(charts.graph("mkt-drivers"), style={**theme.CARD, "flex": "2"}),
+                    html.Div(charts.graph("mkt-resin"), style={**theme.CARD, "flex": "1"}),
+                ],
+                style=theme.ROW,
+            ),
             html.Div(
                 [
                     html.Div(id="mkt-dce-quote", style={"fontSize": "13px", "marginBottom": "4px"}),
@@ -65,12 +71,19 @@ def layout(data: AppData) -> html.Div:
             ),
             html.Div(
                 [
-                    html.Div(charts.graph("mkt-indexed"), style=card),
-                    html.Div(charts.graph("mkt-gscpi"), style=card),
+                    html.Div(charts.graph("mkt-indexed"), style={**card, "flex": "2"}),
+                    html.Div(charts.graph("mkt-gscpi"), style={**card, "minWidth": "300px"}),
                 ],
                 style=theme.ROW,
             ),
+            html.Div([html.Div(charts.graph("mkt-fx"), style=card)], style=theme.ROW),
             theme.method_panel(
+                "Polymer over crude: Dalian LLDPE minus Brent per tonne, with "
+                f"{fmt.number(barrels(data), 2)}"
+                " barrels per tonne of crude (UN Energy Statistics Yearbook 2023, Table II); "
+                "Brent on the last day up to four days before a Dalian trading day. A wide spread "
+                "means polymer prices high relative to crude. WTI, LNG Japan and the CNY and "
+                "dollar index series are still downloaded but no longer drawn. "
                 "Sources: FRED (St. Louis Fed): Brent, WTI, Henry Hub (daily); natural gas Europe "
                 "and LNG Japan (IMF, monthly); US producer price indices for deep sea freight and "
                 "thermoplastic resins (BLS, monthly) as proxies, since container rate indices "
@@ -166,32 +179,60 @@ def drivers_figure(
     currency: str,
     key_events: list[KeyEvent],
     start: pd.Timestamp | None = None,
+    barrels_per_tonne: float | None = None,
 ) -> go.Figure:
-    """Feedstock and resin prices, monthly averages, start of the tab's period = 100
-    (spec 017: one period for all charts of the tab; default January 2019).
+    """Polymer over crude (spec 018): Dalian LLDPE minus Brent per tonne, both in `currency`.
 
-    If resin indices rise more than feedstock, producers' margins widen (and the other way
-    round): the buyer sees whether a price increase is "the market" or margin.
+    A rising spread means polymer prices rise faster than crude (or fall slower): margin,
+    not feedstock. Without a sourced conversion factor or without the Dalian price no spread
+    is drawn.
     """
-    base = max(start, DRIVER_BASE) if start is not None else DRIVER_BASE
-    base = pd.Timestamp(base.year, base.month, 1)
-    monthly = indicators.monthly_table(market, DRIVER_SERIES)
-    rebased = indicators.indexed(monthly, DRIVER_SERIES, base)
-    frames = [(_name(market, s), rebased[rebased["series_id"] == s]) for s in DRIVER_SERIES]
-    fig = charts.line_chart(
-        frames, f"Feedstock vs. resin prices in {currency} ({base:%B %Y} = 100)", "index"
+    title = f"Polymer over crude: LLDPE Dalian minus Brent, {currency} per tonne"
+    dce = dce_in_currency(market, currency)
+    brent = indicators.series(market, "DCOILBRENTEU")
+    if barrels_per_tonne is None or dce.empty or brent.empty:
+        return empty_figure(title, "No spread: Dalian price or crude conversion factor missing.")
+    gap = indicators.spread(dce, indicators.per_tonne(brent, barrels_per_tonne))
+    if start is not None:
+        gap = gap[gap["date"] >= start]
+    fig = go.Figure(
+        go.Scatter(
+            x=gap["date"],
+            y=gap["value"],
+            mode="lines",
+            fill="tozeroy",
+            line={"color": theme.BLUE, "width": 2},
+            fillcolor=theme.with_alpha(theme.BLUE, 0.15),
+            name="LLDPE − Brent",
+            hovertemplate="%{y:,.0f} " + currency + "/t",
+        )
     )
-    fig.add_hline(y=100, line={"color": theme.GRID, "width": 1})
-    # Log scale: European gas rose tenfold in 2022 and would flatten every other line;
-    # on a log axis equal distances mean equal percentage changes.
-    fig.update_yaxes(
-        type="log", tickvals=[25, 50, 100, 200, 400, 800], title_text="index, log scale"
+    fig.update_yaxes(title={"text": f"{currency} per tonne", "font": {"color": theme.MUTED}})
+    charts.base_layout(fig, height=340, title=title)
+    if len(gap):
+        charts.add_key_events(fig, key_events, gap["date"].min(), gap["date"].max())
+    return fig
+
+
+def resin_figure(market: pd.DataFrame, start: pd.Timestamp) -> go.Figure:
+    """The US resin price index on its own (an index, not a price: not subtracted)."""
+    one = indicators.series(market, "PCU325211325211")
+    one = one[one["date"] >= start]
+    return charts.line_chart(
+        [("US PPI plastics resins", one)], "US resin price index (BLS, monthly)", "index"
     )
-    end = monthly["date"].max() if len(monthly) else base
-    return charts.add_key_events(fig, key_events, base, end)
+
+
+def empty_figure(title: str, message: str) -> go.Figure:
+    fig = go.Figure()
+    fig.add_annotation(text=message, showarrow=False, font={"color": theme.MUTED})
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
+    return charts.base_layout(fig, height=200, title=title)
 
 
 DCE_SERIES = "DCE_LLDPE"
+DCE_TITLE = "Asian price indicator: LLDPE futures, Dalian"
 
 
 def dce_in_currency(market: pd.DataFrame, currency: str) -> pd.DataFrame:
@@ -206,13 +247,23 @@ def dce_in_currency(market: pd.DataFrame, currency: str) -> pd.DataFrame:
     return usd
 
 
-def quote_line(data: AppData, currency: str) -> str:
-    """The latest intraday quote, if it belongs to a newer trading day than the last close.
+def close_note(data: AppData) -> str:
+    """'Daily price = close of the trading day, 15:00 Beijing time (08:00 CET in winter).'"""
+    dce = data.market_config.dce
+    if dce is None or dce.day_close_hour is None:
+        return "Daily price = closing price of the trading day."
+    hour = int(dce.day_close_hour.value)
+    # Beijing is UTC+8; Central Europe UTC+1 in winter, UTC+2 in summer.
+    return (
+        f"Daily price = closing price of the trading day, {hour}:00 Beijing time "
+        f"({hour - 7:02d}:00 CET in winter, {hour - 6:02d}:00 CEST in summer)."
+    )
 
-    Dalian trades (winter, CET) 02:00-04:30, 06:30-08:00 and 14:00-16:00 (night session in
-    Beijing), so a quote from a download during those hours is fresher than the daily close.
-    """
-    hours = "Dalian trading hours (CET, winter): 02:00–04:30, 06:30–08:00, 14:00–16:00."
+
+def quote_line(data: AppData, currency: str) -> str:
+    """The latest intraday quote, if it belongs to a newer trading day than the last close,
+    and in plain words what the daily price is (spec 018)."""
+    hours = close_note(data)
     quote = data.dce_quote
     market = data.market
     if quote is None or quote.empty or market is None:
@@ -253,11 +304,11 @@ def dce_figure(market: pd.DataFrame, start: pd.Timestamp, currency: str) -> go.F
         )
         fig.update_xaxes(visible=False)
         fig.update_yaxes(visible=False)
-        return charts.base_layout(fig, height=200, title="LLDPE futures, Dalian")
+        return charts.base_layout(fig, height=200, title=DCE_TITLE)
     frame = converted[converted["date"] >= start]
     return charts.line_chart(
         [(f"LLDPE Dalian, {currency}/t", frame)],
-        f"LLDPE futures, Dalian main contract, in {currency} per tonne (daily)",
+        f"{DCE_TITLE}, {currency} per tonne (daily close)",
         f"{currency} per tonne",
     )
 
@@ -269,11 +320,9 @@ def oil_figure(
     key_events: list[KeyEvent],
     currency: str = "USD",
 ) -> go.Figure:
-    frames = [
-        (_name(market, s), indicators.series(market, s)) for s in ["DCOILBRENTEU", "DCOILWTICO"]
-    ]
-    frames = [(n, f[f["date"] >= start]) for n, f in frames]
-    fig = charts.line_chart(frames, "Crude oil", f"{currency} per barrel")
+    brent = indicators.series(market, "DCOILBRENTEU")
+    frames = [(_name(market, "DCOILBRENTEU"), brent[brent["date"] >= start])]
+    fig = charts.line_chart(frames, "Crude oil: Brent", f"{currency} per barrel")
     return charts.add_key_events(fig, key_events, start, end)
 
 
@@ -284,28 +333,60 @@ def gas_figure(
     key_events: list[KeyEvent],
     currency: str = "USD",
 ) -> go.Figure:
-    """Monthly averages so the daily US series is comparable with the monthly EU/Japan series."""
-    frames = [
-        (_name(market, s), indicators.monthly_mean(market, s))
-        for s in ["DHHNGSP", "PNGASEUUSDM", "PNGASJPUSDM"]
-    ]
-    frames = [(n, f[f["date"] >= start]) for n, f in frames]
-    fig = charts.line_chart(frames, "Natural gas, monthly average", f"{currency} per MMBtu")
+    """Gas spread Europe − US as an area; the two prices hidden until clicked in the legend."""
+    gap = indicators.gas_spread(market, "PNGASEUUSDM")
+    gap = gap[gap["date"] >= start]
+    fig = go.Figure(
+        go.Scatter(
+            x=gap["date"],
+            y=gap["value"],
+            mode="lines",
+            fill="tozeroy",
+            name="Europe − US",
+            line={"color": theme.BLUE, "width": 2},
+            fillcolor=theme.with_alpha(theme.BLUE, 0.15),
+            hovertemplate="%{y:,.1f}",
+        )
+    )
+    for colour, series_id in zip(theme.SERIES[1:3], ["PNGASEUUSDM", "DHHNGSP"], strict=True):
+        one = indicators.monthly_mean(market, series_id)
+        one = one[one["date"] >= start]
+        fig.add_trace(
+            go.Scatter(
+                x=one["date"],
+                y=one["value"],
+                mode="lines",
+                name=_name(market, series_id),
+                line={"color": colour, "width": 1.5},
+                visible="legendonly",
+            )
+        )
+    fig.update_yaxes(title={"text": f"{currency} per MMBtu", "font": {"color": theme.MUTED}})
+    charts.base_layout(fig, height=340, title="Natural gas: spread Europe − US (monthly)")
     return charts.add_key_events(fig, key_events, start, end)
 
 
 def indexed_figure(
     market: pd.DataFrame, start: pd.Timestamp, end: pd.Timestamp, key_events: list[KeyEvent]
 ) -> go.Figure:
-    ids = ["PCU483111483111", "PCU3252113252111", "DEXUSEU", "DEXCHUS", "DTWEXBGS"]
-    rebased = indicators.indexed(market, ids, start)
-    # Empty series are skipped by `line_chart` without shifting the other colours.
-    frames = [(_name(market, s), rebased[rebased["series_id"] == s]) for s in ids]
+    """Ocean freight on its own (spec 018): the US PPI for deep sea freight."""
+    one = indicators.series(market, "PCU483111483111")
+    one = one[one["date"] >= start]
     fig = charts.line_chart(
-        frames, "Freight, resins and currencies (start of period = 100)", "index"
+        [(_name(market, "PCU483111483111"), one)],
+        "Ocean freight: US producer price index, deep sea freight (monthly)",
+        "index",
     )
-    fig.add_hline(y=100, line={"color": theme.GRID, "width": 1})
     return charts.add_key_events(fig, key_events, start, end)
+
+
+def fx_figure(market: pd.DataFrame, start: pd.Timestamp) -> go.Figure:
+    """EUR/USD only (USD per EUR): up = stronger euro, dollar imports cheaper in EUR."""
+    one = indicators.series(market, "DEXUSEU")
+    one = one[one["date"] >= start]
+    return charts.line_chart(
+        [("US dollars per euro", one)], "Exchange rate: US dollars per euro", "USD per EUR"
+    )
 
 
 def gscpi_figure(
@@ -325,7 +406,7 @@ def gscpi_figure(
     )
     fig.add_hline(y=0, line={"color": theme.INK_SECONDARY, "width": 1})
     fig.update_yaxes(title={"text": "std. dev. from average", "font": {"color": theme.MUTED}})
-    charts.base_layout(fig, height=340, title="Global Supply Chain Pressure Index (NY Fed)")
+    charts.base_layout(fig, height=340, title="Context: supply chain pressure (GSCPI, NY Fed)")
     return charts.add_key_events(fig, key_events, start, end)
 
 
@@ -337,14 +418,21 @@ def update(data: AppData, period: str, currency: str = "EUR") -> charts.Outputs:
     events = data.market_config.key_events
     return (
         charts.tiles(kpi_values(market, currency)),
-        drivers_figure(market, currency, events, start),
+        drivers_figure(market, currency, events, start, barrels(data)),
+        resin_figure(raw, start),
         dce_figure(market, start, currency),
         quote_line(data, currency),
         oil_figure(market, start, latest, events, currency),
         gas_figure(market, start, latest, events, currency),
         indexed_figure(market, start, latest, events),
         gscpi_figure(market, start, latest, events),
+        fx_figure(raw, start),
     )
+
+
+def barrels(data: AppData) -> float | None:
+    factor = data.market_config.crude_barrels_per_tonne
+    return None if factor is None else factor.value
 
 
 def register(app: Dash, state: AppState) -> None:
@@ -354,12 +442,14 @@ def register(app: Dash, state: AppState) -> None:
     @app.callback(
         Output("mkt-kpis", "children"),
         Output("mkt-drivers", "figure"),
+        Output("mkt-resin", "figure"),
         Output("mkt-dce", "figure"),
         Output("mkt-dce-quote", "children"),
         Output("mkt-oil", "figure"),
         Output("mkt-gas", "figure"),
         Output("mkt-indexed", "figure"),
         Output("mkt-gscpi", "figure"),
+        Output("mkt-fx", "figure"),
         Input("mkt-period", "value"),
         Input("currency", "value"),
         Input("data-version", "data"),

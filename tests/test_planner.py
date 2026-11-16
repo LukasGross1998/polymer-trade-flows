@@ -98,3 +98,9 @@ def test_recommendation_only_with_known_freight_and_known_arrival() -> None:
 
     without_freight = planner.plan(*args, False)
     assert not without_freight["recommended"].any()
+
+
+def test_transit_range_from_the_ship_speed_table() -> None:
+    # Spec 018: 9,720 nm takes 24.5 days at 16.5 kn and 34.3 days at 11.8 kn.
+    fast, slow = planner.sea_day_range(9720 / (16.3 * 24), 16.3, PROJECT_LEAD)
+    assert (round(fast, 1), round(slow, 1)) == (24.5, 34.3)

@@ -7,27 +7,15 @@ ranges by grade, confidence, sourceable origins, capital tied up in transit and 
 own cost quotes.
 """
 
-from collections.abc import Hashable
+from collections.abc import Hashable, Mapping
 from typing import Any
 
 import pandas as pd
-import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
 
 from ptf.app import charts, fmt, theme
 from ptf.app.data import AppData, AppState
 from ptf.insights.view import ALL_GRADES, CostQuotes, LandedView, landed_view, mfn_rate
-
-COMPONENT_LABELS = {
-    "price": "Price (FOB)",
-    "freight": "Sea freight",
-    "duty": "EU duty",
-    "capital": "Capital in transit",
-    "insurance": "Insurance (your quote)",
-    "handling": "Port handling (your quote)",
-    "oncarriage": "On-carriage (your quote)",
-}
-
 
 QUOTE = "your quote"
 
@@ -106,7 +94,6 @@ def layout(data: AppData) -> html.Div:
                 style=theme.ROW,
             ),
             html.Div(id="lc-kpis", style=theme.ROW),
-            html.Div(charts.graph("lc-bars"), style={**theme.CARD, "marginBottom": "16px"}),
             html.Div(id="lc-table", style={**theme.CARD, "marginBottom": "16px"}),
         ]
     )
@@ -203,48 +190,89 @@ def basis_line(view: LandedView) -> str:
     )
 
 
-def bars_figure(view: LandedView) -> go.Figure:
-    table = view.table.iloc[::-1].copy()  # cheapest on top in a horizontal bar chart
-    table["exporter_name"] = [
-        f"{name} ⚠" if risk else name
-        for name, risk in zip(table["exporter_name"], table["at_risk"], strict=True)
+# Cost components of the inline bars, in the categorical order of the theme (spec 018).
+SEGMENTS = [
+    ("price_eur_t", "Price (FOB)"),
+    ("duty_eur_t", "EU duty"),
+    ("freight_eur_t", "Sea freight"),
+    ("capital_eur_t", "Capital in transit"),
+    ("quotes_eur_t", "Your quotes"),
+]
+SEGMENT_COLOURS = dict(zip([key for key, _ in SEGMENTS], theme.SERIES, strict=True))
+
+
+def segments(row: Mapping[Any, Any]) -> list[tuple[str, float]]:
+    """(component, EUR/t) of one row, components without a value left out."""
+    quotes = [row.get(q) for q in ("insurance_eur_t", "handling_eur_t", "oncarriage_eur_t")]
+    values = {**row, "quotes_eur_t": sum(q for q in quotes if q is not None and not pd.isna(q))}
+    out = []
+    for key, _ in SEGMENTS:
+        value = values.get(key)
+        if value is not None and not pd.isna(value) and value > 0:
+            out.append((key, float(value)))
+    return out
+
+
+def inline_bar(
+    row: Mapping[Any, Any], scale: float, reference: float | None, faded: bool
+) -> html.Div:
+    """A stacked bar of the cost components inside a table cell; widths in % of `scale`,
+    the "buy in Europe" reference as a thin line."""
+    parts = [
+        html.Div(
+            title=f"{dict(SEGMENTS)[key]}: {fmt.number(value)}",
+            style={
+                "width": f"{value / scale * 100:.2f}%",
+                "backgroundColor": SEGMENT_COLOURS[key],
+                "height": "100%",
+                "marginRight": "1px",
+                "opacity": "0.35" if faded else "1",
+            },
+        )
+        for key, value in segments(row)
     ]
-    fig = go.Figure()
-    for colour, part in zip(theme.SERIES * 2, COMPONENT_LABELS, strict=False):
-        if table[f"{part}_eur_t"].isna().all():
-            continue  # freight without a sourced rate
-        fig.add_trace(
-            go.Bar(
-                y=table["exporter_name"],
-                x=table[f"{part}_eur_t"],
-                name=COMPONENT_LABELS[part],
-                orientation="h",
-                marker={"color": colour},
-                hovertemplate="%{y}: %{x:,.0f} "
-                + view.currency
-                + "/t<extra>"
-                + COMPONENT_LABELS[part]
-                + "</extra>",
+    if reference is not None:
+        parts.append(
+            html.Div(
+                title=f"Buy in Europe: {fmt.number(reference)}",
+                style={
+                    "position": "absolute",
+                    "left": f"{reference / scale * 100:.2f}%",
+                    "top": "-2px",
+                    "bottom": "-2px",
+                    "borderLeft": f"2px dashed {theme.INK_SECONDARY}",
+                },
             )
         )
-    if view.reference_eur_t is not None:
-        fig.add_vline(
-            x=view.reference_eur_t,
-            line={"color": theme.INK_SECONDARY, "width": 1.5, "dash": "dash"},
-            annotation_text="buy in Europe",
-            annotation_position="top",
-        )
-    fig.update_layout(barmode="stack", hovermode="closest", legend={"traceorder": "normal"})
-    axis = (
-        f"{view.currency} per tonne, delivered to Europe"
-        if view.freight_known
-        else f"{view.currency} per tonne, excl. freight"
+    return html.Div(
+        parts,
+        style={"display": "flex", "position": "relative", "height": "14px", "minWidth": "180px"},
     )
-    fig.update_xaxes(title={"text": axis, "font": {"color": theme.MUTED}})
-    title = "Landed cost by supplier country (10 largest by volume)"
-    if not view.freight_known:
-        title = "Price + EU duty by supplier country, excl. freight (10 largest by volume)"
-    return charts.base_layout(fig, height=440, title=title)
+
+
+def legend() -> html.Div:
+    items = [
+        html.Span(
+            [
+                html.Span(
+                    style={
+                        "display": "inline-block",
+                        "width": "10px",
+                        "height": "10px",
+                        "backgroundColor": SEGMENT_COLOURS[key],
+                        "marginRight": "4px",
+                    }
+                ),
+                label,
+            ],
+            style={"marginRight": "14px"},
+        )
+        for key, label in SEGMENTS
+    ]
+    items.append(html.Span("┆ buy in Europe (average within Europe)"))
+    return html.Div(
+        items, style={"fontSize": "12px", "color": theme.INK_SECONDARY, "margin": "4px 0 8px"}
+    )
 
 
 def route_status(row: dict[Hashable, Any]) -> str:
@@ -261,6 +289,7 @@ def route_status(row: dict[Hashable, Any]) -> str:
 def cost_table(view: LandedView) -> html.Div:
     header = [
         "Country",
+        f"Cost per tonne ({view.currency})",
         "Confidence",
         "1,000 t",
         "Price all grades (main grades)",
@@ -274,6 +303,8 @@ def cost_table(view: LandedView) -> html.Div:
     cell = {"padding": "4px 8px", "fontSize": "13px", "textAlign": "right"}
     rows = [html.Tr([html.Th(h, style={**cell, "color": theme.MUTED}) for h in header])]
     quotes = ["insurance_eur_t", "handling_eur_t", "oncarriage_eur_t"]
+    reference = view.reference_eur_t
+    scale = max([*view.table["total_eur_t"].tolist(), reference or 0.0]) * 1.05
     for row in view.table.to_dict("records"):
         usable = bool(row.get("sourceable", True))
         entered = [row[q] for q in quotes if not pd.isna(row[q])]
@@ -301,6 +332,10 @@ def cost_table(view: LandedView) -> html.Div:
                         style={**cell, "textAlign": "left", "color": colour},
                     ),
                     html.Td(
+                        inline_bar(row, scale, reference, not usable),
+                        style={**cell, "width": "30%"},
+                    ),
+                    html.Td(
                         values[0],
                         title=str(row["confidence_reason"]),
                         style={**cell, "color": colour},
@@ -311,8 +346,13 @@ def cost_table(view: LandedView) -> html.Div:
         )
     table = html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"})
     missing = "Not included: " + ", ".join(view.not_included) if view.not_included else ""
+    title = f"Landed cost by supplier country, {view.currency} per tonne" + (
+        "" if view.freight_known else " (excl. freight)"
+    )
     return html.Div(
         [
+            html.Div(title, style=theme.CARD_TITLE),
+            legend(),
             table,
             html.Div(missing, style=theme.SMALL_NOTE),
             html.Div(basis_line(view), style=theme.SMALL_NOTE),
@@ -330,9 +370,9 @@ def update(
 ) -> charts.Outputs:
     view = compute(data, scenario, basis, grade, quotes)
     if view is None or view.table.empty:
-        return [], go.Figure(), charts.no_data("No suppliers with a sea route.")
+        return [], charts.no_data("No suppliers with a sea route.")
     view = view.in_currency(currency)
-    return charts.tiles(kpi_values(view)), bars_figure(view), cost_table(view)
+    return charts.tiles(kpi_values(view)), cost_table(view)
 
 
 def register(app: Dash, state: AppState) -> None:
@@ -341,7 +381,6 @@ def register(app: Dash, state: AppState) -> None:
 
     @app.callback(
         Output("lc-kpis", "children"),
-        Output("lc-bars", "figure"),
         Output("lc-table", "children"),
         Input("scenario", "value"),
         Input("lc-basis", "value"),

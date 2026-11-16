@@ -43,6 +43,7 @@ class AppData:
     distances: pd.DataFrame | None = None  # sea routes with passages (raw layer, model)
     variant_distances: dict[str, pd.DataFrame] = field(default_factory=dict)  # detour variants
     import_sources_by_product: pd.DataFrame | None = None
+    bilateral: pd.DataFrame | None = None  # PE trade per exporter and importer country
     trade_by_class: pd.DataFrame | None = None
     class_tree: pd.DataFrame | None = None
     products: pd.DataFrame | None = None
@@ -163,6 +164,7 @@ def require(table: pd.DataFrame | None, name: str) -> pd.DataFrame:
 # Key of AppData -> warehouse table.
 APP_TABLES = {
     "transits": "marts.mart_chokepoint_transits",
+    "bilateral": "marts.mart_bilateral_trade",
     "chokepoints": "marts.dim_chokepoint",
     "port_activity": "marts.mart_port_activity",
     "ports": "marts.dim_port",
@@ -213,6 +215,7 @@ def load_app_data(settings: Settings) -> AppData:
         port_links=tables["port_links"],
         import_sources=tables["import_sources"],
         import_sources_by_product=tables["import_sources_by_product"],
+        bilateral=tables["bilateral"],
         trade_by_class=tables["trade_by_class"],
         class_tree=tables["class_tree"],
         products=tables["products"],

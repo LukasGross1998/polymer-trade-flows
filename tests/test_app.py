@@ -71,7 +71,9 @@ def test_chokepoint_tab_returns_all_outputs(data: AppData) -> None:
 
 
 def test_prices_port_and_situation_tabs(data: AppData) -> None:
-    kpis, drivers, dce_fig, quote, oil, *_ = prices.update(data, "5y", "USD")
+    kpis, drivers, resin, dce_fig, quote, oil, gas, freight, gscpi, fx = prices.update(
+        data, "5y", "USD"
+    )
     # Fixture quote: trading day 16 Nov, newer than the last close (13 Nov) -> shown.
     assert quote.startswith(
         "Latest quote: 8,547 CNY/t (bid 8,547 / ask 8,551), last trade 23:00:00"
@@ -80,12 +82,18 @@ def test_prices_port_and_situation_tabs(data: AppData) -> None:
     # DCE price in the fixtures, but no CNY rate (DEXCHUS): the chart explains instead of failing.
     assert "not available" in dce_fig.layout.annotations[0].text
     assert kpis[0].children[1].children[0] == "78.0"  # latest Brent in the FRED fixture
-    assert len(oil.data) == 1  # WTI missing in the fixtures: only Brent is drawn
-    assert drivers.layout.title.text.startswith("Feedstock vs. resin prices in USD")
+    assert len(oil.data) == 1  # Brent only (spec 018)
+    # No CNY rate in the fixtures: no Dalian price in USD, so no spread (explained instead).
+    assert drivers.layout.title.text.startswith("Polymer over crude")
+    assert "No spread" in drivers.layout.annotations[0].text
+    assert quote.endswith("(08:00 CET in winter, 09:00 CEST in summer).")
+    assert fx.layout.title.text == "Exchange rate: US dollars per euro"
+    assert gas.data[0].name == "Europe − US" and gas.data[1].visible == "legendonly"
 
     assert len(ports.update(data, "port24", "export", "90d")) == 4
 
-    lights, *_ = situation.update(data)
+    headline, lights, _changes, disruptions = situation.update(data)
+    assert headline.startswith("Supply")  # summary sentence (spec 018)
     assert [card.children[0].children[0].children[0] for card in lights] == [
         "Price",
         "Supply",
@@ -106,13 +114,16 @@ def test_sourcing_tab_with_routes(warehouse_setup: PipelineSetup) -> None:
     data = load_app_data(warehouse_setup.settings)
 
     assert data.sourcing is not None
-    kpis, sankey, treemap = sourcing.update(data)
+    kpis, sankey, suppliers = sourcing.update(data)
     # The BACI fixture: Germany imports 2,000 t from the USA in 2023, nothing from Europe.
     assert kpis[0].children[1].children == "0.0 Mt"
     assert data.sourcing.extra_t == pytest.approx(2000)
     assert data.sourcing.exposure_pct == 0.0  # North America -> Europe passes no chokepoint
-    assert "Europe" in sankey.data[0].node.label
-    assert "United States" in " ".join(treemap.data[0].labels) or "USA" in treemap.data[0].ids
+    # Spec 018: destinations from the importer country – Germany is North-West Europe.
+    labels = list(sankey.data[0].node.label)
+    assert "North-West Europe" in labels and "North & Central America" in labels
+    assert list(suppliers.data[0].x) == [2.0]  # one bar, thousand tonnes
+    assert suppliers.data[0].name == "● open"
 
 
 def test_flows_tab_network_and_injected_country_trade(data: AppData) -> None:
@@ -174,24 +185,25 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     write_synthetic_distances(raw, regions, "babalmandab_closed+suez_closed", distance_nm=10000.0)
     data = load_app_data(warehouse_setup.settings)
 
-    kpis, bars, table = landed_cost.update(data, "all_open", "baci")
+    kpis, table = landed_cost.update(data, "all_open", "baci")
     # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
     # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
     assert kpis[0].children[0].children == "Lowest cost sourceable origin, excl. freight"
     assert kpis[0].children[1].children[0] == "1,250"
-    assert [t.name for t in bars.data] == ["Price (FOB)", "EU duty"]
-    rows = table.children[0].children
-    assert rows[1].children[4].children == "n/a"  # freight column
-    assert table.children[1].children.startswith("Not included: sea freight (no sourced rate)")
-
-    assert rows[1].children[9].children == "open"  # route status
+    # Spec 018: one table with an inline bar per row; US duty is 0, so only the price shows.
+    rows = table.children[2].children
+    bar = rows[1].children[1].children
+    assert [part.title for part in bar.children] == ["Price (FOB): 1,250"]
+    assert rows[1].children[5].children == "n/a"  # freight column
+    assert table.children[3].children.startswith("Not included: sea freight (no sourced rate)")
+    assert rows[1].children[10].children == "open"  # route status
 
     # Scenario "Red Sea closed" (spec 014): the variant table is 10,000 nm, so the US route
     # is on a detour; the cost stays price + duty while freight has no source.
-    closed, _, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
+    closed, closed_table = landed_cost.update(data, "red_sea_closed", "baci")
     assert closed[0].children[1].children[0] == "1,250"
     assert closed[2].children[2].children == "n/a – no sourced freight rate"
-    assert closed_table.children[0].children[1].children[9].children == "detour"
+    assert closed_table.children[2].children[1].children[10].children == "detour"
 
 
 def test_scenario_dropdown_in_the_header(data: AppData) -> None:
@@ -251,7 +263,7 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
     data = load_app_data(warehouse_setup.settings)
     order = pd.Timestamp("2026-11-14")
 
-    kpis, scatter, table = planner.update(data, "2027-01-31", 500, order_date=order)
+    kpis, timeline, not_drawn, table = planner.update(data, "2027-01-31", 500, order_date=order)
     # Fixture: only the USA ship to Europe. UNCTAD port days USA 1.08 + Netherlands 0.80;
     # 5,000 nm / (16.3 kn x 24) = 12.8 sea days -> 14.7, rounded 15 days -> 29 Nov.
     # No sourced freight rate: no recommendation (spec 015).
@@ -259,7 +271,12 @@ def test_order_planner_tab(warehouse_setup: PipelineSetup) -> None:
     assert kpis[0].children[2].children == "sea freight has no sourced rate"
     assert kpis[1].children[1].children == "15 days"
     assert kpis[1].children[2].children.startswith("USA, order by 16 Jan 2027")
-    assert scatter.data[0].x[0] == pd.Timestamp("2026-11-29")
+    # Timeline (spec 018): your days, transit range, ship transit, your days after arrival.
+    band, transit = timeline.data[1], timeline.data[2]
+    assert transit.x[1] == pd.Timestamp("2026-11-29")
+    # 5,000 nm at 16.5 kn = 12.6 days (29 Nov), at 11.8 kn = 17.7 days: +5 days -> 4 Dec.
+    assert (band.x[0], band.x[1]) == (pd.Timestamp("2026-11-29"), pd.Timestamp("2026-12-04"))
+    assert not_drawn == ""
 
     late, *_ = planner.update(data, "2026-11-20", 500, order_date=order)
     assert late[2].children[1].children == "0 of 1"

@@ -10,9 +10,11 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
 
-from ptf.app import charts, theme
+from ptf.app import charts, fmt, theme
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs.landed_cost import compute as compute_landed
+from ptf.insights import planner as planner_logic
+from ptf.insights.config import LeadTime
 from ptf.insights.scenario import LIVE
 from ptf.insights.view import (
     ALL_GRADES,
@@ -84,7 +86,13 @@ def layout(data: AppData) -> html.Div:
                 title="Your own estimates (no free source gives these per country); default 0.",
             ),
             html.Div(id="pl-kpis", style=theme.ROW),
-            html.Div(charts.graph("pl-scatter"), style={**theme.CARD, "marginBottom": "16px"}),
+            html.Div(
+                [
+                    charts.graph("pl-timeline"),
+                    html.Div(id="pl-not-drawn", style=theme.SMALL_NOTE),
+                ],
+                style={**theme.CARD, "marginBottom": "16px"},
+            ),
             html.Div(id="pl-table", style={**theme.CARD, "marginBottom": "16px"}),
         ]
     )
@@ -191,52 +199,92 @@ def kpi_values(view: PlannerView) -> list[dict[str, str]]:
     return values
 
 
-def scatter_figure(view: PlannerView) -> go.Figure:
-    table = view.table[view.table["arrival"].notna()]
-    size = 10 + 30 * (table["qty_t"] / table["qty_t"].max()) ** 0.5
-    colours = [
-        theme.HIGHLIGHT if rec else (theme.BLUE if ok is True else theme.MUTED)
-        for rec, ok in zip(table["recommended"], table["on_time"], strict=True)
+def timeline_figure(view: PlannerView, lead: LeadTime) -> go.Figure:
+    """One row per origin (spec 018): your days before departure, the ship transit with a band
+    from the fastest to the slowest container ship size (IMO table), your days after arrival;
+    the need-by date as a line, the cost per tonne in the row label. Origins at risk, not
+    sourceable or without a transit time are listed below the chart instead."""
+    table = planner_logic.with_transit_range(view.table, lead)
+    drawn = table[
+        table["arrival"].notna() & ~table["at_risk"] & table["sourceable"].fillna(True)
+    ].sort_values("at_site")
+    unit = f"{view.landed.currency}/t"
+    labels = [
+        f"{r['exporter_name']} · {fmt.number(r['landed_eur_t'])} {unit}"
+        for r in drawn.to_dict("records")
     ]
-    hover = [
-        f"<b>{r['exporter_name']}</b><br>{r['landed_eur_t']:,.0f} {view.landed.currency}/t"
-        + ("" if view.landed.freight_known else " excl. freight")
-        + "<br>"
-        f"arrives {r['arrival']:%d %b} ({r['lead_days']:.0f} days)"
-        + ("<br>route through a disrupted chokepoint" if r.get("exposed") else "")
-        + ("<br>storm on the route" if r["storm_on_route"] else "")
-        + ("<br>port below normal" if r["congested"] else "")
-        for r in table.to_dict("records")
-    ]
-    fig = go.Figure(
-        go.Scatter(
-            x=table["arrival"],
-            y=table["landed_eur_t"],
-            mode="markers+text",
-            text=table["exporter_name"],
-            textposition="top center",
-            hovertext=hover,
-            hoverinfo="text",
-            marker={"size": size, "color": colours, "line": {"color": theme.SURFACE, "width": 2}},
-            showlegend=False,
-        )
+    fig = go.Figure()
+
+    def segment(
+        name: str,
+        starts: list[pd.Timestamp],
+        ends: list[pd.Timestamp],
+        colour: str,
+        width: int,
+        show: bool,
+    ) -> None:
+        for k, (label, a, b) in enumerate(zip(labels, starts, ends, strict=True)):
+            fig.add_trace(
+                go.Scatter(
+                    x=[a, b],
+                    y=[label, label],
+                    mode="lines",
+                    line={"color": colour, "width": width},
+                    name=name,
+                    legendgroup=name,
+                    showlegend=show and k == 0,
+                    hovertemplate=f"{name}: %{{x|%d %b %Y}}<extra>{label}</extra>",
+                )
+            )
+
+    order = view.order_date
+    rows = drawn.to_dict("records")
+    departure = [r["arrival"] - pd.Timedelta(days=round(r["lead_days"])) for r in rows]
+    segment("Your days before departure", [order] * len(rows), departure, theme.GRID, 10, True)
+    segment(
+        "Transit range (fastest–slowest ship size)",
+        [r["arrival_early"] for r in rows],
+        [r["arrival_late"] for r in rows],
+        theme.with_alpha(theme.BLUE, 0.25),
+        16,
+        True,
+    )
+    segment("Ship transit", departure, [r["arrival"] for r in rows], theme.BLUE, 6, True)
+    segment(
+        "Your days after arrival",
+        [r["arrival"] for r in rows],
+        [r["at_site"] for r in rows],
+        theme.AQUA,
+        6,
+        True,
     )
     fig.add_vline(
         x=view.need_by.timestamp() * 1000,
-        line={"color": theme.CRITICAL, "width": 1.5, "dash": "dash"},
+        line={"color": theme.INK, "width": 1.5, "dash": "dash"},
         annotation_text="needed by",
         annotation_position="top",
     )
-    cost = f"{view.landed.currency} per tonne, " + (
-        "delivered" if view.landed.freight_known else "excl. freight"
-    )
-    fig.update_yaxes(title={"text": cost, "font": {"color": theme.MUTED}})
+    fig.update_yaxes(categoryorder="array", categoryarray=list(reversed(labels)))
     fig.update_layout(hovermode="closest")
     return charts.base_layout(
         fig,
-        height=460,
-        title="Cost vs. arrival of the ship if ordered today (origins with port data)",
+        height=max(260, 44 * len(labels) + 120),
+        title="From order to arrival, if ordered today (one row per origin)",
     )
+
+
+def not_drawn(view: PlannerView) -> str:
+    """The origins left out of the timeline, with the reason."""
+    table = view.table
+    parts = []
+    for r in table.to_dict("records"):
+        if not bool(r.get("sourceable", True)):
+            parts.append(f"{r['exporter_name']} (not sourceable)")
+        elif r.get("at_risk"):
+            parts.append(f"{r['exporter_name']} (at risk)")
+        elif pd.isna(r["arrival"]):
+            parts.append(f"{r['exporter_name']} (no transit time)")
+    return "Not in the timeline: " + ", ".join(parts) if parts else ""
 
 
 def plan_table(view: PlannerView) -> html.Table:
@@ -341,8 +389,14 @@ def update(
         currency,
     )
     if view is None:
-        return [], go.Figure(), charts.no_data("No suppliers with a sea route for this grade.")
-    return charts.tiles(kpi_values(view)), scatter_figure(view), plan_table(view)
+        return [], go.Figure(), "", charts.no_data("No suppliers with a sea route for this grade.")
+    lead = data.sourcing_config.lead_time
+    return (
+        charts.tiles(kpi_values(view)),
+        timeline_figure(view, lead),
+        not_drawn(view),
+        plan_table(view),
+    )
 
 
 def register(app: Dash, state: AppState) -> None:
@@ -351,7 +405,8 @@ def register(app: Dash, state: AppState) -> None:
 
     @app.callback(
         Output("pl-kpis", "children"),
-        Output("pl-scatter", "figure"),
+        Output("pl-timeline", "figure"),
+        Output("pl-not-drawn", "children"),
         Output("pl-table", "children"),
         Input("pl-need-by", "date"),
         Input("pl-quantity", "value"),

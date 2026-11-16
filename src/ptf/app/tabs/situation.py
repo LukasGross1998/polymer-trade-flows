@@ -6,6 +6,9 @@ and the chokepoints and events that matter for Europe (spec 013). Method notes s
 info icons, not in the layout.
 """
 
+from collections.abc import Mapping
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html
@@ -14,7 +17,7 @@ from dash.development.base_component import Component
 from ptf.app import charts, fmt, theme
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs import prices
-from ptf.insights import relevance, signals
+from ptf.insights import relevance, signals, summary
 from ptf.insights.config import Threshold
 from ptf.insights.scenario import LIVE
 from ptf.insights.view import ALL_GRADES, traffic_lights
@@ -70,6 +73,10 @@ def layout(data: AppData) -> html.Div:
                 ),
                 style={"marginBottom": "8px", "fontSize": "13px"},
             ),
+            html.Div(
+                id="sit-summary",
+                style={"fontSize": "15px", "fontWeight": "600", "marginBottom": "12px"},
+            ),
             html.Div(id="sit-lights", style=theme.ROW),
             html.Div(
                 [
@@ -80,8 +87,9 @@ def layout(data: AppData) -> html.Div:
                                 "Chokepoints newly below "
                                 f"{data.monitor_config.disruption_threshold:.0%} of normal, new "
                                 "orange or red "
-                                "disruption events, gale or storm forecasts and the largest "
-                                f"{days}-day moves of daily market series. 'Relevant for "
+                                "disruption events, storm forecasts and daily market series "
+                                f"that moved at least {data.sourcing_config.changes.min_move_pct:g}"
+                                f" % in {days} days, each with a short note. 'Relevant for "
                                 "Europe' keeps only the supplier regions, sea routes, ports and "
                                 "series that matter for European PE imports.",
                             ),
@@ -92,36 +100,25 @@ def layout(data: AppData) -> html.Div:
                     html.Div(
                         [
                             heading(
-                                "Chokepoints furthest below normal (all vessels)",
-                                "7-day average of all transits against the same calendar week "
-                                "2019-2023 (IMF PortWatch). Second line: share of Europe's PE "
-                                "imports from outside Europe whose sea route passes it (a "
-                                "range where a country's export port is not known), and what a "
-                                "closure would mean: extra days at sea on the chokepoint's own "
-                                "detour (searoute, "
-                                f"{data.sourcing_config.lead_time.speed:g} knots: average speed "
-                                "at sea of container ships, Fourth IMO GHG Study 2020), or no "
-                                "sea detour (e.g. Hormuz) – then the supply is at risk.",
+                                "Chokepoints and disruptions",
+                                "Chokepoints furthest below normal: 7-day average of all "
+                                "transits against the same calendar week 2019-2023 (IMF "
+                                "PortWatch); share of Europe's PE imports from outside Europe "
+                                "whose sea route passes it (a range where a country's export "
+                                "port is not known); what a closure would mean: extra days at "
+                                "sea on the chokepoint's own detour ("
+                                f"{data.sourcing_config.lead_time.speed:g} knots, Fourth IMO "
+                                "GHG Study 2020) or no sea detour – then the supply is at risk. "
+                                "Under each chokepoint the open PortWatch events (orange, red) "
+                                f"within {data.sourcing_config.relevance.event_radius_km:,.0f} "
+                                "km; other events at the end.",
                             ),
-                            html.Div(id="sit-chokepoints"),
+                            html.Div(id="sit-disruptions"),
                         ],
                         style=card,
                     ),
                 ],
                 style=theme.ROW,
-            ),
-            html.Div(
-                [
-                    heading(
-                        "Active disruption events (IMF PortWatch, orange and red alerts)",
-                        "Open events and events that ended in the last 30 days. 'Relevant for "
-                        "Europe': within "
-                        f"{data.sourcing_config.relevance.event_radius_km:,.0f} km of a relevant "
-                        "chokepoint or port.",
-                    ),
-                    html.Div(id="sit-events"),
-                ],
-                style=theme.CARD,
             ),
         ]
     )
@@ -179,6 +176,7 @@ def light_card(
         colour = theme.GRID
     else:
         icon, word, colour = LEVELS[level]
+        word = signal.word or word
         badge = html.Span(
             f"{icon} {word}", style={"color": colour, "fontWeight": "600", "fontSize": "13px"}
         )
@@ -286,8 +284,15 @@ def filter_events(events: pd.DataFrame, data: AppData, scope: str) -> pd.DataFra
     return events[relevance.near_any(events, points, radius)]
 
 
+def note(text: str) -> html.Span:
+    return html.Span(f" → {text}" if text else "", style={"color": theme.MUTED})
+
+
 def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -> list[Component]:
+    """What changed (spec 018): only changes of level, storms near relevant points and market
+    moves above the configured threshold, each with a short note for the buyer."""
     days = data.sourcing_config.recent_days
+    settings = data.sourcing_config.changes
     rel = data.relevance if scope == EUROPE else None
     items: list[Component] = []
     newly = signals.newly_disrupted(data.chokepoint_history, days)
@@ -299,6 +304,7 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
                 [
                     html.Span(f"▼ {row['location']}", style={"color": theme.CRITICAL}),
                     f" newly below normal ({fmt.pct(row['deviation_pct'])})",
+                    note(summary.NOTES[("chokepoint", "down")]),
                 ]
             )
         )
@@ -310,33 +316,43 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
                     [
                         html.Span(f"▲ {event['alert_level']} ", style={"color": theme.CRITICAL}),
                         f"new event: {event['event']} (from {event['from_date']:%d %b})",
+                        note(summary.NOTES[("event", "new")]),
                     ]
                 )
             )
     if data.weather is not None:
         now = today if today is not None else pd.Timestamp(pd.Timestamp.now(tz="UTC").date())
         warnings = storm_warnings(data.weather, now, data.monitor_config.weather)
+        warnings = warnings[warnings["level"] == settings.weather_level]
         if rel is not None:
             warnings = warnings[warnings["location_id"].isin(rel.chokepoints | rel.ports)]
         for row in warnings.drop_duplicates("location_id").head(5).to_dict("records"):
-            storm = row["level"] == "red"
-            kind, colour = ("Storm", theme.CRITICAL) if storm else ("Gale", theme.WARNING)
             items.append(
                 html.Span(
                     [
-                        html.Span(f"▲ {kind} forecast ", style={"color": colour}),
+                        html.Span("▲ Storm forecast ", style={"color": theme.CRITICAL}),
                         f"at {row['location']} on {row['date']:%d %b}: "
                         + weather_text(row["wave_height_m"], row["wind_gusts_kmh"]),
+                        note(summary.NOTES[("storm", "new")]),
                     ]
                 )
             )
     if data.market is not None:
         series = rel.series if rel is not None else None
-        moves = signals.largest_moves(data.market, days=days, series_ids=series)
+        moves = signals.largest_moves(data.market, days=days, n=10, series_ids=series)
+        moves = moves[moves["change_pct"].abs() >= settings.min_move_pct]
+        groups = data.market.drop_duplicates("series_id").set_index("series_id")["group"]
         for move in moves.to_dict("records"):
             arrow = "▲" if move["change_pct"] > 0 else "▼"
-            text = f"{arrow} {move['name']}: {fmt.pct(move['change_pct'])} in {days} days"
-            items.append(html.Span(text))
+            group = str(groups.get(move["series_id"], ""))
+            items.append(
+                html.Span(
+                    [
+                        f"{arrow} {move['name']}: {fmt.pct(move['change_pct'])} in {days} days",
+                        note(summary.market_note(move["series_id"], group, move["change_pct"])),
+                    ]
+                )
+            )
     return items
 
 
@@ -350,62 +366,86 @@ def weather_text(waves_m: float | None, gusts_kmh: float | None) -> str:
     return ", ".join(parts)
 
 
-def chokepoint_list(data: AppData, scope: str) -> Component:
+def chokepoint_text(detail: Mapping[Any, Any] | None) -> str:
+    if detail is None:
+        return "no European PE imports on this route"
+    share = signals.pct_range(detail["share_low_pct"], detail["share_pct"])
+    text = f"{share} of Europe's PE imports from outside Europe"
+    extra = detail["extra_days"]
+    if not detail["has_detour"]:
+        text += " · no sea detour – supply at risk if closed"
+    elif extra is not None and not pd.isna(extra):
+        text += f" · if closed: +{extra:.0f} days at sea on the detour"
+    return text
+
+
+def event_line(event: Mapping[Any, Any]) -> html.Div:
+    kind = EVENT_TYPES.get(event["event_type"], event["event_type"])
+    since = f"since {event['from_date']:%d %b %Y}" + (
+        "" if pd.isna(event["to_date"]) else f", until {event['to_date']:%d %b %Y}"
+    )
+    return html.Div(
+        [
+            html.Span(f"▲ {event['alert_level']} ", style={"color": theme.CRITICAL}),
+            f"{event['event']} ({kind}), {since}",
+        ],
+        style={"fontSize": "12px", "color": theme.INK_SECONDARY, "marginLeft": "12px"},
+    )
+
+
+def disruption_list(data: AppData, scope: str) -> Component:
+    """Chokepoints furthest below normal with the open events near each, then the other
+    events (spec 018: one list instead of two)."""
     flagged = furthest_below_normal(latest_status(data.chokepoint_history), n=10)
     rel = data.relevance if scope == EUROPE else None
     if rel is not None:
         flagged = flagged[flagged["location_id"].isin(rel.chokepoints)]
     flagged = flagged.head(5)
-    if flagged.empty:
-        return html.Div("● None flagged", style={"color": theme.GOOD})
     dependency = data.chokepoint_dependency
     details = {} if dependency is None else dependency.set_index("chokepoint_id").to_dict("index")
-    items = []
+    events = pd.DataFrame()
+    if data.events is not None:
+        events = filter_events(active_events(data.events, data.latest_date), data, scope)
+    radius = data.sourcing_config.relevance.event_radius_km
+    coordinates = data.chokepoints.set_index("chokepoint_id")[["lat", "lon"]]
+    assigned: set[Any] = set()
+    items: list[Component] = []
     for row in flagged.to_dict("records"):
-        detail = details.get(row["location_id"])
-        if detail is None:
-            text = "no European PE imports on this route"
-        else:
-            share = signals.pct_range(detail["share_low_pct"], detail["share_pct"])
-            text = f"{share} of Europe's PE imports from outside Europe"
-            extra = detail["extra_days"]
-            if not detail["has_detour"]:
-                text += " · no sea detour – supply at risk if closed"
-            elif extra is not None and not pd.isna(extra):
-                text += f" · if closed: +{extra:.0f} days at sea on the detour"
+        text = chokepoint_text(details.get(row["location_id"]))
+        near: list[Component] = []
+        if not events.empty and row["location_id"] in coordinates.index:
+            point = coordinates.loc[[row["location_id"]]]
+            mask = relevance.near_any(events, point, radius)
+            for index, event in events[mask].iterrows():
+                if index not in assigned:
+                    assigned.add(index)
+                    near.append(event_line(event.to_dict()))
         items.append(
             html.Li(
                 [
                     html.Span(f"▼ {row['location']}", style={"color": theme.CRITICAL}),
                     f"  {fmt.pct(row['deviation_pct'])} vs. normal",
                     html.Div(text, style={"fontSize": "12px", "color": theme.MUTED}),
+                    *near,
                 ],
                 title=text,
                 style={"fontSize": "14px", "marginBottom": "6px"},
             )
         )
-    return html.Ul(items, style={"paddingLeft": "18px", "margin": "0"})
-
-
-def _event_list(events: pd.DataFrame) -> Component:
-    items: list[Component] = []
-    for event in events.to_dict("records"):
-        kind = EVENT_TYPES.get(event["event_type"], event["event_type"])
-        since = f"since {event['from_date']:%d %b %Y}" + (
-            "" if pd.isna(event["to_date"]) else f", until {event['to_date']:%d %b %Y}"
-        )
+    others = events.drop(index=list(assigned)) if not events.empty else events
+    if not others.empty:
         items.append(
-            html.Span(
+            html.Li(
                 [
-                    html.Span(
-                        f"▲ {event['alert_level']} ",
-                        style={"color": theme.CRITICAL, "fontWeight": "600"},
-                    ),
-                    f"{event['event']} ({kind}), {since}",
-                ]
+                    html.Span("Other open events", style={"fontWeight": "600"}),
+                    *[event_line(e) for e in others.to_dict("records")],
+                ],
+                style={"fontSize": "14px", "marginTop": "6px", "listStyle": "none"},
             )
         )
-    return _bullets(items)
+    if not items:
+        return html.Div("● None flagged", style={"color": theme.GOOD})
+    return html.Ul(items, style={"paddingLeft": "18px", "margin": "0"})
 
 
 def update(
@@ -414,9 +454,8 @@ def update(
     today: pd.Timestamp | None = None,
     scenario: str = LIVE,
 ) -> charts.Outputs:
-    lights = traffic_lights(
-        data.market, data.sourcing_for(ALL_GRADES, scenario), data.sourcing_config
-    )
+    view = data.sourcing_for(ALL_GRADES, scenario)
+    lights = traffic_lights(data.market, view, data.sourcing_config)
     notes = light_notes(data)
     trends: list[pd.DataFrame | None] = [None, None, None]
     if data.market is not None:
@@ -430,19 +469,28 @@ def update(
     pe, pe_trend = pe_signal(data)
     cards.append(light_card(pe, notes["Polyethylene"], pe_trend, None))
 
-    events: Component = html.Div("No event data yet.", style={"color": theme.MUTED})
-    if data.events is not None:
-        active = active_events(data.events, data.latest_date)
-        events = _event_list(filter_events(active, data, scope))
-    return cards, _bullets(change_items(data, scope, today)), chokepoint_list(data, scope), events
+    headline = summary.sentence(
+        lights,
+        None if view is None else view.at_risk,
+        (0.0, 0.0) if view is None else view.delayed,
+        [] if view is None else view.at_risk_behind,
+        data.scenario(scenario).label,
+        data.latest_date,
+    )
+    return (
+        headline,
+        cards,
+        _bullets(change_items(data, scope, today)),
+        disruption_list(data, scope),
+    )
 
 
 def register(app: Dash, state: AppState) -> None:
     @app.callback(
+        Output("sit-summary", "children"),
         Output("sit-lights", "children"),
         Output("sit-changes", "children"),
-        Output("sit-chokepoints", "children"),
-        Output("sit-events", "children"),
+        Output("sit-disruptions", "children"),
         Input("sit-scope", "value"),
         Input("scenario", "value"),
         Input("data-version", "data"),

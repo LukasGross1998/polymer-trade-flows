@@ -63,3 +63,17 @@ def test_gscpi_sheet_skips_header_and_empty_rows() -> None:
 
     assert gscpi["date"].dt.strftime("%Y-%m").tolist() == ["1998-01", "2026-10"]
     assert gscpi["value"].tolist() == [-1.18, 1.26]
+
+
+def test_polymer_over_crude_spread() -> None:
+    from ptf.markets import indicators
+
+    dates = pd.to_datetime(["2026-11-09", "2026-11-10", "2026-11-16"])
+    lldpe = pd.DataFrame({"date": dates, "value": [1200.0, 1210.0, 1220.0]})
+    # Brent on 6 and 10 Nov only; 16 Nov is more than 4 days after the last Brent value.
+    brent = pd.DataFrame({"date": pd.to_datetime(["2026-11-06", "2026-11-10"]), "value": [80, 82]})
+    gap = indicators.spread(lldpe, indicators.per_tonne(brent, 7.32))
+
+    # 1,200 − 80 x 7.32 = 614.4 (Brent of 6 Nov, 3 days earlier); 1,210 − 82 x 7.32 = 609.76.
+    assert gap["value"].round(2).tolist() == [614.4, 609.76]
+    assert gap["date"].max() == pd.Timestamp("2026-11-10")

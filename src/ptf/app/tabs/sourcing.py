@@ -4,6 +4,7 @@ Combines the BACI import sources with the sea routes and today's chokepoint stat
 (`ptf.insights`, spec 006).
 """
 
+import pandas as pd
 import plotly.graph_objects as go
 from dash import Dash, Input, Output, html
 
@@ -40,7 +41,7 @@ def layout(data: AppData) -> html.Div:
             ),
             html.Div(id="src-kpis", style=theme.ROW),
             html.Div(charts.graph("src-sankey"), style=card),
-            html.Div(charts.graph("src-treemap"), style=card),
+            html.Div(charts.graph("src-suppliers"), style=card),
         ]
     )
 
@@ -88,9 +89,15 @@ def country_states(view: SourcingView, blocked: set[str]) -> dict[str, str]:
     return states
 
 
-def sankey_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Figure:
-    """Exporter region -> route -> Europe, links coloured with the route encoding. A country
-    with several export ports counts once, its route reads "A or B (port shares unknown)"."""
+def sankey_figure(
+    view: SourcingView,
+    blocked: set[str] | None = None,
+    destinations: pd.DataFrame | None = None,
+) -> go.Figure:
+    """Exporter region -> route -> destination in Europe, links coloured with the route
+    encoding. A country with several export ports counts once, its route reads "A or B (port
+    shares unknown)". `destinations` (exporter_iso3, destination, qty_t, spec 018) splits the
+    right column; without it the right column is "Europe"."""
     routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
     states = country_states(view, blocked or set())
     routes["state"] = routes["exporter_iso3"].map(states)
@@ -99,7 +106,16 @@ def sankey_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Fig
     by_route = grouped.agg(qty_t=("qty_t", "sum")).sort_values("qty_t", ascending=False)
     regions = list(dict.fromkeys(by_route["region"]))
     route_names = list(dict.fromkeys(by_route["route"]))
-    labels = regions + route_names + ["Europe"]
+    if destinations is not None and not destinations.empty:
+        flows = destinations.merge(routes[["exporter_iso3", "route", "state"]], on="exporter_iso3")
+        to_europe = flows.groupby(["route", "state", "destination"], as_index=False).agg(
+            qty_t=("qty_t", "sum")
+        )
+    else:
+        to_europe = by_route.groupby(["route", "state"], as_index=False).agg(qty_t=("qty_t", "sum"))
+        to_europe["destination"] = "Europe"
+    ends = list(to_europe.groupby("destination")["qty_t"].sum().sort_values(ascending=False).index)
+    labels = regions + route_names + ends
     index = {name: i for i, name in enumerate(labels)}
 
     def colour(state: str) -> str:
@@ -111,10 +127,11 @@ def sankey_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Fig
         target.append(index[row["route"]])
         value.append(row["qty_t"] / 1e3)
         colours.append(colour(row["state"]))
-    to_europe = by_route.groupby(["route", "state"], as_index=False).agg(qty_t=("qty_t", "sum"))
     for row in to_europe.to_dict("records"):
+        if row["route"] not in index:
+            continue
         source.append(index[row["route"]])
-        target.append(index["Europe"])
+        target.append(index[row["destination"]])
         value.append(row["qty_t"] / 1e3)
         colours.append(colour(row["state"]))
 
@@ -141,7 +158,7 @@ def sankey_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Fig
     return charts.base_layout(
         fig,
         height=460,
-        title="Import routes into Europe: region → route → Europe (thousand tonnes)",
+        title="Import routes: region → route → destination in Europe (thousand tonnes)",
     )
 
 
@@ -151,45 +168,58 @@ def not_sourceable(view: SourcingView, data: AppData) -> set[str]:
     return set(table.loc[~table["sourceable"], "exporter_iso3"])
 
 
-def treemap_figure(view: SourcingView, blocked: set[str] | None = None) -> go.Figure:
-    """Supplier countries grouped by region, coloured with the route encoding (open, detour,
-    at risk, not sourceable); regions in neutral grey."""
-    routes = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
-    blocked = blocked or set()
-    states = country_states(view, blocked)
-    regions = routes.groupby("exporter_region", as_index=False).agg(qty_t=("qty_t", "sum"))
-    # Region codes can equal country codes (IND, CHN), so region ids get a prefix.
-    ids = [f"region:{r}" for r in regions["exporter_region"]] + list(routes["exporter_iso3"])
-    parents = [""] * len(regions) + [f"region:{r}" for r in routes["exporter_region"]]
-    values = list(regions["qty_t"]) + list(routes["qty_t"])
-    labels = [theme.region_name(r) for r in regions["exporter_region"]] + [
-        f"{name} · {theme.route_label(states[iso3])}" if states[iso3] != theme.ROUTE_OPEN else name
-        for name, iso3 in zip(routes["exporter_name"], routes["exporter_iso3"], strict=True)
-    ]
-    colours = [theme.NEUTRAL] * len(regions) + [
-        theme.ROUTE_COLOURS[states[iso3]] for iso3 in routes["exporter_iso3"]
-    ]
-    share = [v / view.extra_t * 100 for v in values]
-    fig = go.Figure(
-        go.Treemap(
-            ids=ids,
-            labels=labels,
-            parents=parents,
-            values=values,
-            branchvalues="total",
-            customdata=share,
-            marker={"colors": colours},
-            texttemplate="%{label}<br>%{customdata:.0f} %",
-            hovertemplate="%{label}: %{value:,.0f} t (%{customdata:.1f} %)<extra></extra>",
+def suppliers_figure(
+    view: SourcingView, blocked: set[str] | None = None, top: int = 15
+) -> go.Figure:
+    """One bar per supplier country, sorted by tonnes and coloured with the route encoding;
+    the smallest countries are summed into "Other" (spec 018)."""
+    countries = exposure.by_country(view.routes.assign(exposed=view.exposed), "exposed")
+    states = country_states(view, blocked or set())
+    table = exposure.top_with_other(countries, top)
+    table["state"] = table["exporter_iso3"].map(states).fillna(theme.ROUTE_OPEN)
+    table = table.iloc[::-1]  # largest on top
+    share = table["qty_t"] / view.extra_t * 100
+    fig = go.Figure()
+    for state in [theme.ROUTE_OPEN, theme.ROUTE_DETOUR, theme.ROUTE_AT_RISK, theme.ROUTE_BLOCKED]:
+        rows = table[table["state"] == state]
+        if rows.empty:
+            continue
+        fig.add_trace(
+            go.Bar(
+                y=rows["exporter_name"],
+                x=rows["qty_t"] / 1e3,
+                orientation="h",
+                name=theme.route_label(state),
+                marker={"color": theme.ROUTE_COLOURS[state]},
+                customdata=share[rows.index],
+                hovertemplate="%{y}: %{x:,.0f} thousand t (%{customdata:.1f} %)<extra></extra>",
+            )
         )
-    )
+    fig.update_layout(barmode="stack", hovermode="closest")
+    fig.update_yaxes(categoryorder="array", categoryarray=list(table["exporter_name"]))
+    fig.update_xaxes(title={"text": "thousand tonnes", "font": {"color": theme.MUTED}})
     return charts.base_layout(
-        fig, height=420, title="Supplier countries, share of imports from outside Europe"
+        fig,
+        height=max(320, 26 * len(table) + 80),
+        title=f"Supplier countries outside Europe, {view.year} (largest {top}, then Other)",
+    )
+
+
+def destinations(data: AppData, view: SourcingView, grade: str) -> pd.DataFrame | None:
+    """Destination groups for all grades only: the bilateral mart has no grade split."""
+    if data.bilateral is None or grade != ALL_GRADES:
+        return None
+    return exposure.destination_tonnes(
+        data.bilateral,
+        data.sourcing_config.focus_region,
+        view.year,
+        data.sourcing_config.destinations,
     )
 
 
 def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> charts.Outputs:
     view = data.sourcing_for(grade, scenario)
+    blocked = set() if view is None else not_sourceable(view, data)
     if view is None or view.routes.empty:
         return (
             [charts.no_data("No imports of this grade from outside Europe.")],
@@ -198,8 +228,8 @@ def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> char
         )
     return (
         charts.tiles(kpi_values(view, data)),
-        sankey_figure(view, not_sourceable(view, data)),
-        treemap_figure(view, not_sourceable(view, data)),
+        sankey_figure(view, blocked, destinations(data, view, grade)),
+        suppliers_figure(view, blocked, data.sourcing_config.top_suppliers),
     )
 
 
@@ -210,7 +240,7 @@ def register(app: Dash, state: AppState) -> None:
     @app.callback(
         Output("src-kpis", "children"),
         Output("src-sankey", "figure"),
-        Output("src-treemap", "figure"),
+        Output("src-suppliers", "figure"),
         Input("grade", "value"),
         Input("scenario", "value"),
         Input("data-version", "data"),

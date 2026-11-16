@@ -131,3 +131,28 @@ def plan(
         if not on_time.empty:
             table.loc[on_time.index[0], "recommended"] = True
     return table
+
+
+def sea_day_range(sea_days_at_speed: float, speed: float, config: LeadTime) -> tuple[float, float]:
+    """Sea days with the fastest and the slowest container ship size of the sourced speed
+    table (spec 018): the uncertainty band of the transit."""
+    speeds = list(config.speed_knots.values.values())
+    distance_nm = sea_days_at_speed * speed * HOURS_PER_DAY
+    return sea_days(distance_nm, max(speeds)), sea_days(distance_nm, min(speeds))
+
+
+def with_transit_range(table: pd.DataFrame, config: LeadTime) -> pd.DataFrame:
+    """Adds arrival_early and arrival_late (fastest / slowest ship size) to a plan."""
+    table = table.copy()
+    early, late = [], []
+    for row in table.to_dict("records"):
+        if pd.isna(row["arrival"]):
+            early.append(pd.NaT)
+            late.append(pd.NaT)
+            continue
+        fast, slow = sea_day_range(float(row["sea_days"]), config.speed, config)
+        early.append(row["arrival"] + pd.Timedelta(days=round(fast - row["sea_days"])))
+        late.append(row["arrival"] + pd.Timedelta(days=round(slow - row["sea_days"])))
+    table["arrival_early"] = pd.to_datetime(pd.Series(early, index=table.index))
+    table["arrival_late"] = pd.to_datetime(pd.Series(late, index=table.index))
+    return table
