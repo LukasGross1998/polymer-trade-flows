@@ -76,6 +76,16 @@ sources:
       - name: landing_eu_imports
         description: Monthly extra-EU imports (empty before the first download).
 
+  - name: rhine
+    description: PEGELONLINE water levels and characteristic values (spec 019), ptf.shipping.rhine.
+    tables:
+      - name: levels
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/rhine/levels/*.parquet', union_by_name = true)"
+      - name: station
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/rhine/station/*.parquet', union_by_name = true)"
+
   - name: openmeteo
     description: Open-Meteo marine weather and wind downloads (ptf.shipping.weather), never overwritten.
     tables:

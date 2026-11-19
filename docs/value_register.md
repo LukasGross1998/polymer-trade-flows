@@ -48,6 +48,7 @@ its source in `docs/data_dictionary.md` and is not repeated here.
 | shipping.yaml | `min_baseline_per_day` | 2.0 | ignore chokepoints with almost no traffic |
 | shipping.yaml | `revision_days` | 14 | re-download window for revised data |
 | shipping.yaml | `min_link_capacity` | 1000 | download filter |
+| shipping.yaml | `rhine.days` | 31 | days per PEGELONLINE download (the API keeps 31) |
 | shipping.yaml | `weather.past_days`, `weather.forecast_days` | 7, 7 | display window |
 | shipping.yaml | `weather.waves_m.amber`, `weather.waves_m.red` | 4.0, 6.0 m | which class counts as amber/red; boundaries from WMO code table 3700 ("very rough" from 4 m, "high" from 6 m) |
 | shipping.yaml | `weather.gusts_kmh.amber`, `weather.gusts_kmh.red` | 63.0, 88.9 km/h | which class counts as amber/red; boundaries from the Met Office Beaufort scale (gale from 34 kn, storm from 48 kn; 1 kn = 1.852 km/h) |

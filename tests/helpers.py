@@ -8,6 +8,7 @@ import shutil
 import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from ptf.core.settings import Settings
 from ptf.markets.config import load_market_config
 from ptf.markets.dce import write_dce_landing, write_quote_landing
 from ptf.markets.reference import write_market_reference
+from ptf.shipping import rhine
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 from ptf.trade.baci import baci_zip_path, write_landing
@@ -202,6 +204,30 @@ def write_portwatch_raw(raw_dir: Path) -> None:
     ).assign(fetched_at=pd.Timestamp("2026-11-08", tz="UTC"))
     (raw_dir / "weather").mkdir()
     weather.to_parquet(raw_dir / "weather" / "20261108T000000000000.parquet")
+    # Rhine at Kaub (spec 019): one day below the gauge's GlW of 77 cm, one above.
+    fetched = datetime(2026, 11, 19, tzinfo=UTC)
+    levels = rhine.levels_frame(
+        "KAUB",
+        [
+            {"timestamp": "2026-11-17T12:00:00+01:00", "value": 61.0},
+            {"timestamp": "2026-11-18T12:00:00+01:00", "value": 94.0},
+        ],
+        fetched,
+    )
+    station = rhine.station_frame(
+        "KAUB",
+        {
+            "characteristicValues": [
+                {"shortname": "GlW", "longname": "Gleichwertiger Wasserstand", "value": 77.0},
+                {"shortname": "MW", "longname": "Mittelwasser", "value": 208.0},
+            ],
+            "currentMeasurement": {"stateMnwMhw": "normal"},
+        },
+        fetched,
+    )
+    for name, frame in [("levels", levels), ("station", station)]:
+        (raw_dir / "rhine" / name).mkdir(parents=True)
+        frame.to_parquet(raw_dir / "rhine" / name / "20261119T000000000000.parquet")
 
 
 def build_warehouse(setup: "PipelineSetup") -> None:

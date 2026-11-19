@@ -60,3 +60,11 @@ weather:
   forecast_days: 7
   waves_m: {amber: 4.0, red: 6.0}
   gusts_kmh: {amber: 63.0, red: 88.9}
+
+# Rhine water level at Kaub from PEGELONLINE (WSV, spec 019; DL-DE Zero 2.0, no key).
+# Settings: the station and the days per download (the API keeps 31 days; every download is
+# stored, so the history grows). Low water is judged by the station's own GlW value.
+rhine:
+  enabled: true
+  station: KAUB
+  days: 31

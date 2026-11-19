@@ -2,7 +2,7 @@
 
 from ptf.core import warehouse
 from ptf.core.settings import Settings
-from ptf.shipping import portwatch, weather
+from ptf.shipping import portwatch, rhine, weather
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 
@@ -24,6 +24,9 @@ def refresh(settings: Settings) -> None:
         portwatch.ingest_country_trade(raw, revision_days=config.revision_days)
     portwatch.ingest_port_links(raw, config.min_link_capacity)
     weather.ingest_weather(raw, list(port_names), config.weather)
+    if config.rhine.enabled:
+        rhine.ingest_rhine(raw, config.rhine.station, config.rhine.days)
+    rhine.ensure_raw_files(raw)
 
     write_port_reference(config, raw)
     # The optional country trade models are built only when their raw data exist.
