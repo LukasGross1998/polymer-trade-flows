@@ -155,6 +155,19 @@ def kpi_values(market: pd.DataFrame, currency: str = "USD") -> list[dict[str, An
             "date": f"{freight[0]:%b %Y}" if freight else "",
         },
     ]
+    eu_ppi = indicators.latest(market, "EU_PPI_PLASTICS")
+    if eu_ppi is not None:
+        values.append(
+            {
+                "label": "EU producer prices, plastics in primary forms",
+                "value": fmt.number(eu_ppi[1], 1),
+                "unit": "index 2021 = 100",
+                "delta": standard_delta(market, "EU_PPI_PLASTICS"),
+                "note": "Eurostat: the European price anchor (an index, not a price)",
+                "date": f"{eu_ppi[0]:%b %Y}",
+                "spark": recent(market, "EU_PPI_PLASTICS", 3 * 365),
+            }
+        )
     dce = dce_in_currency(market, currency)
     if not dce.empty:
         last = dce.iloc[-1]

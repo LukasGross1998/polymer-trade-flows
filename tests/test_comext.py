@@ -86,3 +86,43 @@ def test_download_starts_in_january_of_the_year_before_last() -> None:
     from datetime import date
 
     assert steps.comext_start(ComextConfig(years_back=2), date(2026, 11, 19)) == "2024-01"
+
+
+def test_comext_cif_price_plus_duty_is_the_landed_cost() -> None:
+    from ptf.insights import landed_cost
+    from ptf.insights.config import Duty
+
+    monthly = pd.DataFrame(
+        {
+            "month": ["2026-09", "2026-09"],
+            "exporter_iso3": ["QAT", "GBR"],
+            "exporter_name": ["Qatar", "United Kingdom"],
+            "exporter_region": ["MDE", "EUR"],
+            "hs6": ["390120", "390120"],
+            "qty_t": [1000.0, 10.0],
+            "value_eur": [1_150_000.0, 15_000.0],
+        }
+    )
+    sources, by_product, label = landed_cost.comext_sources(monthly, "EUR", 1.10)
+    assert label == "Comext 2026-09 to 2026-09"
+    assert bool(sources.set_index("exporter_iso3").loc["GBR", "is_intra_regional"])
+    prices = landed_cost.unit_prices(sources, "EUR", 2026)
+    assert list(prices["exporter_iso3"]) == ["QAT"]  # the UK is inside the region
+
+    duty = Duty.model_validate(
+        {
+            "default_pct": {
+                "value": 6.5,
+                "source": "test source",
+                "url": "https://x.org",
+                "read": "2026-11-19",
+            }
+        }
+    )
+    distances = pd.DataFrame(
+        {"origin_region": ["MDE"], "dest_region": ["EUR"], "distance_nm": [6262.0]}
+    )
+    table = landed_cost.landed_cost(prices, distances, None, duty, "EUR", 1.10)
+    # 1,000 t for 1.15 m EUR -> 1,150 EUR/t CIF; with 6.5 % duty 1,224.75 EUR/t (spec 019).
+    assert table.loc[0, "price_eur_t"] == pytest.approx(1150.0)
+    assert table.loc[0, "landed_eur_t"] == pytest.approx(1224.75)

@@ -15,7 +15,9 @@ from dash import Dash, Input, Output, dcc, html
 
 from ptf.app import charts, fmt, theme
 from ptf.app.data import AppData, AppState
+from ptf.insights import landed_cost as landed_cost_logic
 from ptf.insights.view import ALL_GRADES, CostQuotes, LandedView, landed_view, mfn_rate
+from ptf.markets import indicators
 
 QUOTE = "your quote"
 
@@ -75,10 +77,15 @@ def layout(data: AppData) -> html.Div:
                         radio(
                             "lc-basis",
                             [
+                                *(
+                                    [{"label": "Comext, last 12 months (CIF)", "value": COMEXT}]
+                                    if has_comext(data)
+                                    else []
+                                ),
                                 {"label": "BACI unit value", "value": "baci"},
-                                {"label": "Indexed to today", "value": "indexed"},
+                                {"label": "BACI indexed to today", "value": "indexed"},
                             ],
-                            "baci",
+                            default_basis(data),
                         ),
                     ),
                     charts.control(
@@ -97,6 +104,18 @@ def layout(data: AppData) -> html.Div:
             html.Div(id="lc-table", style={**theme.CARD, "marginBottom": "16px"}),
         ]
     )
+
+
+COMEXT = "comext"
+
+
+def has_comext(data: AppData) -> bool:
+    return data.eu_imports is not None and not data.eu_imports.empty
+
+
+def default_basis(data: AppData) -> str:
+    """Comext (monthly, CIF) when loaded, else the BACI annual unit value (spec 019)."""
+    return COMEXT if has_comext(data) else "baci"
 
 
 def grade_rows(data: AppData, grade: str) -> pd.DataFrame | None:
@@ -118,6 +137,24 @@ def compute(
     tables = data.route_tables
     if sources is None or sources.empty or tables is None:
         return None
+    by_product = grade_rows(data, grade)
+    extra: dict[str, Any] = {}
+    if basis == COMEXT and has_comext(data):
+        assert data.eu_imports is not None
+        monthly = data.eu_imports
+        if grade != ALL_GRADES:
+            monthly = monthly[monthly["hs6"] == grade]
+        fx = indicators.latest(data.market, "DEXUSEU") if data.market is not None else None
+        comext_sources, comext_by_product, label = landed_cost_logic.comext_sources(
+            monthly, data.sourcing_config.focus_region, fx[1] if fx else 1.0
+        )
+        extra = {
+            "reference_sources": sources,
+            "reference_by_product": by_product,
+            "cif": True,
+            "basis_label": label,
+        }
+        sources, by_product = comext_sources, comext_by_product
     return landed_view(
         sources,
         data.market,
@@ -133,20 +170,29 @@ def compute(
             grade,
             data.sourcing_config.focus_region,
         ),
-        by_product=grade_rows(data, grade),
+        by_product=by_product,
         quotes=quotes,
+        **extra,
     )
 
 
 FREIGHT_NA = "n/a – no sourced freight rate"
+CIF_NOTE = "incl. (CIF)"
+
+
+def delivery(view: LandedView) -> str:
+    """How far the cost reaches: the EU border (Comext CIF), delivered, or excl. freight."""
+    if view.cif:
+        return "CIF EU border + duty"
+    return "delivered" if view.freight_known else "excl. freight"
 
 
 def kpi_values(view: LandedView) -> list[dict[str, str]]:
     usable = view.table[view.table["sourceable"].fillna(True)]
     cheapest = usable.iloc[0] if not usable.empty else view.table.iloc[0]
-    delivered = "delivered" if view.freight_known else "excl. freight"
+    delivered = delivery(view)
     unit = f"{view.currency}/t"
-    as_of = f"BACI {view.year}, annual unit values"
+    as_of = view.basis_label + (", monthly, CIF" if view.cif else ", annual unit values")
     return [
         {
             "label": f"Lowest cost sourceable origin, {delivered}",
@@ -162,7 +208,7 @@ def kpi_values(view: LandedView) -> list[dict[str, str]]:
             ),
             "unit": unit,
             "note": f"{cheapest['exporter_name']}: price + duty per grade minus the price within "
-            "Europe" + ("" if view.freight_known else ", excl. freight"),
+            "Europe (BACI)" + ("" if view.freight_known else ", excl. freight"),
             "date": as_of,
         },
         {
@@ -185,7 +231,7 @@ def basis_line(view: LandedView) -> str:
     )
     index = f" × {view.price_scale:.2f} (resin index)" if view.price_scale != 1 else ""
     return (
-        f"Basis: {fmt.number(view.usd_per_eur, 3)} USD/EUR (FRED); prices BACI {view.year}"
+        f"Basis: {fmt.number(view.usd_per_eur, 3)} USD/EUR (FRED); prices {view.basis_label}"
         f"{index}; {view.duty_source}; euro 3-month rate {interest}."
     )
 
@@ -315,7 +361,9 @@ def cost_table(view: LandedView) -> html.Div:
             f"{row['qty_t'] / 1e3:,.0f}",
             f"{row['price_eur_t']:,.0f} "
             f"({fmt.span(row['price_low_eur_t'], row['price_high_eur_t'])})",
-            "n/a" if pd.isna(row["freight_eur_t"]) else f"{row['freight_eur_t']:,.0f}",
+            CIF_NOTE
+            if view.cif
+            else ("n/a" if pd.isna(row["freight_eur_t"]) else f"{row['freight_eur_t']:,.0f}"),
             f"{row['duty_eur_t']:,.0f} ({row['duty_pct']:.1f} %)",
             "n/a" if pd.isna(row["capital_eur_t"]) else f"{row['capital_eur_t']:,.1f}",
             f"{sum(entered):,.0f}" if entered else "–",
@@ -346,9 +394,7 @@ def cost_table(view: LandedView) -> html.Div:
         )
     table = html.Table(rows, style={"borderCollapse": "collapse", "width": "100%"})
     missing = "Not included: " + ", ".join(view.not_included) if view.not_included else ""
-    title = f"Landed cost by supplier country, {view.currency} per tonne" + (
-        "" if view.freight_known else " (excl. freight)"
-    )
+    title = f"Landed cost by supplier country, {view.currency} per tonne" + (f" ({delivery(view)})")
     return html.Div(
         [
             html.Div(title, style=theme.CARD_TITLE),

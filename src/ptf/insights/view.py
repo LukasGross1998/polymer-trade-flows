@@ -191,6 +191,8 @@ class LandedView:
     interest: tuple[pd.Timestamp, float] | None = None  # date and % per year (spec 016)
     not_included: list[str] = field(default_factory=list)  # cost components left out
     currency: str = "EUR"  # the *_eur_t columns hold this currency after `in_currency`
+    cif: bool = False  # prices are CIF at the EU border (Comext): freight to the border included
+    basis_label: str = ""  # e.g. "Comext 2025-10 to 2026-09" or "BACI 2024"
 
     def in_currency(self, currency: str) -> "LandedView":
         """The same view with all per-tonne money columns in `currency` (EUR or USD)."""
@@ -230,12 +232,21 @@ def landed_view(
     freight_factor: float = 1.0,
     by_product: pd.DataFrame | None = None,
     quotes: CostQuotes | None = None,
+    reference_sources: pd.DataFrame | None = None,
+    reference_by_product: pd.DataFrame | None = None,
+    cif: bool = False,
+    basis_label: str = "",
 ) -> LandedView:
     """Landed cost of the largest supplier countries in the route scenario (spec 014).
 
     `mfn_pct` is the EU third-country rate from WITS for the selected grade(s); without it
     the configured default applies. Preferential rates always come from the config. Each
     row is flagged at_risk / delayed / reduced as in the sourcing view.
+
+    Spec 019: with `cif` the prices are Comext CIF unit values – sea freight and insurance to
+    the EU border are inside the price, so no freight is added and the duty applies to the
+    price. The "buy in Europe" reference then comes from `reference_sources` /
+    `reference_by_product` (BACI: Comext has no trade within Europe).
     """
     settings = config.landed_cost
     duty = settings.duty
@@ -302,10 +313,18 @@ def landed_view(
         scale / usd_per_eur,
         interest[1] if interest is not None else None,
         quotes or CostQuotes(),
-        freight is not None,
+        freight is not None or cif,
         on or date.today(),
+        reference_by_product,
     )
-    reference = landed_cost.reference_price(sources, region, year)
+    if cif:
+        not_included = [
+            "sea freight beyond the EU border",
+            *[n for n in not_included if not n.startswith("sea freight")],
+        ]
+    ref_sources = reference_sources if reference_sources is not None else sources
+    ref_year = exposure.latest_year(ref_sources, region) if cif else year
+    reference = landed_cost.reference_price(ref_sources, region, ref_year)
     return LandedView(
         year=year,
         table=table.sort_values("total_eur_t").reset_index(drop=True),
@@ -318,10 +337,12 @@ def landed_view(
             if mfn_pct is not None
             else f"third-country duty {duty.default_pct.value:.1f} % from EU TARIC"
         ),
-        freight_known=freight is not None,
+        freight_known=freight is not None or cif,
         scenario=scenario,
         interest=interest,
         not_included=not_included,
+        cif=cif,
+        basis_label=basis_label or f"BACI {year}",
     )
 
 
@@ -344,6 +365,7 @@ def enrich(
     quotes: CostQuotes,
     freight_known: bool,
     today: date,
+    reference_by_product: pd.DataFrame | None = None,
 ) -> tuple[pd.DataFrame, list[str]]:
     """Spec 016 columns: sourceable, price range, confidence, vs. Europe, cost components."""
     region = config.focus_region
@@ -354,7 +376,10 @@ def enrich(
         )
         table = table.merge(ranges, on="exporter_iso3", how="left")
         prices = confidence.grade_prices(by_product, region, year)
-        reference = confidence.reference_grade_prices(by_product, region, year)
+        ref_rows = reference_by_product if reference_by_product is not None else by_product
+        intra_years = ref_rows.loc[ref_rows["is_intra_regional"], "year"]
+        ref_year = int(intra_years.max()) if len(intra_years) else year
+        reference = confidence.reference_grade_prices(ref_rows, region, ref_year)
         diffs = [
             confidence.europe_difference(
                 prices, reference, iso3, pct, config.price_range.min_grade_share

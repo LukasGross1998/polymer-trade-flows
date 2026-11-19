@@ -114,7 +114,7 @@ def test_sourcing_tab_with_routes(warehouse_setup: PipelineSetup) -> None:
     data = load_app_data(warehouse_setup.settings)
 
     assert data.sourcing is not None
-    kpis, sankey, suppliers = sourcing.update(data)
+    kpis, sankey, suppliers, monthly = sourcing.update(data)
     # The BACI fixture: Germany imports 2,000 t from the USA in 2023, nothing from Europe.
     assert kpis[0].children[1].children == "0.0 Mt"
     assert data.sourcing.extra_t == pytest.approx(2000)
@@ -343,3 +343,27 @@ def test_global_bar_replaces_the_tab_filters(data: AppData) -> None:
     for module in (sourcing, landed_cost, planner, prices):
         layout = str(module.layout(data))
         assert "-grade'" not in layout and "mkt-currency" not in layout
+
+
+def test_comext_chart_and_rhine_chart(warehouse_setup: PipelineSetup) -> None:
+    write_synthetic_distances(warehouse_setup.settings.raw_dir, warehouse_setup.regions)
+    data = load_app_data(warehouse_setup.settings)
+    # Spec 019: Comext monthly imports, injected (the fixture warehouse has none).
+    data.eu_imports = pd.DataFrame(
+        {
+            "month": ["2026-08", "2026-09", "2026-09"],
+            "exporter_iso3": ["USA", "USA", "QAT"],
+            "exporter_name": ["USA", "USA", "Qatar"],
+            "exporter_region": ["NAM", "NAM", "MDE"],
+            "hs6": ["390120"] * 3,
+            "qty_t": [1000.0, 2000.0, 500.0],
+            "value_eur": [1_150_000.0, 2_300_000.0, 500_000.0],
+        }
+    )
+    figure = sourcing.monthly_figure(data)
+    assert [t.name for t in figure.data] == ["USA", "Qatar", "Other"]
+    assert list(figure.data[0].y) == [1.0, 2.0]  # thousand tonnes per month
+
+    rhine = ports.rhine_figure(data)
+    assert rhine.data[0].name == "Kaub"
+    assert any("GlW (low water) 77 cm" in a.text for a in rhine.layout.annotations)

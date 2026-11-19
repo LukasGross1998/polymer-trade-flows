@@ -44,6 +44,8 @@ class AppData:
     variant_distances: dict[str, pd.DataFrame] = field(default_factory=dict)  # detour variants
     import_sources_by_product: pd.DataFrame | None = None
     bilateral: pd.DataFrame | None = None  # PE trade per exporter and importer country
+    eu_imports: pd.DataFrame | None = None  # Comext monthly EU imports (spec 019)
+    rhine: pd.DataFrame | None = None  # daily Rhine level at Kaub (spec 019)
     trade_by_class: pd.DataFrame | None = None
     class_tree: pd.DataFrame | None = None
     products: pd.DataFrame | None = None
@@ -165,6 +167,8 @@ def require(table: pd.DataFrame | None, name: str) -> pd.DataFrame:
 APP_TABLES = {
     "transits": "marts.mart_chokepoint_transits",
     "bilateral": "marts.mart_bilateral_trade",
+    "eu_imports": "marts.mart_eu_imports_monthly",
+    "rhine": "marts.mart_rhine_level",
     "chokepoints": "marts.dim_chokepoint",
     "port_activity": "marts.mart_port_activity",
     "ports": "marts.dim_port",
@@ -216,6 +220,8 @@ def load_app_data(settings: Settings) -> AppData:
         import_sources=tables["import_sources"],
         import_sources_by_product=tables["import_sources_by_product"],
         bilateral=tables["bilateral"],
+        eu_imports=tables["eu_imports"],
+        rhine=tables["rhine"],
         trade_by_class=tables["trade_by_class"],
         class_tree=tables["class_tree"],
         products=tables["products"],

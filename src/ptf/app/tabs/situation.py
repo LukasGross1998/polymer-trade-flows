@@ -231,6 +231,22 @@ def light_notes(data: AppData) -> dict[str, str]:
     }
 
 
+def eu_anchor(market: pd.DataFrame) -> str:
+    """'· EU producer prices, plastics: 113.3 (Sep 2026, +1.2 % m/m)' – the European price
+    anchor (Eurostat, index 2021 = 100, not a price; spec 019)."""
+    latest = indicators.latest(market, EU_PPI)
+    if latest is None:
+        return ""
+    change = indicators.change_pct(market, EU_PPI, 28)
+    return (
+        f" · EU producer prices, plastics: {latest[1]:.1f} (index 2021 = 100, "
+        f"{latest[0]:%b %Y}, {fmt.pct(change)} m/m)"
+    )
+
+
+EU_PPI = "EU_PPI_PLASTICS"
+
+
 def pe_signal(data: AppData) -> tuple[signals.Signal, pd.DataFrame | None]:
     """Polyethylene indicator: Dalian LLDPE in EUR (7-day change), else the US resin index."""
     title = "Polyethylene"
@@ -242,7 +258,10 @@ def pe_signal(data: AppData) -> tuple[signals.Signal, pd.DataFrame | None]:
         last = dce.iloc[-1]
         earlier = dce[dce["date"] <= last["date"] - pd.Timedelta(days=7)]
         change = None if earlier.empty else (last["value"] / earlier.iloc[-1]["value"] - 1) * 100
-        note = f"LLDPE Dalian, {charts.signed_pct(change)} in 7 days · {last['date']:%d %b}"
+        note = (
+            f"LLDPE Dalian, {charts.signed_pct(change)} in 7 days · {last['date']:%d %b}"
+            + eu_anchor(market)
+        )
         trend = dce[dce["date"] > last["date"] - pd.Timedelta(days=365)]
         value = f"{last['value']:,.0f} EUR/t"
         return signals.Signal(title, signals.GREEN, value, note), trend
@@ -334,6 +353,19 @@ def change_items(data: AppData, scope: str, today: pd.Timestamp | None = None) -
                         f"at {row['location']} on {row['date']:%d %b}: "
                         + weather_text(row["wave_height_m"], row["wind_gusts_kmh"]),
                         note(summary.NOTES[("storm", "new")]),
+                    ]
+                )
+            )
+    if data.rhine is not None and not data.rhine.empty:
+        last = data.rhine.sort_values("date").iloc[-1]
+        if bool(last["below_glw"]) or last["wsv_status"] == "low":
+            items.append(
+                html.Span(
+                    [
+                        html.Span("▼ Rhine low water ", style={"color": theme.CRITICAL}),
+                        f"at Kaub on {pd.Timestamp(last['date']):%d %b}: lowest "
+                        f"{last['min_level_cm']:.0f} cm, GlW {last['glw_cm']:.0f} cm",
+                        note(summary.NOTES[("rhine", "low")]),
                     ]
                 )
             )
