@@ -102,3 +102,39 @@ def weighted_landed(table: pd.DataFrame, region: str, column: str = "landed_eur_
     rows = rows.sort_values(column).drop_duplicates("exporter_iso3")
     qty = rows["qty_t"].sum()
     return float((rows[column] * rows["qty_t"]).sum() / qty) if qty > 0 else None
+
+
+def last_months(monthly: pd.DataFrame, months: int = 12) -> list[str]:
+    """The newest `months` months (YYYY-MM) in the Comext table."""
+    return sorted(monthly["month"].unique())[-months:]
+
+
+def comext_sources(
+    monthly: pd.DataFrame, focus_region: str, usd_per_eur: float, months: int = 12
+) -> tuple[pd.DataFrame, pd.DataFrame, str]:
+    """Comext imports of the last `months` months in the shape of the BACI import sources
+    (spec 019), so the landed-cost functions work unchanged.
+
+    Returns (sources, by_product, period label). Values are CIF in EUR, converted to USD with
+    `usd_per_eur` only because the landed-cost functions compute in USD and convert back
+    (the factor cancels). Exporters of the focus region (e.g. the UK, Turkey for Europe)
+    count as intra-regional, as in BACI.
+    """
+    period = last_months(monthly, months)
+    rows = monthly[monthly["month"].isin(period)]
+    keys = ["exporter_iso3", "exporter_name", "exporter_region"]
+    by_product = rows.groupby([*keys, "hs6"], as_index=False).agg(
+        qty_t=("qty_t", "sum"), value_eur=("value_eur", "sum")
+    )
+    year = int(period[-1][:4]) if period else 0
+    by_product = by_product.assign(
+        year=year,
+        importer_region=focus_region,
+        is_intra_regional=by_product["exporter_region"] == focus_region,
+        value_usd=by_product["value_eur"] * usd_per_eur,
+    ).drop(columns=["value_eur"])
+    sources = by_product.groupby(
+        ["year", "importer_region", *keys, "is_intra_regional"], as_index=False
+    ).agg(qty_t=("qty_t", "sum"), value_usd=("value_usd", "sum"))
+    label = f"Comext {period[0]} to {period[-1]}" if period else "Comext (no data)"
+    return sources, by_product, label

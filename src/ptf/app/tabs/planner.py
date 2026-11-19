@@ -13,6 +13,7 @@ from dash import Dash, Input, Output, dcc, html
 from ptf.app import charts, fmt, theme
 from ptf.app.data import AppData, AppState
 from ptf.app.tabs.landed_cost import compute as compute_landed
+from ptf.app.tabs.landed_cost import default_basis
 from ptf.insights import planner as planner_logic
 from ptf.insights.config import LeadTime
 from ptf.insights.scenario import LIVE
@@ -45,9 +46,11 @@ def layout(data: AppData) -> html.Div:
                 "ships, Fourth IMO GHG Study 2020). Not included because no source gives them: "
                 "loading and export clearance, waiting for a sailing, import clearance, "
                 "delivery to the warehouse, delays from congestion or storms (shown as flags). "
-                "Countries without UNCTAD port data have no arrival date (n/a). Cost: price + "
-                "EU duty as in the Landed cost tab; sea freight has no sourced rate, so no "
-                "origin is recommended.",
+                "Countries without UNCTAD port data have no arrival date (n/a). Cost as in the "
+                "Landed cost tab: with Comext the CIF price already contains sea freight and "
+                "insurance to the EU border, so the cheapest origin that arrives in time is "
+                "recommended; with the BACI basis there is no sourced freight and no "
+                "recommendation.",
             ),
             html.Div(
                 [
@@ -121,7 +124,7 @@ def compute(
     own_after_days: float = 0.0,
     currency: str = "EUR",
 ) -> PlannerView | None:
-    landed = compute_landed(data, scenario, "baci", grade)
+    landed = compute_landed(data, scenario, default_basis(data), grade)
     landed = None if landed is None else landed.in_currency(currency)
     tables = data.route_tables
     if landed is None or landed.table.empty or tables is None:

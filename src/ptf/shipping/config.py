@@ -30,6 +30,14 @@ class WeatherConfig(BaseModel):
     gusts_kmh: Threshold = Threshold(amber=63.0, red=88.9)
 
 
+class RhineConfig(BaseModel):
+    """Rhine water level from PEGELONLINE (spec 019). Settings."""
+
+    enabled: bool = True
+    station: str = "KAUB"
+    days: int = Field(default=31, ge=1, le=31)  # the API keeps 31 days
+
+
 class MonitorConfig(BaseModel):
     baseline_years: list[int]
     rolling_window_days: int = Field(ge=1)
@@ -41,6 +49,7 @@ class MonitorConfig(BaseModel):
     min_link_capacity: float = Field(default=1000, ge=0)
     download_country_trade: bool = False
     weather: WeatherConfig = WeatherConfig()
+    rhine: RhineConfig = RhineConfig()
 
 
 def load_monitor_config(path: Path) -> MonitorConfig:

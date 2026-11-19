@@ -70,7 +70,10 @@ def span(low: float | None, high: float | None, decimals: int = 0, signed: bool 
         return NA
     assert low is not None and high is not None
     a, b = number(low, decimals, signed), number(high, decimals, signed)
-    return a if a == b else f"{a}–{b}"
+    if a == b:
+        return a
+    # With signs an en dash between two numbers reads like a minus: "−360 to −251".
+    return f"{a} to {b}" if signed or low < 0 else f"{a}–{b}"
 
 
 def pct_span(low: float | None, high: float | None) -> str:

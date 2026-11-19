@@ -14,3 +14,16 @@ wits:
   reporter: "918"
   hs6: ["390110", "390120", "390130", "390140", "390190"]
   years_back: 6
+
+# Monthly EU imports from Eurostat Comext (spec 019): DS-045409, reporter EU27_2020, imports
+# from all partners per PE grade; no key; reuse with attribution (Eurostat copyright notice).
+comext:
+  enabled: true
+  hs6: ["390110", "390120", "390130", "390140", "390190"]
+  years_back: 2          # setting: from January of the year before last
+  eu_members:            # intra-EU partners are dropped
+    iso2: [AT, BE, BG, HR, CY, CZ, DK, EE, FI, FR, DE, GR, EL, HU, IE, IT, LV, LT, LU, MT, NL,
+           PL, PT, RO, SK, SI, ES, SE]
+    source: "European Union, EU countries (27 member states)"
+    url: "https://european-union.europa.eu/principles-countries-history/eu-countries_en"
+    read: 2026-11-19

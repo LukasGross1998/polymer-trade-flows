@@ -271,3 +271,35 @@ models:
       - name: tariff_lines
         description: Number of national tariff lines (8-digit CN codes) behind the HS6 grade.
       - name: source
+
+  - name: mart_eu_imports_monthly
+    description: >-
+      Monthly EU27 imports of polyethylene from outside the EU per exporter country and grade
+      (Eurostat Comext DS-045409, spec 019). Values CIF at the EU border.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [month, exporter_iso3, hs6]
+    columns:
+      - name: month
+        description: YYYY-MM.
+        data_tests: [not_null]
+      - name: exporter_iso3
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_country')
+                field: iso3
+      - name: exporter_name
+      - name: exporter_region
+      - name: hs6
+        data_tests: [not_null]
+      - name: qty_t
+        description: Tonnes.
+        data_tests: [non_negative]
+      - name: value_eur
+        description: EUR, CIF at the EU border.
+        data_tests: [non_negative]
+      - name: unit_value_eur_t
+        description: value_eur / qty_t, EUR per tonne; null without a quantity.

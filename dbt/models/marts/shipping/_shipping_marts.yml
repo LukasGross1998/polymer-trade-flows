@@ -231,3 +231,30 @@ models:
         description: True for days after the download day.
       - name: fetched_at
         description: Time of the download the row comes from (UTC).
+
+  - name: mart_rhine_level
+    description: >-
+      Daily Rhine water level per gauge (PEGELONLINE, WSV; spec 019) with the gauge's own
+      low-water value GlW and mean water MW; history from the first download on.
+    data_tests:
+      - unique_combination:
+          arguments:
+            columns: [station, date]
+    columns:
+      - name: station
+        description: Gauge, e.g. KAUB.
+        data_tests: [not_null]
+      - name: date
+        data_tests: [not_null]
+      - name: level_cm
+        description: Daily mean water level, cm at the gauge.
+      - name: min_level_cm
+        description: Lowest 15-minute value of the day, cm.
+      - name: glw_cm
+        description: GlW, equivalent low water level of the gauge (characteristic value), cm.
+      - name: mw_cm
+        description: MW, mean water level (characteristic value, reference period of the WSV), cm.
+      - name: wsv_status
+        description: WSV status of the current level relative to MNW/MHW (low / normal / high), newest download.
+      - name: below_glw
+        description: True when the day's lowest value is below GlW.

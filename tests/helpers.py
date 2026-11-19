@@ -8,6 +8,7 @@ import shutil
 import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,9 +21,11 @@ from ptf.core.settings import Settings
 from ptf.markets.config import load_market_config
 from ptf.markets.dce import write_dce_landing, write_quote_landing
 from ptf.markets.reference import write_market_reference
+from ptf.shipping import rhine
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 from ptf.trade.baci import baci_zip_path, write_landing
+from ptf.trade.comext import write_landing as write_comext_landing
 from ptf.trade.config import load_trade_config
 from ptf.trade.duties import write_duty_landing
 from ptf.trade.reference import write_reference_tables
@@ -201,6 +204,30 @@ def write_portwatch_raw(raw_dir: Path) -> None:
     ).assign(fetched_at=pd.Timestamp("2026-11-08", tz="UTC"))
     (raw_dir / "weather").mkdir()
     weather.to_parquet(raw_dir / "weather" / "20261108T000000000000.parquet")
+    # Rhine at Kaub (spec 019): one day below the gauge's GlW of 77 cm, one above.
+    fetched = datetime(2026, 11, 19, tzinfo=UTC)
+    levels = rhine.levels_frame(
+        "KAUB",
+        [
+            {"timestamp": "2026-11-17T12:00:00+01:00", "value": 61.0},
+            {"timestamp": "2026-11-18T12:00:00+01:00", "value": 94.0},
+        ],
+        fetched,
+    )
+    station = rhine.station_frame(
+        "KAUB",
+        {
+            "characteristicValues": [
+                {"shortname": "GlW", "longname": "Gleichwertiger Wasserstand", "value": 77.0},
+                {"shortname": "MW", "longname": "Mittelwasser", "value": 208.0},
+            ],
+            "currentMeasurement": {"stateMnwMhw": "normal"},
+        },
+        fetched,
+    )
+    for name, frame in [("levels", levels), ("station", station)]:
+        (raw_dir / "rhine" / name).mkdir(parents=True)
+        frame.to_parquet(raw_dir / "rhine" / name / "20261119T000000000000.parquet")
 
 
 def build_warehouse(setup: "PipelineSetup") -> None:
@@ -218,6 +245,7 @@ def build_warehouse(setup: "PipelineSetup") -> None:
     wits.mkdir(parents=True, exist_ok=True)
     shutil.copy(FIXTURES / "wits_eu_390110_2022.xml", wits / "390110_2022.xml")
     write_duty_landing(raw)
+    write_comext_landing(raw, [])
     write_reference_tables(setup.regions, raw)
     write_port_reference(load_monitor_config(settings.config_dir / "shipping.yaml"), raw)
     write_market_reference(load_market_config(settings.config_dir / "markets.yaml"), raw)
@@ -226,6 +254,16 @@ def build_warehouse(setup: "PipelineSetup") -> None:
     pd.DataFrame(
         {"date": pd.to_datetime(["2026-09-30", "2026-10-31"]), "value": [1.36, 1.26]}
     ).to_parquet(gscpi / "landing_gscpi.parquet")
+    # Eurostat EU producer price index of plastics (spec 019): two months.
+    eurostat = raw / "eurostat"
+    eurostat.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-01", "2026-09-01"]),
+            "series_id": "EU_PPI_PLASTICS",
+            "value": [112.0, 113.3],
+        }
+    ).to_parquet(eurostat / "landing_eurostat.parquet")
     # DCE LLDPE (spec 011): one download of two trading days, as AKShare would deliver it.
     dce = raw / "dce"
     dce.mkdir(parents=True, exist_ok=True)

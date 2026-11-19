@@ -3,6 +3,7 @@
 from typing import Any
 
 import pandas as pd
+import plotly.graph_objects as go
 from dash import Dash, Input, Output, dcc, html, no_update
 
 from ptf.app import charts, theme, weather_card
@@ -75,6 +76,20 @@ def layout(data: AppData) -> html.Div:
             ),
             html.Div(charts.graph("port-timeseries"), style=theme.CARD),
             weather_card.layout("port-weather", data.monitor_config.weather),
+            html.Div(
+                [
+                    charts.graph("port-rhine"),
+                    theme.method_panel(
+                        "Source: PEGELONLINE, Federal Waterways and Shipping Administration "
+                        "(WSV), licence DL-DE Zero 2.0. Kaub is the bottleneck gauge of the "
+                        "Middle Rhine for barges to the plants upstream. Low water is judged by "
+                        "the gauge's own characteristic value GlW (equivalent low water level); "
+                        "MW is the mean water level of the WSV reference period. The API keeps "
+                        "31 days; every download is stored, so the history grows."
+                    ),
+                ],
+                style={**theme.CARD, "marginTop": "16px"},
+            ),
         ]
     )
 
@@ -141,6 +156,40 @@ def update(
     return map_fig, kpis, status_table(status, unit), series_fig
 
 
+def rhine_figure(data: AppData) -> go.Figure:
+    """Daily water level at Kaub with the gauge's GlW and MW as lines (spec 019)."""
+    title = "Rhine water level at Kaub (daily mean, cm)"
+    levels = data.rhine
+    if levels is None or levels.empty:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="No Rhine data loaded yet.", showarrow=False, font={"color": theme.MUTED}
+        )
+        return charts.base_layout(fig, height=200, title=title)
+    levels = levels.sort_values("date")
+    fig = go.Figure(
+        go.Scatter(
+            x=levels["date"],
+            y=levels["level_cm"],
+            mode="lines",
+            name="Kaub",
+            line={"color": theme.BLUE, "width": 2},
+            hovertemplate="%{x|%d %b %Y}: %{y:,.0f} cm<extra></extra>",
+        )
+    )
+    last = levels.iloc[-1]
+    for column, label, dash in [("glw_cm", "GlW (low water)", "dash"), ("mw_cm", "MW", "dot")]:
+        if pd.notna(last[column]):
+            fig.add_hline(
+                y=float(last[column]),
+                line={"color": theme.INK_SECONDARY, "width": 1, "dash": dash},
+                annotation_text=f"{label} {last[column]:.0f} cm",
+                annotation_position="top left",
+            )
+    fig.update_yaxes(title={"text": "cm at the gauge", "font": {"color": theme.MUTED}})
+    return charts.base_layout(fig, height=300, title=title)
+
+
 def register(app: Dash, state: AppState) -> None:
     if state.data.port_activity is None:
         return
@@ -170,6 +219,10 @@ def register(app: Dash, state: AppState) -> None:
     )
     def _weather(port_id: str, _version: int) -> charts.Outputs:
         return weather_card.update(state.data, port_id)
+
+    @app.callback(Output("port-rhine", "figure"), Input("data-version", "data"))
+    def _rhine(_version: int) -> go.Figure:
+        return rhine_figure(state.data)
 
     @app.callback(
         Output("port-select", "value"), Input("port-map", "clickData"), prevent_initial_call=True

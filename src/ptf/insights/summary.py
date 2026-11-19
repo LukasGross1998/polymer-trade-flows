@@ -61,6 +61,7 @@ NOTES = {
     ("chokepoint", "down"): "check the routes through it in Sourcing",
     ("event", "new"): "watch the ports and routes nearby",
     ("storm", "new"): "ships there may slow down or wait",
+    ("rhine", "low"): "check deliveries by barge on the Rhine",
     ("feedstock", "up"): "feedstock cost up – compare resin offers with it",
     ("feedstock", "down"): "feedstock cost down – a point for price talks",
     ("asia", "up"): "Asian PE price up – compare offers from Asia with it",

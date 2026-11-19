@@ -5,6 +5,16 @@ versioning (`0.x`: no stable interface yet).
 
 ## Unreleased
 
+### Added
+- Monthly EU imports from Eurostat Comext (spec 019): EU27 imports per origin and PE grade,
+  CIF values; landed cost and the planner use the CIF unit value of the last 12 months by
+  default (freight and insurance to the EU border included), so the planner recommends
+  again; monthly imports chart on the sourcing tab.
+- Eurostat price indices for plastics in primary forms (EU producer prices, German import
+  prices) as the European price anchor on the polyethylene card and the prices tab.
+- Rhine water level at Kaub (PEGELONLINE): stored history, chart with the gauge's GlW and
+  MW on the ports tab, low water in "what changed".
+
 ## 0.7.0 – 2026-11-16
 
 Buyer release: only sourced values, one route scenario for all tabs, a recommendation logic,

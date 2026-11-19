@@ -806,3 +806,28 @@ the bilateral mart has no grade split.
 **Planner timeline:** the transit band runs from the fastest to the slowest container ship
 size of the IMO table (16.5 and 11.8 knots), e.g. 24.5 to 34.3 sea days for 9,720 nm. It
 shows how much the ship speed alone moves the arrival, not loading, waiting or clearance.
+
+
+## 15. Monthly EU imports, EU price indices and the Rhine (spec 019)
+
+**Comext (Eurostat DS-045409):** EU27 imports from outside the EU per month, partner and PE
+grade. Import values are CIF at the EU border (Eurostat metadata ext_go_agg_esms: exports
+FOB, imports CIF), so a unit value already contains sea freight and insurance to the
+border. Landed cost on the Comext basis (default) = CIF unit value of the last 12 months +
+EU duty on it; freight shows "incl. (CIF)"; the planner then recommends the cheapest origin
+that arrives in time. What is not in it: port handling, the leg from the border to the plant
+(the buyer's quotes) and capital beyond the transit. Comext covers the EU27 only – the UK,
+Turkey, Norway and Switzerland count as inside the region (as in BACI) and are not origins;
+"buy in Europe" still comes from BACI (Comext has no trade within the EU in this dataset).
+Last 12 months to September 2026: USA 2.2 Mt at 1,084 EUR/t CIF, Saudi Arabia 0.72 Mt at
+1,003 EUR/t, South Korea 0.52 Mt at 1,286 EUR/t. Partner codes that are not countries
+(confidential trade) are left out.
+
+**Price anchor:** Eurostat producer price index of plastics in primary forms (EU27, NACE
+C20.16, 2021 = 100; 113.3 in September 2026) and the German import price index of the same
+goods from outside the euro area (111.0); indices, not prices.
+
+**Rhine at Kaub (PEGELONLINE, WSV, DL-DE Zero 2.0):** daily mean and minimum from the
+15-minute values; low water when the day's minimum is below the gauge's GlW (equivalent low
+water level, 77 cm) – the WSV's own value, no threshold of ours. The API keeps 31 days, so
+the history starts with the first download (19 Nov 2026: 16–17 Nov below GlW, 59–61 cm).

@@ -68,6 +68,24 @@ sources:
       - name: landing_eu_duty
         description: Newest MFN rate per HS6 grade (empty before the first download).
 
+  - name: comext
+    description: Eurostat Comext DS-045409, EU27 imports per partner and PE grade, parsed by ptf.trade.comext (spec 019).
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/comext/{name}.parquet')"
+    tables:
+      - name: landing_eu_imports
+        description: Monthly extra-EU imports (empty before the first download).
+
+  - name: rhine
+    description: PEGELONLINE water levels and characteristic values (spec 019), ptf.shipping.rhine.
+    tables:
+      - name: levels
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/rhine/levels/*.parquet', union_by_name = true)"
+      - name: station
+        meta:
+          external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/rhine/station/*.parquet', union_by_name = true)"
+
   - name: openmeteo
     description: Open-Meteo marine weather and wind downloads (ptf.shipping.weather), never overwritten.
     tables:
@@ -100,6 +118,14 @@ sources:
         description: Newest intraday quote of the main contract (spec 012), empty before the first.
         meta:
           external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/dce/landing_dce_quote.parquet')"
+
+  - name: eurostat
+    description: Eurostat monthly price indices (spec 019), parsed by ptf.markets.eurostat.
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/eurostat/{name}.parquet')"
+    tables:
+      - name: landing_eurostat
+        description: date, series_id, value (empty before the first download).
 
   - name: gscpi
     description: NY Fed GSCPI, parsed from the .xls by ptf.markets.gscpi.write_gscpi_landing.

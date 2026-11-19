@@ -10,6 +10,7 @@ from dash import Dash, Input, Output, html
 
 from ptf.app import charts, theme
 from ptf.app.data import AppData, AppState
+from ptf.app.tabs import prices as prices_tab
 from ptf.insights import exposure, signals, sourceable
 from ptf.insights.scenario import LIVE
 from ptf.insights.view import ALL_GRADES, SourcingView
@@ -42,8 +43,44 @@ def layout(data: AppData) -> html.Div:
             html.Div(id="src-kpis", style=theme.ROW),
             html.Div(charts.graph("src-sankey"), style=card),
             html.Div(charts.graph("src-suppliers"), style=card),
+            html.Div(charts.graph("src-monthly"), style=card),
         ]
     )
+
+
+def monthly_figure(data: AppData, grade: str = ALL_GRADES, top: int = 5) -> go.Figure:
+    """EU27 imports from outside the EU per month (Comext, spec 019): the five largest
+    origins of the last 24 months and "Other", stacked bars in thousand tonnes."""
+    title = "EU imports from outside the EU per month (Eurostat Comext, thousand tonnes)"
+    monthly = data.eu_imports
+    if monthly is None or monthly.empty:
+        return prices_tab.empty_figure(title, "No Comext data loaded yet.")
+    if grade != ALL_GRADES:
+        monthly = monthly[monthly["hs6"] == grade]
+    months = sorted(monthly["month"].unique())[-24:]
+    rows = monthly[monthly["month"].isin(months)]
+    totals = rows.groupby("exporter_name")["qty_t"].sum().sort_values(ascending=False)
+    leaders = list(totals.index[:top])
+    rows = rows.assign(
+        origin=rows["exporter_name"].where(rows["exporter_name"].isin(leaders), "Other")
+    )
+    table = rows.groupby(["month", "origin"], as_index=False)["qty_t"].sum()
+    fig = go.Figure()
+    colours = [*theme.SERIES, theme.GRID]
+    for colour, origin in zip(colours, [*leaders, "Other"], strict=False):
+        one = table[table["origin"] == origin]
+        fig.add_trace(
+            go.Bar(
+                x=one["month"],
+                y=one["qty_t"] / 1e3,
+                name=origin,
+                marker={"color": colour},
+                hovertemplate="%{x}: %{y:,.0f} thousand t<extra>" + origin + "</extra>",
+            )
+        )
+    fig.update_layout(barmode="stack", hovermode="closest")
+    fig.update_yaxes(title={"text": "thousand tonnes", "font": {"color": theme.MUTED}})
+    return charts.base_layout(fig, height=340, title=title)
 
 
 def kpi_values(view: SourcingView, data: AppData) -> list[dict[str, str]]:
@@ -225,11 +262,13 @@ def update(data: AppData, grade: str = ALL_GRADES, scenario: str = LIVE) -> char
             [charts.no_data("No imports of this grade from outside Europe.")],
             go.Figure(),
             go.Figure(),
+            monthly_figure(data, grade),
         )
     return (
         charts.tiles(kpi_values(view, data)),
         sankey_figure(view, blocked, destinations(data, view, grade)),
         suppliers_figure(view, blocked, data.sourcing_config.top_suppliers),
+        monthly_figure(data, grade),
     )
 
 
@@ -241,6 +280,7 @@ def register(app: Dash, state: AppState) -> None:
         Output("src-kpis", "children"),
         Output("src-sankey", "figure"),
         Output("src-suppliers", "figure"),
+        Output("src-monthly", "figure"),
         Input("grade", "value"),
         Input("scenario", "value"),
         Input("data-version", "data"),
