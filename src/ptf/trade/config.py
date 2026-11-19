@@ -1,5 +1,6 @@
 """Typed access to `config/trade.yaml` (the BACI release, product and years)."""
 
+from datetime import date
 from pathlib import Path
 
 import yaml
@@ -24,9 +25,28 @@ class WitsConfig(BaseModel):
     years_back: int = 6
 
 
+class EuMembers(BaseModel):
+    """The EU's 27 member states (ISO2; Greece also as Eurostat's "EL"), with the source."""
+
+    iso2: list[str]
+    source: str
+    url: str
+    read: date
+
+
+class ComextConfig(BaseModel):
+    """Monthly EU imports from Eurostat Comext (spec 019)."""
+
+    enabled: bool = True
+    hs6: list[str] = []
+    years_back: int = 2  # setting: from January of the year before last
+    eu_members: EuMembers | None = None
+
+
 class TradeConfig(BaseModel):
     baci: BaciConfig
     wits: WitsConfig = WitsConfig()
+    comext: ComextConfig = ComextConfig()
 
 
 def load_trade_config(path: Path) -> TradeConfig:

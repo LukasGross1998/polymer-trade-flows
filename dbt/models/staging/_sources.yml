@@ -68,6 +68,14 @@ sources:
       - name: landing_eu_duty
         description: Newest MFN rate per HS6 grade (empty before the first download).
 
+  - name: comext
+    description: Eurostat Comext DS-045409, EU27 imports per partner and PE grade, parsed by ptf.trade.comext (spec 019).
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/comext/{name}.parquet')"
+    tables:
+      - name: landing_eu_imports
+        description: Monthly extra-EU imports (empty before the first download).
+
   - name: openmeteo
     description: Open-Meteo marine weather and wind downloads (ptf.shipping.weather), never overwritten.
     tables:

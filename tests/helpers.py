@@ -23,6 +23,7 @@ from ptf.markets.reference import write_market_reference
 from ptf.shipping.config import load_monitor_config
 from ptf.shipping.reference import write_port_reference
 from ptf.trade.baci import baci_zip_path, write_landing
+from ptf.trade.comext import write_landing as write_comext_landing
 from ptf.trade.config import load_trade_config
 from ptf.trade.duties import write_duty_landing
 from ptf.trade.reference import write_reference_tables
@@ -218,6 +219,7 @@ def build_warehouse(setup: "PipelineSetup") -> None:
     wits.mkdir(parents=True, exist_ok=True)
     shutil.copy(FIXTURES / "wits_eu_390110_2022.xml", wits / "390110_2022.xml")
     write_duty_landing(raw)
+    write_comext_landing(raw, [])
     write_reference_tables(setup.regions, raw)
     write_port_reference(load_monitor_config(settings.config_dir / "shipping.yaml"), raw)
     write_market_reference(load_market_config(settings.config_dir / "markets.yaml"), raw)
