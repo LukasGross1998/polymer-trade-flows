@@ -188,14 +188,15 @@ def delivery(view: LandedView) -> str:
 
 
 def kpi_values(view: LandedView) -> list[dict[str, str]]:
-    usable = view.table[view.table["sourceable"].fillna(True)]
+    # Not sourceable (sanctions) and at risk (closed chokepoint without detour) are left out.
+    usable = view.table[view.table["sourceable"].fillna(True) & ~view.table["at_risk"]]
     cheapest = usable.iloc[0] if not usable.empty else view.table.iloc[0]
     delivered = delivery(view)
     unit = f"{view.currency}/t"
     as_of = view.basis_label + (", monthly, CIF" if view.cif else ", annual unit values")
     return [
         {
-            "label": f"Lowest cost sourceable origin, {delivered}",
+            "label": f"Lowest cost available origin, {delivered}",
             "value": fmt.number(cheapest["total_eur_t"]),
             "unit": unit,
             "note": f"{cheapest['exporter_name']}, confidence {cheapest['confidence']}",
@@ -215,9 +216,15 @@ def kpi_values(view: LandedView) -> list[dict[str, str]]:
             "label": "Scenario vs. all routes open, Middle East",
             "value": fmt.number(view.closure_extra_eur_t, signed=True),
             "unit": unit if view.closure_extra_eur_t is not None else "",
-            "note": "extra landed cost via the Cape, volume-weighted"
-            if view.freight_known
-            else FREIGHT_NA,
+            "note": (
+                "n/a – CIF prices reflect the routes actually used, not a scenario"
+                if view.cif
+                else (
+                    "extra landed cost via the Cape, volume-weighted"
+                    if view.freight_known
+                    else FREIGHT_NA
+                )
+            ),
         },
     ]
 
@@ -296,7 +303,7 @@ def inline_bar(
     )
 
 
-def legend() -> html.Div:
+def legend(cif: bool = False) -> html.Div:
     items = [
         html.Span(
             [
@@ -314,7 +321,10 @@ def legend() -> html.Div:
             style={"marginRight": "14px"},
         )
         for key, label in SEGMENTS
+        if not (cif and key == "freight_eur_t")
     ]
+    if cif:
+        items[0].children[1] = "Price (CIF EU border)"
     items.append(html.Span("┆ buy in Europe (average within Europe)"))
     return html.Div(
         items, style={"fontSize": "12px", "color": theme.INK_SECONDARY, "margin": "4px 0 8px"}
@@ -398,7 +408,7 @@ def cost_table(view: LandedView) -> html.Div:
     return html.Div(
         [
             html.Div(title, style=theme.CARD_TITLE),
-            legend(),
+            legend(view.cif),
             table,
             html.Div(missing, style=theme.SMALL_NOTE),
             html.Div(basis_line(view), style=theme.SMALL_NOTE),

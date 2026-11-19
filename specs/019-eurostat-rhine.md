@@ -1,6 +1,6 @@
 # 019 – Monthly EU imports (Comext), EU resin price indices, Rhine water level at Kaub
 
-- **Status:** draft
+- **Status:** done
 - **Branch / PR:** `feat/eurostat-sources` / see PR
 - **SPEC.md sections:** 2 (data sources), 7 (app); phase 5 of the dashboard plan, the three
   sources that need no key and allow reuse (source check of 19 Nov 2026)
@@ -86,3 +86,14 @@ are free, need no key and allow reuse: Eurostat (reuse with attribution, Decisio
   docs.
 - Attribution in the method panels: "Source: Eurostat (DS-045409, sts_inpp_m, sts_inpi_m)"
   and "Source: PEGELONLINE, WSV, DL-DE Zero 2.0".
+
+## Implementation notes (19 Nov 2026)
+
+- CIF confirmed: Eurostat metadata ext_go_agg_esms ("FOB basis for exports and a CIF basis
+  for imports"). With the CIF basis the landed view marks freight as known, so the planner
+  recommends again.
+- EU members (to drop intra-EU partners) are a sourced list in `config/trade.yaml`.
+- "Buy in Europe" and its per-grade prices stay on BACI: Comext's extra-EU dataset has no
+  trade within the region.
+- Rhine: the mart flags a day when its lowest 15-minute value is below GlW; the WSV status
+  of the newest download is kept as `wsv_status`.

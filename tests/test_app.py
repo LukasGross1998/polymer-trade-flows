@@ -188,7 +188,7 @@ def test_landed_cost_tab_open_and_closed(warehouse_setup: PipelineSetup) -> None
     kpis, table = landed_cost.update(data, "all_open", "baci")
     # Fixture: USA -> Germany 2,000 t for 2.5 m USD = 1,250 USD/t; US duty 0 % (TARIC); no
     # sourced freight rate (spec 015): price + duty; no EUR rate in the fixtures: 1 USD = 1 EUR.
-    assert kpis[0].children[0].children == "Lowest cost sourceable origin, excl. freight"
+    assert kpis[0].children[0].children == "Lowest cost available origin, excl. freight"
     assert kpis[0].children[1].children[0] == "1,250"
     # Spec 018: one table with an inline bar per row; US duty is 0, so only the price shows.
     rows = table.children[2].children

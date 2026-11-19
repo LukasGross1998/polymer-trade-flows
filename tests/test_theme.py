@@ -38,6 +38,7 @@ def test_number_formats() -> None:
     assert fmt.number(-1234) == "−1,234"
     assert fmt.span(1050, 1230) == "1,050–1,230"
     assert fmt.span(858, 858) == "858"
+    assert fmt.span(-360, -251, signed=True) == "−360 to −251"  # no en dash between minus signs
     assert fmt.pct_span(16, 39) == f"16–39{fmt.THIN}%"
     assert fmt.number(None) == "n/a"
 

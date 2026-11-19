@@ -90,6 +90,9 @@ The full specification is in [SPEC.md](SPEC.md); design decisions are in
 | Dalian LLDPE futures (Sina via AKShare) | daily Asian PE price, Prices tab | no; optional extra `uv sync --extra asia` | in use, unofficial (ADR-015) |
 | Open-Meteo | marine weather at chokepoints and ports | no | in use |
 | World Bank WITS | EU third-country duty per PE grade | no | in use |
+| Eurostat Comext | monthly EU imports per origin and grade, CIF values | no | in use |
+| Eurostat price indices | EU producer prices and German import prices, plastics in primary forms | no | in use |
+| PEGELONLINE (WSV) | Rhine water level at Kaub | no | in use |
 | OpenSeaMap | nautical chart layer on the maps (browser) | no | in use |
 | UN Comtrade | own trade download (legacy check) | optional | legacy |
 | AISStream.io | live vessel positions | yes (free account) | planned for hosting |

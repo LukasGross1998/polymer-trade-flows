@@ -40,6 +40,9 @@ model (data/model/{year}/): region-level inputs and results of the transport LP
 | Marine weather raw | `data/raw/weather/*.parquet` | one location × day per download (Open-Meteo): wave height, gusts, wind | `ptf.shipping.weather` |
 | WITS raw / landing | `data/raw/wits/<download>/*.xml`, `wits/landing_eu_duty.parquet` | WITS answers per grade and year; newest MFN rate per grade | `ptf.trade.duties` |
 | BACI all-trade summary | `data/raw/baci/landing_all_trade.parquet` | one year × code (HS4 heading; HS6 for 3901): value (thousand USD), tonnes, value without quantity, number of flows | `ptf.trade.baci.write_landing` |
+| Comext raw / landing | `data/raw/comext/<download>/<hs6>.json`, `comext/landing_eu_imports.parquet` | Eurostat JSON-stat answer per grade; landing: month × partner (ISO2, extra-EU) × grade with value (EUR, CIF) and quantity (100 kg) | `ptf.trade.comext` |
+| Eurostat raw / landing | `data/raw/eurostat/<download>/<series>.json`, `eurostat/landing_eurostat.parquet` | JSON-stat answer per price-index series; landing: month × series with the index value | `ptf.markets.eurostat` |
+| Rhine raw | `data/raw/rhine/levels/*.parquet`, `data/raw/rhine/station/*.parquet` | per download: 15-minute water levels of the last 31 days (station, timestamp, level_cm); characteristic values and WSV status of the gauge | `ptf.shipping.rhine` |
 | reference | `data/raw/reference/*.parquet` | regions, country → region, code aliases | `ptf.trade.reference.write_reference_tables` |
 | PortWatch raw | `data/raw/portwatch/<dataset>/*.parquet` | one file per download, never overwritten | `ptf.shipping.portwatch` |
 | FRED / GSCPI raw | `data/raw/fred/<id>/*.csv`, `data/raw/gscpi/*.xls` (+ `landing_gscpi.parquet`) | one file per download | `ptf.markets.fred`, `ptf.markets.gscpi` |
