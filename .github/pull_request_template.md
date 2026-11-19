@@ -2,7 +2,7 @@
 
 <!-- One or two sentences. Link the spec: specs/NNN-name.md -->
 
-## Checklist (Definition of Done, CLAUDE.md)
+## Checklist (Definition of Done)
 
 - [ ] Spec with acceptance criteria exists and is linked
 - [ ] Acceptance criteria are covered by tests
