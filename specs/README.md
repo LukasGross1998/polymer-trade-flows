@@ -25,3 +25,4 @@ increments.
 | 016 | [Recommendation logic: sourceable origins, confidence, price ranges, order timing](016-recommendation-logic.md) | done |
 | 017 | [One design: theme, KPI tile, global bar, number formats, method panels](017-design-system.md) | done |
 | 018 | [Charts that answer the buyer's question](018-charts.md) | done |
+| 019 | [Monthly EU imports (Comext), EU resin price indices, Rhine water level at Kaub](019-eurostat-rhine.md) | draft |
