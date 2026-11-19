@@ -59,6 +59,7 @@ def test_market_series_long_table_with_metadata(warehouse_setup: PipelineSetup) 
         "PNGASEUUSDM",
         "GSCPI",
         "DCE_LLDPE",
+        "EU_PPI_PLASTICS",  # Eurostat (spec 019)
     }
     assert brent["unit"].iloc[0] == "USD/bbl"
     dce = market[market["series_id"] == "DCE_LLDPE"].set_index("date")

@@ -67,6 +67,21 @@ fred_series:
     frequency: monthly
     group: rates
 
+# Monthly EU price indices from Eurostat (spec 019, no key; reuse with attribution).
+# The EU27 import price series of C20.16 has no values in the API (checked 19 Nov 2026), so
+# the German import price index (from outside the euro area) stands in for it.
+eurostat_series:
+  - id: EU_PPI_PLASTICS
+    dataset: sts_inpp_m
+    filters: {geo: EU27_2020, nace_r2: C2016, indic_bt: PRC_PRR, s_adj: NSA, unit: I21}
+    name: EU producer prices, plastics in primary forms
+    unit: index 2021=100
+  - id: DE_IMPORT_PLASTICS
+    dataset: sts_inpi_m
+    filters: {geo: DE, cpa2_1: CPA_C2016, indic_bt: PRC_IMP_NEU, unit: I21}
+    name: German import prices from outside the euro area, plastics in primary forms
+    unit: index 2021=100
+
 # Daily LLDPE price from the Dalian Commodity Exchange (spec 011, ADR-015): main contract
 # via Sina Finance through AKShare – unofficial, "for academic research" by AKShare's own
 # statement. Downloaded only when the optional extra is installed: `uv sync --extra asia`.

@@ -34,6 +34,19 @@ class DceConfig(BaseModel):
     day_close_hour: Sourced | None = None  # close of the day session, Beijing time (spec 018)
 
 
+class EurostatSeries(BaseModel):
+    """One monthly Eurostat series: a dataset with fixed filters (spec 019)."""
+
+    id: str
+    dataset: str
+    filters: dict[str, str]
+    name: str
+    unit: str
+    since: str = "2019-01"
+    frequency: str = "monthly"
+    group: str = "eu_prices"
+
+
 class MarketConfig(BaseModel):
     max_age_days: float = Field(gt=0)
     fred_series: list[SeriesConfig]
@@ -41,6 +54,7 @@ class MarketConfig(BaseModel):
     key_events: list[KeyEvent]
     dce: DceConfig | None = None
     crude_barrels_per_tonne: Sourced | None = None  # for the polymer-over-crude spread
+    eurostat_series: list[EurostatSeries] = []
 
 
 def load_market_config(path: Path) -> MarketConfig:

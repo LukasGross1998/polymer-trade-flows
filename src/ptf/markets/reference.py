@@ -30,6 +30,16 @@ def write_market_reference(config: MarketConfig, raw_dir: Path) -> Path:
                 "group": "china_futures",
             }
         )
+    for one in config.eurostat_series:
+        rows.append(
+            {
+                "id": one.id,
+                "name": one.name,
+                "unit": one.unit,
+                "frequency": one.frequency,
+                "group": one.group,
+            }
+        )
     path = reference_dir(raw_dir) / "market_series.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(rows).rename(columns={"id": "series_id"}).to_parquet(path, index=False)

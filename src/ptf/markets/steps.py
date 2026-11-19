@@ -2,7 +2,7 @@
 
 from ptf.core import warehouse
 from ptf.core.settings import Settings
-from ptf.markets import dce, fred, gscpi
+from ptf.markets import dce, eurostat, fred, gscpi
 from ptf.markets.config import load_market_config
 from ptf.markets.reference import write_market_reference
 
@@ -17,6 +17,9 @@ def refresh(settings: Settings) -> None:
     fred.ingest_fred(raw, series_ids, max_age_days=config.max_age_days)
     gscpi.ingest_gscpi(raw, config.gscpi_url, max_age_days=config.max_age_days)
     gscpi.write_gscpi_landing(raw)
+    if config.eurostat_series:
+        eurostat.ingest_eurostat(raw, config.eurostat_series)
+    eurostat.write_landing(raw)
     download_dce(settings)  # does nothing but write the landing files without AKShare
     write_market_reference(config, raw)
     warehouse.run_dbt(settings, ["build", "--select", "tag:markets"])

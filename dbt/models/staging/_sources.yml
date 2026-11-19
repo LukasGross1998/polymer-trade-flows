@@ -109,6 +109,14 @@ sources:
         meta:
           external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/dce/landing_dce_quote.parquet')"
 
+  - name: eurostat
+    description: Eurostat monthly price indices (spec 019), parsed by ptf.markets.eurostat.
+    meta:
+      external_location: "read_parquet('{{ env_var('PTF_RAW_DIR', '../data/raw') }}/eurostat/{name}.parquet')"
+    tables:
+      - name: landing_eurostat
+        description: date, series_id, value (empty before the first download).
+
   - name: gscpi
     description: NY Fed GSCPI, parsed from the .xls by ptf.markets.gscpi.write_gscpi_landing.
     tables:

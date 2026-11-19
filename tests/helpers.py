@@ -228,6 +228,16 @@ def build_warehouse(setup: "PipelineSetup") -> None:
     pd.DataFrame(
         {"date": pd.to_datetime(["2026-09-30", "2026-10-31"]), "value": [1.36, 1.26]}
     ).to_parquet(gscpi / "landing_gscpi.parquet")
+    # Eurostat EU producer price index of plastics (spec 019): two months.
+    eurostat = raw / "eurostat"
+    eurostat.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(
+        {
+            "date": pd.to_datetime(["2026-08-01", "2026-09-01"]),
+            "series_id": "EU_PPI_PLASTICS",
+            "value": [112.0, 113.3],
+        }
+    ).to_parquet(eurostat / "landing_eurostat.parquet")
     # DCE LLDPE (spec 011): one download of two trading days, as AKShare would deliver it.
     dce = raw / "dce"
     dce.mkdir(parents=True, exist_ok=True)
