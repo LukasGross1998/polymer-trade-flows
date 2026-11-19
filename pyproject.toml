@@ -3,6 +3,7 @@ name = "polymer-trade-flows"
 version = "0.7.0"
 description = "Polymer Trade Flow & Disruption Simulator: global polyethylene trade, transport LP and disruption scenarios."
 readme = "README.md"
+license = "MIT"
 authors = [{ name = "LukasGross1998" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [

@@ -34,3 +34,6 @@ START_PROMPT.md
 # dbt build artefacts (the warehouse itself lives in data/, which is ignored)
 dbt/target/
 dbt/logs/
+
+# Project instructions for Claude Code: kept locally, not published
+CLAUDE.md

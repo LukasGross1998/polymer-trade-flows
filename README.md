@@ -194,3 +194,11 @@ all tables and columns: [docs/data_dictionary.md](docs/data_dictionary.md)
 | 3 | Scenarios, cost curves, Dash app (MVP) | buyer dashboard (two sections, 9 tabs) done; landed cost and scenarios next |
 | 4 | Import forecasting (optional) | planned |
 | 5 | Docker, Airflow, final polish | planned |
+
+## License
+
+The code is released under the [MIT License](LICENSE). The data it downloads keeps the
+licence of its source (CEPII BACI, IMF PortWatch, FRED, NY Fed, Eurostat, World Bank WITS,
+Open-Meteo, PEGELONLINE, AKShare/Sina for the optional Dalian price); the repository holds no
+downloaded data except small test fixtures, and every number in `config/` names its source
+in [docs/value_register.md](docs/value_register.md).
